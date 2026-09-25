@@ -47,6 +47,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         //
     })
+    ->withCommands()
     ->withExceptions(function (Exceptions $exceptions): void {
         /*
          * Estos campos nunca se devuelven al formulario cuando hay

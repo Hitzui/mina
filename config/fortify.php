@@ -131,8 +131,22 @@ return [
     */
 
     'features' => [
-        Features::registration(),
-        Features::resetPasswords(),
+        /*
+         | El sistema tiene un unico usuario (el administrador), creado con
+         | `php artisan mina:crear-admin`. El registro publico queda
+         | desactivado: de lo contrario cualquiera que llegara a /register
+         | podria crear su propia cuenta y entrar al panel.
+         */
+        // Features::registration(),
+
+        /*
+         | El restablecimiento de contraseña requiere enviar correo, pero el
+         | servidor SMTP no esta configurado (MAIL_HOST=mailhog). Se desactiva
+         | para no ofrecer un enlace roto. Para cambiar la contraseña del
+         | administrador: php artisan mina:crear-admin --reset
+         */
+        // Features::resetPasswords(),
+
         // Features::emailVerification(),
         Features::updateProfileInformation(),
         Features::updatePasswords(),
