@@ -104,6 +104,27 @@ function sincronizarValidacion($select) {
     $contenedor.toggleClass('is-invalid-container', $select.hasClass('is-invalid'));
 }
 
+/**
+ * Si el combo vive dentro de un modal, el desplegable se cuelga del modal
+ * y no del body.
+ *
+ * Por defecto Select2 lo cuelga de document.body, o sea fuera del modal.
+ * Bootstrap deja .modal en position:fixed cubriendo toda la pantalla y
+ * .modal-dialog con pointer-events:none. El desplegable suelto en el body
+ * mide su sitio contra la ventana pero se pinta contra el documento: con
+ * la pagina scrolleada el desplegable aparece desplazado y el raton
+ * apunta a otro elemento. El buscador se ve, pero no recibe el foco y no
+ * se puede escribir en el.
+ *
+ * Colgandolo del modal, la posicion que mide y la que se pintan usan el
+ * mismo origen.
+ */
+function dropdownParentDe($select) {
+    const $modal = $select.closest('.modal');
+
+    return $modal.length ? $modal : $('body');
+}
+
 export function iniciarSelect2(contexto = document) {
     if (!$ || !$.fn.select2) {
         return;
@@ -118,7 +139,14 @@ export function iniciarSelect2(contexto = document) {
             $select.select2('destroy');
         }
 
-        $select.select2(opcionesDe($select));
+        const opciones = opcionesDe($select);
+
+        // Si la vista ya indico un dropdownParent, manda el de la vista.
+        if (opciones.dropdownParent === undefined) {
+            opciones.dropdownParent = dropdownParentDe($select);
+        }
+
+        $select.select2(opciones);
 
         sincronizarValidacion($select);
 

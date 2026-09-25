@@ -255,6 +255,31 @@ class Select2EnFormulariosTest extends TestCase
     }
 
     /**
+     * Select2 cuelga el desplegable de document.body, o sea FUERA del modal.
+     * Bootstrap deja .modal en position:fixed a pantalla completa y
+     * .modal-dialog con pointer-events:none. El desplegable suelto mide su
+     * posicion contra la ventana pero se pinta contra el documento, asi que
+     * con la pagina scrolleada el buscador se ve pero no recibe el foco.
+     * Por eso debe colgarse del modal.
+     */
+    public function test_el_desplegable_se_cuelga_del_modal(): void
+    {
+        $crudo = file_get_contents(
+            resource_path('assets/js/select2/select2-init.js')
+        );
+
+        $this->assertStringContainsString('dropdownParent', $crudo);
+        $this->assertStringContainsString("closest('.modal')", $crudo);
+
+        // Y la vista puede pisarlo si lo declara por su cuenta
+        $this->assertStringContainsString(
+            'opciones.dropdownParent === undefined',
+            $crudo,
+            'Una vista que declare su propio dropdownParent debe mandar'
+        );
+    }
+
+    /**
      * Los combos del formulario de trabajos de empleados.
      *
      * A diferencia de los demas, este formulario se maneja con jQuery: el
