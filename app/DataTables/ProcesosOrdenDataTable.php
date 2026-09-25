@@ -103,21 +103,22 @@ class ProcesosOrdenDataTable extends DataTable
                 );
 
                 return '
-                    <div class="d-flex justify-content-center gap-1">
+                    <div class="btn-group" role="group">
 
                         <a href="' . $editar . '"
-                           class="btn btn-sm btn-outline-primary"
+                           class="btn btn-sm btn-warning"
                            title="Editar">
-                            <i class="fa-solid fa-pen-to-square"></i>
+                            <i class="bi bi-pencil"></i>
                         </a>
 
-                       <a href="' . $eliminar . '"
+                        <a href="' . $eliminar . '"
                            class="btn btn-sm btn-danger"
                            data-confirm-delete
-                           data-confirm-title="¿Eliminar Proceso?"
-                           data-confirm-text="¿Desea eliminar el proceso de la OT? Esta acción no se puede revertir."
-                           data-confirm-button="Sí, eliminar">
-                            <i class="fa-solid fa-trash"></i>
+                           data-confirm-title="¿Eliminar el proceso?"
+                           data-confirm-text="Esta acción no se puede deshacer."
+                           data-confirm-button="Sí, eliminar"
+                           title="Eliminar">
+                            <i class="bi bi-trash"></i>
                         </a>
 
                     </div>
@@ -227,7 +228,7 @@ class ProcesosOrdenDataTable extends DataTable
                 ->title('Acciones')
                 ->exportable(false)
                 ->printable(false)
-                ->width(100)
+                ->width(90)
                 ->addClass('text-center'),
         ];
     }
