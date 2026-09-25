@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Artisan;
 | Console Routes
 |--------------------------------------------------------------------------
 |
-| This file is where you may define all of your Closure based console
-| commands. Each Closure is bound to a command instance allowing a
-| simple approach to interacting with each command's IO methods.
+| Este archivo se carga desde bootstrap/app.php mediante withRouting().
+| El antiguo App\Console\Kernel ya no existe: el horario de tareas
+| programadas vive ahora en bootstrap/app.php con withSchedule().
 |
 */
 

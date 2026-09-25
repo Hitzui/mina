@@ -1,37 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
 >
     <testsuites>
         <testsuite name="Unit">
-            <directory suffix="Test.php">./tests/Unit</directory>
+            <directory>tests/Unit</directory>
         </testsuite>
         <testsuite name="Feature">
-            <directory suffix="Test.php">./tests/Feature</directory>
+            <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
-    <coverage processUncoveredFiles="true">
+    <source>
         <include>
-            <directory suffix=".php">./app</directory>
+            <directory>app</directory>
         </include>
-    </coverage>
+    </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="CACHE_DRIVER" value="array"/>
-        <!--
-            La aplicacion se sirve en http://localhost/mina, pero las pruebas
-            construyen la URL con url(), que usaria el prefijo /mina y
-            devolveria 404 en todas las rutas. En testing la raiz es /
-        -->
-        <env name="APP_URL" value="http://localhost"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+
+        <!--
+            La aplicacion se sirve en http://localhost/mina, pero las pruebas
+            construyen la URL con url(), que usaria el prefijo /mina y
+            devolveria 404 en todas las rutas. En testing la raiz es /
+
+            Las pruebas se ejecutan contra la base MySQL real 'mina' porque
+            las migraciones usan tipos y sintaxis especifica de MariaDB
+            (bigIncrements, foreign keys, etc.) que SQLite no soporta.
+            Por eso los tests usan DatabaseTransactions y nunca hay que
+            ejecutar php artisan migrate:fresh.
+        -->
+        <env name="APP_URL" value="http://localhost"/>
     </php>
 </phpunit>
