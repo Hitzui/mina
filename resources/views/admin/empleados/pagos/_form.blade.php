@@ -24,7 +24,9 @@
             <label for="tipo_pago_id" class="form-label">Tipo de pago <span
                     class="text-danger">*</span></label>
             <select id="tipo_pago_id" name="tipo_pago_id"
-                    class="form-select @error('tipo_pago_id') is-invalid @enderror" required>
+                    class="form-select select2 @error('tipo_pago_id') is-invalid @enderror"
+                    data-select2-opciones='{"placeholder":"Buscar tipo de pago...","allowClear":true}'
+                    required>
                 <option value="">Seleccione...</option>
                 @foreach($tiposPago as $tipoPago)
                     <option value="{{ $tipoPago->id }}"
@@ -50,7 +52,9 @@
         <div class="col-md-3">
             <label for="moneda_id" class="form-label">Moneda <span class="text-danger">*</span></label>
             <select id="moneda_id" name="moneda_id"
-                    class="form-select @error('moneda_id') is-invalid @enderror" required>
+                    class="form-select select2 @error('moneda_id') is-invalid @enderror"
+                    data-select2-opciones='{"placeholder":"Buscar moneda...","allowClear":true}'
+                    required>
                 <option value="">Seleccione...</option>
                 @foreach($monedas as $moneda)
                     <option value="{{ $moneda->id }}"

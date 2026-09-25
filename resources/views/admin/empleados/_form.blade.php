@@ -61,7 +61,8 @@
         <select
             id="tipo_empleado_id"
             name="tipo_empleado_id"
-            class="form-select @error('tipo_empleado_id') is-invalid @enderror"
+            class="form-select select2 @error('tipo_empleado_id') is-invalid @enderror"
+            data-select2-opciones='{"placeholder":"Buscar modalidad...","allowClear":true}'
             required
         >
 

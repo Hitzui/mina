@@ -4,6 +4,7 @@
         {{ $title ?? 'Ingresar Empleado' }}
     </x-slot>
     <x-slot name="headerFiles">
+        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
     </x-slot>
     <x-breadcrumb :items="$breadcrumbs"/>
 
@@ -31,6 +32,7 @@
     </div>
 
     <x-slot name="footerFiles">
+        @vite(['resources/assets/js/select2/select2-init.js'])
         <script>
             $(function(){
                flatpickr("#fecha_ingreso",{

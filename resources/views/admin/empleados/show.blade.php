@@ -1,6 +1,8 @@
 <x-base-layout :scrollspy="false">
     <x-slot:pageTitle>{{ $title ?? 'Información del Empleado' }}</x-slot:pageTitle>
-    <x-slot name="headerFiles"></x-slot>
+    <x-slot name="headerFiles">
+        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
+    </x-slot>
 
     <x-breadcrumb :items="$breadcrumbs"/>
 
@@ -133,6 +135,7 @@
     @include('admin.empleados.pagos._modal_form')
 
     <x-slot name="footerFiles">
+        @vite(['resources/assets/js/select2/select2-init.js'])
         {!! $empleadosPagosDataTable->html()->scripts() !!}
         <script src="{{ asset('js/empleados/pagos/modal.js') }}"></script>
         <script src="{{ asset('js/empleados/pagos/form.js') }}"></script>

@@ -260,4 +260,73 @@ class MetodoCalculoTest extends TestCase
         $this->assertEquals(800.0, $porHora->calcularTotal(8, 100));
         $this->assertEquals(500.0, $porHora->calcularTotal(25, 20));
     }
+
+    public function test_el_show_muestra_el_metodo_y_el_codigo(): void
+    {
+        $tipo = $this->crearTipoConTarifa(
+            TiposPagoEmpleado::METODO_TARIFA,
+            700
+        );
+
+        $r = $this->get('/configuracion/tipos-pago-empleado/' . $tipo->id);
+
+        $r->assertOk();
+        $r->assertSee('Método de cálculo');
+        $r->assertSee(TiposPagoEmpleado::METODO_TARIFA);
+        $r->assertSee('La tarifa es el pago total');
+        $r->assertSee('total = tarifa');
+        $r->assertSee($tipo->codigo);
+    }
+
+    public function test_el_show_explica_la_regla_multiplicativa(): void
+    {
+        $tipo = $this->crearTipoConTarifa(
+            TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+            100
+        );
+
+        $r = $this->get('/configuracion/tipos-pago-empleado/' . $tipo->id);
+
+        $r->assertOk();
+        $r->assertSee(TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA);
+        $r->assertSee('total = cantidad × tarifa');
+    }
+
+    /**
+     * Select2 se carga en create y edit, y solo se marca el select de
+     * metodo_calculo: el de estado es un checkbox disfrazado, no un combo.
+     */
+    public function test_create_y_edit_cargan_select2(): void
+    {
+        foreach (['create'] as $accion) {
+            $this->get('/configuracion/tipos-pago-empleado/' . $accion)
+                ->assertOk()
+                ->assertSee('custom-select2-', false)
+                ->assertSee('select2-init-', false)
+                ->assertSee('class="form-select select2', false);
+        }
+
+        $tipo = $this->crearTipoConTarifa(
+            TiposPagoEmpleado::METODO_TARIFA,
+            700
+        );
+
+        $this->get('/configuracion/tipos-pago-empleado/' . $tipo->id . '/edit')
+            ->assertOk()
+            ->assertSee('select2-init-', false)
+            ->assertSee('class="form-select select2', false);
+    }
+
+    public function test_el_show_no_advierte_si_la_regla_no_es_tarifa(): void
+    {
+        $tipo = $this->crearTipoConTarifa(
+            TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+            100
+        );
+
+        $r = $this->get('/configuracion/tipos-pago-empleado/' . $tipo->id);
+
+        $r->assertOk();
+        $r->assertDontSee('conservan el total que se les calculó');
+    }
 }

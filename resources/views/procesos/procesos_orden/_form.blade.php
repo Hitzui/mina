@@ -138,7 +138,8 @@
             <select
                 id="etapa_id"
                 name="etapa_id"
-                class="form-select @error('etapa_id') is-invalid @enderror"
+                class="form-select select2 @error('etapa_id') is-invalid @enderror"
+                data-select2-opciones='{"placeholder":"Buscar etapa...","allowClear":true}'
                 required
             >
 

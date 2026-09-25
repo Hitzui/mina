@@ -94,7 +94,7 @@
             </label>
 
             <select
-                class="form-select @error('metodo_calculo') is-invalid @enderror"
+                class="form-select select2 @error('metodo_calculo') is-invalid @enderror"
                 id="metodo_calculo"
                 name="metodo_calculo"
                 required

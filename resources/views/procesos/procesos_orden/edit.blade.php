@@ -7,6 +7,7 @@
     <x-breadcrumb :items="$breadcrumbs"/>
 
     <x-slot:headerFiles>
+        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
     </x-slot>
 
 
@@ -166,6 +167,7 @@
 
 
     <x-slot:footerFiles>
+        @vite(['resources/assets/js/select2/select2-init.js'])
 
         <script src="{{ asset('js/procesos_orden/formulario.js') }}"></script>
 

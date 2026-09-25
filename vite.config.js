@@ -222,6 +222,10 @@ export default defineConfig({
                 'resources/assets/js/custom.js',
                 'resources/assets/js/scrollspyNav.js',
 
+                // Select2 (combos con buscador)
+                'resources/scss/light/plugins/select2/custom-select2.scss',
+                'resources/assets/js/select2/select2-init.js',
+
                 // APPS
                 'resources/assets/js/apps/blog-create.js',
                 'resources/assets/js/apps/chat.js',

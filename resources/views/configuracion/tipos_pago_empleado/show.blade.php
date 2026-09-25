@@ -57,10 +57,16 @@
 
                 </div>
 
+                @php
+                    // El metodo de calculo decide si la cantidad multiplica
+                    $esTarifaFija = $tipoPagoEmpleado->metodo_calculo
+                        === \App\Models\TiposPagoEmpleado::METODO_TARIFA;
+                @endphp
+
                 <div class="row">
 
                     {{-- Nombre --}}
-                    <div class="col-md-8 mb-4">
+                    <div class="col-md-6 mb-4">
 
                         <label class="form-label text-muted">
                             Nombre
@@ -72,8 +78,21 @@
 
                     </div>
 
+                    {{-- Código --}}
+                    <div class="col-md-3 mb-4">
+
+                        <label class="form-label text-muted">
+                            Código
+                        </label>
+
+                        <div class="form-control bg-light font-monospace">
+                            {{ $tipoPagoEmpleado->codigo ?: '—' }}
+                        </div>
+
+                    </div>
+
                     {{-- Estado --}}
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-3 mb-4">
 
                         <label class="form-label text-muted d-block">
                             Estado
@@ -97,6 +116,31 @@
 
                     </div>
 
+                    {{-- Método de cálculo --}}
+                    <div class="col-12 mb-4">
+
+                        <label class="form-label text-muted">
+                            Método de cálculo
+                        </label>
+
+                        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                            <span class="badge {{ $esTarifaFija ? 'bg-info text-dark' : 'bg-primary' }} fs-6">
+                                {{ $tipoPagoEmpleado->metodo_calculo }}
+                            </span>
+
+                            <span class="text-muted">
+                                {{ $esTarifaFija
+                                    ? 'La tarifa es el pago total. La cantidad se registra como dato, pero no multiplica.'
+                                    : 'El pago es la cantidad multiplicada por la tarifa.' }}
+                            </span>
+                        </div>
+
+                        <div class="form-control bg-light font-monospace">
+                            total = {{ $esTarifaFija ? 'tarifa' : 'cantidad × tarifa' }}
+                        </div>
+
+                    </div>
+
                     {{-- Descripción --}}
                     <div class="col-12 mb-4">
 
@@ -114,6 +158,17 @@
                     </div>
 
                 </div>
+
+                @if($esTarifaFija)
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Atención al cambiar esta regla.</strong>
+                        Los trabajos ya registrados con este tipo de pago
+                        conservan el total que se les calculó con la regla
+                        anterior. Si cambias el método, corrige esos
+                        registros a mano.
+                    </div>
+                @endif
 
                 <div class="border-top pt-4 mt-2">
 

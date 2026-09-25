@@ -41,6 +41,13 @@
 
         if (fechaInicio) flatpickr(fechaInicio, config);
         if (fechaFin) flatpickr(fechaFin, config);
+
+        // El formulario llega por AJAX, despues de que Select2 ya se
+        // inicializo en la pagina, asi que hay que activarlo aqui sobre
+        // el contenido recien inyectado.
+        if (typeof window.iniciarSelect2 === 'function') {
+            window.iniciarSelect2(document.getElementById('empleadoPagoFormContenido'));
+        }
     }
 
     $(document).on('click', '#btnNuevaTarifa', function () {
