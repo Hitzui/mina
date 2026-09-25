@@ -21,6 +21,21 @@ $(function () {
     const totalNio = $('#trabajoTotalNio');
     let $formulario = $('#formTrabajoEmpleado');
 
+    /**
+     * Regla de calculo que envia el servidor para el tipo de pago
+     * seleccionado. Solo se usa para previsualizar: al guardar, el
+     * servidor la vuelve a aplicar y es la que manda.
+     */
+    const METODO_TARIFA = 'TARIFA';
+    const METODO_CANTIDAD_X_TARIFA = 'CANTIDAD_X_TARIFA';
+    let metodoCalculo = METODO_CANTIDAD_X_TARIFA;
+
+    function aplicarMetodoCalculo(metodo) {
+        metodoCalculo = metodo === METODO_TARIFA
+            ? METODO_TARIFA
+            : METODO_CANTIDAD_X_TARIFA;
+    }
+
     $('#btnNuevoTrabajoEmpleado').on('click', function () {
         limpiarFormulario();
         $('#modalTrabajoEmpleadoLabel').text('Nuevo trabajo de empleado');
@@ -126,6 +141,10 @@ $(function () {
                 tarifa.val(response.tarifa ?? 0);
                 tipoCambio.val(response.tipo_cambio ?? 1);
                 tarifaNio.val(response.tarifa_nio ?? 0);
+
+                // Al editar se usa la regla del tipo de pago del registro
+                aplicarMetodoCalculo(response.metodo_calculo);
+
                 total.val(response.total ?? 0);
                 totalNio.val(response.total_nio ?? 0);
 
@@ -177,6 +196,9 @@ $(function () {
                 tipoCambio.val(response.tipo_cambio ?? 1);
                 tarifaNio.val(response.tarifa_nio ?? 0);
 
+                // El servidor indica como calcular el total de este tipo de pago
+                aplicarMetodoCalculo(response.metodo_calculo);
+
                 if (response.fecha_inicio) {
                     vigencia.text('Vigente desde ' + response.fecha_inicio + (response.fecha_fin ? ' hasta ' + response.fecha_fin : ''));
                 } else {
@@ -207,8 +229,23 @@ $(function () {
         const tarifaValor = parseFloat(tarifa.val()) || 0;
         const tarifaNioValor = parseFloat(tarifaNio.val()) || 0;
 
-        total.val((cantidadValor * tarifaValor).toFixed(2));
-        totalNio.val((cantidadValor * tarifaNioValor).toFixed(2));
+        /*
+         * Con la regla TARIFA (pagos "por trabajo" o "fijo") la tarifa
+         * ES el pago y la cantidad no multiplica: 8 horas a C$700 son
+         * C$700, no C$5,600. La cantidad se conserva como dato.
+         */
+        const multiplica = metodoCalculo === METODO_CANTIDAD_X_TARIFA;
+
+        const totalValor = multiplica
+            ? cantidadValor * tarifaValor
+            : tarifaValor;
+
+        const totalNioValor = multiplica
+            ? cantidadValor * tarifaNioValor
+            : tarifaNioValor;
+
+        total.val(totalValor.toFixed(2));
+        totalNio.val(totalNioValor.toFixed(2));
     }
 
     function limpiarFormulario() {
@@ -257,6 +294,9 @@ $(function () {
         tipoCambio.val(1);
         tarifaNio.val(0);
         totalNio.val(0);
+
+        // Sin tarifa no hay regla: se vuelve al comportamiento por defecto
+        aplicarMetodoCalculo(null);
     }
 
     function limpiarModalShow() {

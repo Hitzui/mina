@@ -63,22 +63,45 @@ class TipoPagoEmpleadoController extends Controller
             ],
         ];
 
+        $metodosCalculo = TiposPagoEmpleado::metodosCalculo();
+
         return view(
             'configuracion.tipos_pago_empleado.create',
             compact(
                 'title',
-                'breadcrumbs'
+                'breadcrumbs',
+                'metodosCalculo'
             )
         );
     }
 
-    public function store(Request $request)
+    /**
+     * Reglas de validación del formulario de tipo de pago.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function reglas(Request $request): array
     {
-        $validated = $request->validate([
+        return [
             'nombre' => [
                 'required',
                 'string',
                 'max:50',
+            ],
+            'codigo' => [
+                'nullable',
+                'string',
+                'max:20',
+                'alpha_dash',
+                'uppercase',
+                'unique:tipos_pago_empleado,codigo',
+            ],
+            'metodo_calculo' => [
+                'required',
+                'string',
+                'in:' . implode(',', array_keys(
+                    TiposPagoEmpleado::metodosCalculo()
+                )),
             ],
             'descripcion' => [
                 'nullable',
@@ -89,7 +112,14 @@ class TipoPagoEmpleadoController extends Controller
                 'required',
                 'boolean',
             ],
-        ]);
+        ];
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate(
+            $this->reglas($request)
+        );
 
         $tipoPago = TiposPagoEmpleado::create($validated);
 
@@ -161,12 +191,15 @@ class TipoPagoEmpleadoController extends Controller
             ],
         ];
 
+        $metodosCalculo = TiposPagoEmpleado::metodosCalculo();
+
         return view(
             'configuracion.tipos_pago_empleado.edit',
             compact(
                 'title',
                 'breadcrumbs',
-                'tipoPagoEmpleado'
+                'tipoPagoEmpleado',
+                'metodosCalculo'
             )
         );
     }
@@ -175,22 +208,9 @@ class TipoPagoEmpleadoController extends Controller
         Request $request,
         TiposPagoEmpleado $tipoPagoEmpleado
     ) {
-        $validated = $request->validate([
-            'nombre' => [
-                'required',
-                'string',
-                'max:50',
-            ],
-            'descripcion' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-            'estado' => [
-                'required',
-                'boolean',
-            ],
-        ]);
+        $validated = $request->validate(
+            $this->reglas($request)
+        );
 
         $tipoPagoEmpleado->update($validated);
 

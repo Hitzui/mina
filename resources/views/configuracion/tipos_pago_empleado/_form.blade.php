@@ -23,7 +23,7 @@
     <div class="row">
 
         {{-- Nombre --}}
-        <div class="col-md-8 mb-4">
+        <div class="col-md-6 mb-4">
 
             <label for="nombre" class="form-label">
                 Nombre
@@ -45,6 +45,78 @@
             >
 
             @error('nombre')
+            <div class="invalid-feedback">
+                {{ $message }}
+            </div>
+            @enderror
+
+        </div>
+
+        {{-- Código --}}
+        <div class="col-md-6 mb-4">
+
+            <label for="codigo" class="form-label">
+                Código
+            </label>
+
+            <input
+                type="text"
+                class="form-control text-uppercase @error('codigo') is-invalid @enderror"
+                id="codigo"
+                name="codigo"
+                value="{{ old(
+                    'codigo',
+                    $tipoPagoEmpleado->codigo ?? ''
+                ) }}"
+                maxlength="20"
+                placeholder="Ej: HORA, TRABAJO"
+            >
+
+            <div class="form-text">
+                Solo letras, números y guiones. Se usa para identificar el
+                tipo de pago en las migraciones de datos.
+            </div>
+
+            @error('codigo')
+            <div class="invalid-feedback">
+                {{ $message }}
+            </div>
+            @enderror
+
+        </div>
+
+        {{-- Método de cálculo --}}
+        <div class="col-12 mb-4">
+
+            <label for="metodo_calculo" class="form-label">
+                Método de cálculo
+                <span class="text-danger">*</span>
+            </label>
+
+            <select
+                class="form-select @error('metodo_calculo') is-invalid @enderror"
+                id="metodo_calculo"
+                name="metodo_calculo"
+                required
+            >
+                @foreach($metodosCalculo as $valor => $texto)
+                    <option
+                        value="{{ $valor }}"
+                        {{ old('metodo_calculo', $tipoPagoEmpleado->metodo_calculo ?? \App\Models\TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA) === $valor ? 'selected' : '' }}
+                    >
+                        {{ $texto }}
+                    </option>
+                @endforeach
+            </select>
+
+            <div class="form-text">
+                Define cómo se calcula el total del trabajo del empleado.
+                <strong>Por trabajo</strong> y <strong>Fijo</strong> usan
+                «la tarifa es el pago total»: la cantidad queda registrada
+                como dato, pero no multiplica.
+            </div>
+
+            @error('metodo_calculo')
             <div class="invalid-feedback">
                 {{ $message }}
             </div>

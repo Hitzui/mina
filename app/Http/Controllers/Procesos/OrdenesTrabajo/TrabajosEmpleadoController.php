@@ -124,13 +124,26 @@ class TrabajosEmpleadoController extends Controller
 
         $cantidad = (float) $validated['cantidad'];
 
+        /*
+         * El total se calcula con la regla del tipo de pago: para
+         * "por trabajo" o "fijo" la tarifa ES el pago y la cantidad no
+         * multiplica. Se resuelve desde el tipo de pago, no desde el
+         * nombre, para que serve para cualquier tipo futuro.
+         */
+        $tipoPago = TiposPagoEmpleado::findOrFail(
+            $validated['tipo_pago_id']
+        );
+
         $validated['orden_trabajo_id'] = $ordenTrabajo->id;
         $validated['tarifa'] = $tarifa;
         $validated['moneda_id'] = $pago->moneda_id;
         $validated['tipo_cambio'] = $tipoCambio;
-        $validated['total'] = round($cantidad * $tarifa, 2);
+        $validated['total'] = $tipoPago->calcularTotal($cantidad, $tarifa);
         $validated['tarifa_nio'] = round($tarifa * $tipoCambio, 4);
-        $validated['total_nio'] = round($cantidad * $validated['tarifa_nio'], 2);
+        $validated['total_nio'] = $tipoPago->calcularTotal(
+            $cantidad,
+            $validated['tarifa_nio']
+        );
 
         $trabajo = TrabajosEmpleado::create($validated);
 
@@ -201,6 +214,11 @@ class TrabajosEmpleadoController extends Controller
             'total_nio' => $trabajosEmpleado->total_nio,
             'moneda_id' => $trabajosEmpleado->moneda_id,
             'tipo_cambio' => $trabajosEmpleado->tipo_cambio,
+
+            // Para que el formulario edite con la regla correcta
+            'metodo_calculo' => $trabajosEmpleado->tipo_pago?->metodo_calculo
+                ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+
             'observaciones' => $trabajosEmpleado->observaciones ?? '',
         ]);
     }
@@ -274,8 +292,14 @@ class TrabajosEmpleadoController extends Controller
 
         $cantidad = (float) $validated['cantidad'];
         $tarifaNio = round($tarifa * $tipoCambio, 4);
-        $total = round($cantidad * $tarifa, 2);
-        $totalNio = round($cantidad * $tarifaNio, 2);
+
+        // Misma regla del tipo de pago que en store()
+        $tipoPago = TiposPagoEmpleado::findOrFail(
+            $validated['tipo_pago_id']
+        );
+
+        $total = $tipoPago->calcularTotal($cantidad, $tarifa);
+        $totalNio = $tipoPago->calcularTotal($cantidad, $tarifaNio);
 
         $validated['orden_trabajo_id'] = $ordenTrabajo->id;
         $validated['moneda_id'] = $monedaId;
@@ -357,7 +381,7 @@ class TrabajosEmpleadoController extends Controller
         ]);
 
         $pago = EmpleadosPago::query()
-            ->with('moneda')
+            ->with(['moneda', 'tipo_pago'])
             ->where('empleado_id', $request->empleado_id)
             ->where('tipo_pago_id', $request->tipo_pago_id)
             ->where('estado', true)
@@ -408,6 +432,14 @@ class TrabajosEmpleadoController extends Controller
             'tipo_cambio_encontrado' => $tipoCambioEncontrado,
             'fecha_inicio' => $pago->fecha_inicio?->format('d/m/Y'),
             'fecha_fin' => $pago->fecha_fin?->format('d/m/Y'),
+
+            /*
+             * El navegador necesita la regla para previsualizar el
+             * total. Es solo una ayuda visual: al guardar, el servidor
+             * la vuelve a aplicar y es la que manda.
+             */
+            'metodo_calculo' => $pago->tipo_pago?->metodo_calculo
+                ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
         ]);
     }
 }

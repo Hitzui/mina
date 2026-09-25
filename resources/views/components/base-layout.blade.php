@@ -18,6 +18,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no">
+<meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $pageTitle }}</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}"/>
     @vite(['resources/scss/layouts/modern-light-menu/light/loader.scss'])
@@ -176,6 +177,14 @@
     @endif
 
     @sweetAlert
+
+    {{--
+        Confirmacion de eliminacion con SweetAlert. Va despues de
+        @sweetAlert porque depende de la libreria. Se carga aqui para
+        que los botones data-confirm-delete funcionen en cualquier
+        pagina, incluidos los DataTable.
+    --}}
+    <script src="{{ asset('js/confirm-delete.js') }}"></script>
 
     @vite(['resources/layouts/modern-light-menu/app.js'])
 @endif

@@ -110,6 +110,16 @@ Route::get('procesos/ordenes-trabajo/listado',
     [OrdenTrabajoController::class, 'index'])
     ->name('procesos.ordenes_trabajo.listado');
 Route::resource('procesos/ordenes-trabajo', OrdenTrabajoController::class)
+    /*
+     * El resource genera el placeholder {ordenes_trabajo} a partir del
+     * nombre en plural, pero destroy() recibe $ordenTrabajo. Sin esto
+     * los nombres no coinciden y Laravel NO hace el route model binding:
+     * inyecta un modelo vacio, delete() no borra nada y aun asi se
+     * muestra "Orden de trabajo eliminada correctamente".
+     */
+    ->parameters([
+        'ordenes-trabajo' => 'ordenTrabajo',
+    ])
     ->names('procesos.ordenes_trabajo');
 
 
