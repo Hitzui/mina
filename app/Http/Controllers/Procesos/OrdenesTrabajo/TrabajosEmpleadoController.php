@@ -15,6 +15,7 @@ use App\Models\TrabajosEmpleado;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Models\EmpleadosPago;
+use RealRashid\SweetAlert\Facades\Alert;
 
 class TrabajosEmpleadoController extends Controller
 {
@@ -323,6 +324,7 @@ class TrabajosEmpleadoController extends Controller
     }
 
     public function destroy(
+        Request $request,
         OrdenesTrabajo $ordenTrabajo,
         TrabajosEmpleado $trabajosEmpleado
     ) {
@@ -330,10 +332,28 @@ class TrabajosEmpleadoController extends Controller
 
         $trabajosEmpleado->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'El trabajo del empleado fue eliminado correctamente.',
-        ]);
+        $mensaje = 'El trabajo del empleado fue eliminado correctamente.';
+
+        /*
+         * La confirmacion de borrado la resuelve realrashid/sweet-alert
+         * con data-confirm-delete, que envia un formulario normal. Si
+         * este metodo devolviera JSON, el navegador mostraria el JSON
+         * crudo en pantalla. Por eso responde como los demas
+         * controladores: redireccion con aviso.
+         *
+         * El JSON se mantiene solo para llamadas AJAX reales.
+         */
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+            ]);
+        }
+
+        Alert::toast($mensaje)->success()->flash();
+
+        return redirect()
+            ->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
     }
 
     private function validarTrabajoOrden(
