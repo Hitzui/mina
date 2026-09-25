@@ -1,7 +1,9 @@
 <x-base-layout :scrollspy="false">
     <x-slot:pageTitle>{{ $title ?? 'Información de Orden de Trabajo' }}</x-slot:pageTitle>
     <x-breadcrumb :items="$breadcrumbs"/>
-    <x-slot:headerFiles></x-slot>
+    <x-slot:headerFiles>
+        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
+    </x-slot>
 
     <div class="row layout-top-spacing">
         <div class="col-xl-12 col-lg-12 col-sm-12">
@@ -150,6 +152,7 @@
         {{ $dataTable->html()->scripts() }}
         {{ $trabajosEmpleadosDataTable->html()->scripts() }}
         {{ $empleadosSelectorDataTable->html()->scripts() }}
+        @vite(['resources/assets/js/select2/select2-init.js'])
         <script src="{{ asset('js/ordenes_trabajo/trabajos_empleados.js') }}"></script>
     </x-slot>
 

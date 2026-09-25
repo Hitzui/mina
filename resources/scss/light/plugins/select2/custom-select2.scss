@@ -98,14 +98,18 @@
     cursor: not-allowed;
 }
 
-/* --------------------------------------------------------------------------
-   El dropdown debe quedar por encima de los modales
+/* -------------------------------------------------------------------------- 
+   El desplegable debe quedar por encima de los modales
+   Select2 mueve el desplegable al final del body y su CSS le pone
+   z-index: 1051, que es el mismo del backdrop de Bootstrap y MENOR que el
+   del modal (1055). Sin esto, el desplegable se ve detras del modal.
    -------------------------------------------------------------------------- */
 .select2-container--open {
-    z-index: 1055;
+    z-index: 1056;
 }
 
 .select2-dropdown {
+    z-index: 1080;
     border-color: var(--bs-border-color, #dee2e6);
     border-radius: var(--bs-border-radius, 0.375rem);
 }

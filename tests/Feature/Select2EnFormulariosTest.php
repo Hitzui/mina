@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Empleado;
 use App\Models\OrdenesTrabajo;
+use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -164,6 +165,117 @@ class Select2EnFormulariosTest extends TestCase
             $js,
             'El modal no reinicializa Select2 sobre el formulario inyectado'
         );
+    }
+
+    /**
+     * Los combos del formulario de trabajos de empleados.
+     *
+     * A diferencia de los demas, este formulario se maneja con jQuery: el
+     * combo de tipo de pago arranca deshabilitado y los valores se fijan
+     * por codigo al editar, dos cosas que Select2 no entiende solo.
+     */
+    public function test_los_combos_de_trabajos_de_empleado_usan_select2(): void
+    {
+        $orden = OrdenesTrabajo::firstOrFail();
+
+        $r = $this->get('/procesos/ordenes-trabajo/' . $orden->id);
+
+        $r->assertOk();
+        $r->assertSee('select2-init-', false);
+        $r->assertSee('custom-select2-', false);
+
+        $html = $r->getContent();
+
+        foreach (['trabajoTipoPago', 'trabajoProceso', 'trabajoUnidad'] as $id) {
+            // Los atributos pueden caer en lineas distintas segun el
+            // formato del Blade, asi que se busca el tag completo.
+            $this->assertMatchesRegularExpression(
+                '/<select\b[^>]*id="' . $id . '"[^>]*>/',
+                $html,
+                "No se encontro el combo $id"
+            );
+
+            $this->assertSame(
+                1,
+                preg_match('/<select\b[^>]*id="' . $id . '"[^>]*class="[^"]*\bselect2\b/', $html),
+                "El combo $id deberia estar marcado para Select2"
+            );
+        }
+    }
+
+    public function test_el_combo_de_tipo_pago_arranca_deshabilitado(): void
+    {
+        $html = $this->renderFormularioTrabajo();
+
+        // Se habilita solo cuando ya hay empleado: sin el, el servidor no
+        // recibiria el tipo de pago.
+        $this->assertStringContainsString('id="trabajoTipoPago"', $html);
+        $this->assertStringContainsString('disabled', $html);
+        $this->assertStringContainsString('id="trabajoTipoPagoAyuda"', $html);
+    }
+
+    public function test_el_js_de_trabajos_sincroniza_select2(): void
+    {
+        $js = $this->jsDeTrabajos();
+
+        // Un .val() por codigo no actualiza lo que Select2 dibuja
+        $this->assertStringContainsString('sincronizarSelect2', $js);
+        $this->assertStringContainsString("\$select.trigger('change')", $js);
+
+        // Y esa sincronizacion no debe consultar la tarifa: al editar,
+        // el total guardado manda.
+        $this->assertStringContainsString('if (sincronizando)', $js);
+
+        // El reset del formulario tambien tiene que refrescar los combos
+        $this->assertStringContainsString('select.select2', $js);
+    }
+
+    /**
+     * El desplegable de Select2 trae z-index 1051, que es MENOR que el del
+     * modal de Bootstrap (1055). Sin corregirlo se ve detras del modal.
+     */
+    public function test_el_desplegable_queda_por_encima_del_modal(): void
+    {
+        $manifest = json_decode(
+            file_get_contents(public_path('build/manifest.json')),
+            true
+        );
+
+        $css = file_get_contents(
+            public_path('build/' . $manifest['resources/scss/light/plugins/select2/custom-select2.scss']['file'])
+        );
+
+        // La regla propia debe ir despues de la de la libreria para ganar
+        $propia = strrpos($css, '.select2-dropdown{z-index:');
+        $libreria = strpos($css, '.select2-dropdown{box-sizing');
+
+        $this->assertNotFalse($propia, 'No hay regla de z-index para el desplegable');
+        $this->assertNotFalse($libreria, 'No se encontro el CSS original de Select2');
+        $this->assertGreaterThan(
+            $libreria,
+            $propia,
+            'La correccion de z-index debe ir despues de la regla de la libreria'
+        );
+
+        // Y por encima del modal (1055) y de su backdrop (1050)
+        preg_match('/\.select2-dropdown\{z-index:(\d+)/', $css, $m);
+        $this->assertGreaterThan(1055, (int) ($m[1] ?? 0));
+    }
+
+    private function jsDeTrabajos(): string
+    {
+        return file_get_contents(public_path('js/ordenes_trabajo/trabajos_empleados.js'));
+    }
+
+    private function renderFormularioTrabajo(): string
+    {
+        return (string) view(
+            'procesos.ordenes_trabajo.trabajos_empleados._form',
+            [
+                'tiposPago' => TiposPagoEmpleado::all(),
+                'procesos' => ProcesosOrden::all(),
+            ]
+        )->render();
     }
 
     public function test_el_select_de_metodo_calculo_usa_select2_y_el_estado_no(): void

@@ -36,6 +36,48 @@ $(function () {
             : METODO_CANTIDAD_X_TARIFA;
     }
 
+    /**
+     * Select2 dibuja su propio combo y esconde el <select> nativo. Cuando
+     * el valor se cambia por codigo con .val(), la libreria no se entera y
+     * el usuario sigue viendo el valor anterior: hay que relanzar change
+     * para que actualice lo que muestra.
+     *
+     * El relanzamiento se hace con la bandera "sincronizando" en alto para
+     * no disparar la consulta de tarifa. Al editar, el total guardado se
+     * respeta y no se recalcula con la tarifa vigente del dia.
+     */
+    let sincronizando = false;
+
+    function sincronizarSelect2($select) {
+        if (!$select.length || $select.data('select2') === undefined) {
+            return;
+        }
+
+        sincronizando = true;
+        $select.trigger('change');
+        sincronizando = false;
+    }
+
+    /**
+     * Fija el valor de un combo y deja la pantalla al dia, sea nativo o
+     * de Select2.
+     */
+    function fijar($select, valor) {
+        $select.val(valor ?? '');
+        sincronizarSelect2($select);
+    }
+
+    /**
+     * El combo de tipo de pago arranca deshabilitado: no se elige sin
+     * empleado. Select2 4.0.13 observa el atributo disabled con un
+     * MutationObserver, asi que basta con cambiar la propiedad para que
+     * el combo se vea deshabilitado tambien.
+     */
+    function habilitarTipoPago(habilitado) {
+        tipoPago.prop('disabled', !habilitado);
+        $('#trabajoTipoPagoAyuda').toggleClass('d-none', habilitado);
+    }
+
     $('#btnNuevoTrabajoEmpleado').on('click', function () {
         limpiarFormulario();
         $('#modalTrabajoEmpleadoLabel').text('Nuevo trabajo de empleado');
@@ -64,8 +106,8 @@ $(function () {
 
         empleadoId.val(seleccionado.val());
         empleadoNombre.val(seleccionado.data('nombre'));
-        tipoPago.prop('disabled', false);
-        tipoPago.val('');
+        habilitarTipoPago(true);
+        fijar(tipoPago, '');
         limpiarTarifa();
         limpiarError();
         modalEmpleado?.hide();
@@ -129,13 +171,14 @@ $(function () {
 
                 empleadoId.val(response.empleado_id);
                 empleadoNombre.val(response.empleado ?? '—');
-                tipoPago.val(response.tipo_pago_id).prop('disabled', false);
-                $('#trabajoProceso').val(response.proceso_orden_id ?? '');
+                habilitarTipoPago(true);
+                fijar(tipoPago, response.tipo_pago_id);
+                fijar($('#trabajoProceso'), response.proceso_orden_id ?? '');
                 fecha.val(response.fecha ?? '');
                 $('#trabajoHoraInicio').val(response.hora_inicio ?? '');
                 $('#trabajoHoraFin').val(response.hora_fin ?? '');
                 cantidad.val(response.cantidad ?? 0);
-                $('#trabajoUnidad').val(response.unidad ?? 'hora');
+                fijar($('#trabajoUnidad'), response.unidad ?? 'hora');
                 $('#trabajoDescripcion').val(response.descripcion ?? '');
                 $('#trabajoObservaciones').val(response.observaciones ?? '');
                 tarifa.val(response.tarifa ?? 0);
@@ -168,6 +211,12 @@ $(function () {
     tarifa.on('input', calcularTotal);
 
     function obtenerTarifa() {
+        // Un .val() hecho por codigo no debe consultar la tarifa: al
+        // editar, el total guardado manda y no se recalcula.
+        if (sincronizando) {
+            return;
+        }
+
         const empleado = empleadoId.val();
         const tipo = tipoPago.val();
         const fechaTrabajo = fecha.val();
@@ -251,9 +300,15 @@ $(function () {
     function limpiarFormulario() {
         $formulario[0]?.reset();
 
+        /*
+         * form.reset() devuelve los <select> a su valor original, pero
+         * Select2 no se entera: hay que sincronizar los combos al final,
+         * cuando ya se les fijo el valor de arranque.
+         */
         empleadoId.val('');
         empleadoNombre.val('');
-        tipoPago.val('').prop('disabled', true);
+        fijar(tipoPago, '');
+        habilitarTipoPago(false);
         fecha.val(new Date().toISOString().slice(0, 10));
         tarifa.val(0);
         cantidad.val(0);
@@ -283,6 +338,12 @@ $(function () {
         tipoCambio.val(1);
         tarifaNio.val(0);
         totalNio.val(0);
+
+        // El reset tambien tocaba proceso y unidad: se dejan como deben verse
+        $formulario.find('select.select2').each(function () {
+            sincronizarSelect2($(this));
+        });
+
         limpiarError();
     }
 

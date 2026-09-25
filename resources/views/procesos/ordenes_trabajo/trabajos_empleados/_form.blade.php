@@ -18,17 +18,25 @@
 
     <div class="col-md-6">
         <label for="trabajoTipoPago" class="form-label">Tipo de pago <span class="text-danger">*</span></label>
-        <select name="tipo_pago_id" id="trabajoTipoPago" class="form-select" required disabled>
+        <select name="tipo_pago_id" id="trabajoTipoPago" class="form-select select2" required disabled>
             <option value="">Seleccione...</option>
             @foreach($tiposPago as $tipoPago)
                 <option value="{{ $tipoPago->id }}">{{ $tipoPago->nombre }}</option>
             @endforeach
         </select>
+        <small class="text-muted" id="trabajoTipoPagoAyuda">
+            Se habilita al elegir el empleado.
+        </small>
     </div>
 
     <div class="col-md-6">
         <label for="trabajoProceso" class="form-label">Proceso</label>
-        <select name="proceso_orden_id" id="trabajoProceso" class="form-select">
+        <select
+            name="proceso_orden_id"
+            id="trabajoProceso"
+            class="form-select select2"
+            data-select2-opciones='{"placeholder":"Buscar proceso..."}'
+        >
             <option value="">Trabajo general de la OT</option>
             @foreach($procesos as $proceso)
                 <option value="{{ $proceso->id }}">
@@ -55,7 +63,7 @@
 
     <div class="col-md-3">
         <label for="trabajoUnidad" class="form-label">Unidad <span class="text-danger">*</span></label>
-        <select name="unidad" id="trabajoUnidad" class="form-select" required>
+        <select name="unidad" id="trabajoUnidad" class="form-select select2" required>
             <option value="hora">Hora</option>
             <option value="día">Día</option>
             <option value="unidad">Unidad</option>
