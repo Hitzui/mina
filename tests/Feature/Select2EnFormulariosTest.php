@@ -9,6 +9,7 @@ use App\Models\TiposPagoEmpleado;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\ViewErrorBag;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -195,6 +196,62 @@ class Select2EnFormulariosTest extends TestCase
         );
 
         $this->assertStringContainsString('minimumResultsForSearch:0', $bundle);
+    }
+
+    /**
+     * jQuery convierte por su cuenta los data-attributes con forma de JSON,
+     * asi que .data('select2Opciones') devuelve un objeto. Si el codigo lo
+     * pasa por JSON.parse() revienta con "[object Object]".
+     */
+    public function test_las_opciones_se_leen_tanto_de_objeto_como_de_texto(): void
+    {
+        $crudo = file_get_contents(
+            resource_path('assets/js/select2/select2-init.js')
+        );
+
+        $this->assertStringContainsString(
+            "typeof extra === 'object'",
+            $crudo,
+            'opcionesDe no contempla que jQuery ya entrego el objeto'
+        );
+        $this->assertStringContainsString(
+            "typeof extra === 'string'",
+            $crudo,
+            'opcionesDe no deberia perder el caso de texto JSON'
+        );
+    }
+
+    /**
+     * Todos los data-select2-opciones deben ser JSON que jQuery pueda
+     * interpretar; si no, el combo se queda con las opciones base en
+     * silencio.
+     */
+    public function test_todas_las_opciones_declaradas_son_json_valido(): void
+    {
+        $encontradas = 0;
+
+        foreach (File::allFiles(resource_path('views')) as $archivo) {
+            if (!str_ends_with($archivo->getFilename(), '.blade.php')) {
+                continue;
+            }
+
+            preg_match_all(
+                '/data-select2-opciones=\'([^\']*)\'/',
+                $archivo->getContents(),
+                $coincidencias
+            );
+
+            foreach ($coincidencias[1] as $json) {
+                $encontradas++;
+
+                $this->assertIsArray(
+                    json_decode($json, true),
+                    "$archivo declara un data-select2-opciones que no es JSON: $json"
+                );
+            }
+        }
+
+        $this->assertGreaterThan(0, $encontradas, 'No se encontro ningun combo con opciones propias');
     }
 
     /**

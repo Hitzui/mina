@@ -58,6 +58,11 @@ const opcionesBase = {
 
 /**
  * Lee la configuracion extra declarada en data-select2-opciones.
+ *
+ * Ojo: jQuery convierte por su cuenta los data-attributes que parecen
+ * JSON, asi que .data() devuelve un objeto, no el texto. Si se le pasa
+ * un objeto a JSON.parse() explota con "[object Object]". Por eso aqui
+ * se aceptan las dos formas.
  */
 function opcionesDe($select) {
     const extra = $select.data('select2Opciones');
@@ -66,13 +71,23 @@ function opcionesDe($select) {
         return { ...opcionesBase };
     }
 
-    try {
-        return { ...opcionesBase, ...JSON.parse(extra) };
-    } catch (e) {
-        console.error('Select2: data-select2-opciones no es JSON valido', e);
-
-        return { ...opcionesBase };
+    // jQuery ya lo interpreto
+    if (typeof extra === 'object') {
+        return { ...opcionesBase, ...extra };
     }
+
+    // Viene como texto: hay que interpretarlo
+    if (typeof extra === 'string') {
+        try {
+            return { ...opcionesBase, ...JSON.parse(extra) };
+        } catch (e) {
+            console.error('Select2: data-select2-opciones no es JSON valido', e);
+
+            return { ...opcionesBase };
+        }
+    }
+
+    return { ...opcionesBase };
 }
 
 /**
