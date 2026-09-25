@@ -36,6 +36,14 @@ if ($) {
 const opcionesBase = {
     theme: 'default',
     width: '100%',
+    /*
+     * Select2 esconde el campo de busqueda cuando hay menos resultados
+     * que este numero, y por defecto son 8. Como casi todos los combos de
+     * la aplicacion tienen menos (tipos de pago, unidades, etapas), el
+     * buscador no aparecia nunca. Con 0 se muestra siempre; el buscador
+     * no molesta cuando hay pocas opciones y ayuda cuando hay muchas.
+     */
+    minimumResultsForSearch: 0,
     language: {
         noResults: () => 'Sin resultados',
         searching: () => 'Buscando...',

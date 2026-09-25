@@ -168,6 +168,36 @@ class Select2EnFormulariosTest extends TestCase
     }
 
     /**
+     * Select2 esconde el campo de busqueda cuando hay menos resultados que
+     * minimumResultsForSearch, y por defecto son 8. Casi todos los combos
+     * de la aplicacion tienen menos, asi que el buscador no aparecia.
+     */
+    public function test_el_buscador_aparece_siempre(): void
+    {
+        $crudo = file_get_contents(
+            resource_path('assets/js/select2/select2-init.js')
+        );
+
+        $this->assertStringContainsString(
+            'minimumResultsForSearch: 0',
+            $crudo,
+            'Sin esto Select2 oculta el buscador en los combos con pocas opciones'
+        );
+
+        // Y el bundle construido lo lleva, no solo el fuente
+        $manifest = json_decode(
+            file_get_contents(public_path('build/manifest.json')),
+            true
+        );
+
+        $bundle = file_get_contents(
+            public_path('build/' . $manifest['resources/assets/js/select2/select2-init.js']['file'])
+        );
+
+        $this->assertStringContainsString('minimumResultsForSearch:0', $bundle);
+    }
+
+    /**
      * Los combos del formulario de trabajos de empleados.
      *
      * A diferencia de los demas, este formulario se maneja con jQuery: el
