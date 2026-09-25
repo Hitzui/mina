@@ -27,7 +27,7 @@ class ClienteSelectorDataTable extends DataTable
                         data-id="' . $cliente->id . '"
                         data-nombre="' . e($cliente->nombre) . '"
                     >
-                        <i class="fa-solid fa-check"></i>
+                        <i class="bi bi-check"></i>
                         Seleccionar
                     </button>
                 ';
