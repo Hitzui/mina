@@ -175,7 +175,7 @@ class TrabajosEmpleadoController extends Controller
             'empleado' => $trabajosEmpleado->empleado?->nombre ?? '—',
             'fecha' => $trabajosEmpleado->fecha?->format('d/m/Y'),
             'tipo_pago' => $trabajosEmpleado->tipo_pago?->nombre ?? '—',
-            'proceso' => $trabajosEmpleado->proceso_orden?->nombre ?? 'Trabajo general de la OT',
+            'proceso' => $trabajosEmpleado->proceso_orden?->nombre_completo ?? TrabajosEmpleado::ETIQUETA_GENERAL,
             'hora_inicio' => $trabajosEmpleado->hora_inicio?->format('H:i'),
             'hora_fin' => $trabajosEmpleado->hora_fin?->format('H:i'),
             'cantidad' => $trabajosEmpleado->cantidad,

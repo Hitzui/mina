@@ -37,13 +37,22 @@
             class="form-select select2"
             data-select2-opciones='{"placeholder":"Buscar proceso..."}'
         >
-            <option value="">Trabajo general de la OT</option>
+            {{--
+                Sin proceso no significa sin_especificar: es un trabajo
+                general de la orden. Se guarda con proceso_orden_id nulo.
+            --}}
+            <option value="">
+                {{ \App\Models\TrabajosEmpleado::ETIQUETA_GENERAL }}
+            </option>
             @foreach($procesos as $proceso)
                 <option value="{{ $proceso->id }}">
-                    {{ $proceso->codigo }}{{ $proceso->etapa ? ' - '.$proceso->etapa->nombre : '' }}
+                    {{ $proceso->nombre_completo }}
                 </option>
             @endforeach
         </select>
+        <small class="text-muted" id="trabajoProcesoAyuda">
+            Elija un proceso o deje el trabajo como general de la orden.
+        </small>
     </div>
 
     <div class="col-md-3">
