@@ -1,0 +1,184 @@
+<?php
+
+use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\Configuracion\CategoriaCostoController;
+use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
+use App\Http\Controllers\EmpleadoController;
+use App\Http\Controllers\empleados\EmpleadoPagoController;
+use App\Http\Controllers\EtapaController;
+use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
+use App\Http\Controllers\Procesos\OrdenTrabajoController;
+use App\Http\Controllers\Procesos\ProcesoOrdenController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
+
+Route::get('/', function () {
+    return view('welcome', ['title' => 'This is Title', 'breadcrumbs' => []]);
+})->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| Rutas de la aplicacion
+|--------------------------------------------------------------------------
+|
+| Todo el panel administrativo y de procesos exige un usuario autenticado.
+| El permiso especifico de cada accion lo aplica el constructor de cada
+| controlador mediante Concerns\AuthorizesModule.
+|
+*/
+
+Route::middleware('auth')->group(function () {
+
+Route::get(
+    'admin/clientes/selector',
+    [ClienteController::class, 'selector']
+)->name('admin.clientes.selector');
+
+Route::resource('admin/clientes', ClienteController::class)->names('admin.clientes');
+
+
+Route::get(
+    'admin/empleados/selector/data',
+    [EmpleadoController::class, 'selectorData']
+)->name('admin.empleados.selector.data');
+
+Route::resource('admin/empleados', EmpleadoController::class)->names('admin.empleados');
+
+/*
+|--------------------------------------------------------------------------
+| Pagos y tarifas de empleados
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('admin/empleados/{empleado}/pagos')
+    ->name('admin.empleados.pagos.')
+    ->group(function () {
+
+        Route::get(
+            'data',
+            [EmpleadoPagoController::class, 'index']
+        )->name('data');
+
+        Route::get(
+            'create',
+            [EmpleadoPagoController::class, 'create']
+        )->name('create');
+
+        Route::post(
+            '/',
+            [EmpleadoPagoController::class, 'store']
+        )->name('store');
+
+        Route::get(
+            '{empleadoPago}',
+            [EmpleadoPagoController::class, 'show']
+        )->name('show');
+
+        Route::get(
+            '{empleadoPago}/edit',
+            [EmpleadoPagoController::class, 'edit']
+        )->name('edit');
+
+        Route::put(
+            '{empleadoPago}',
+            [EmpleadoPagoController::class, 'update']
+        )->name('update');
+
+        Route::delete(
+            '{empleadoPago}',
+            [EmpleadoPagoController::class, 'destroy']
+        )->name('destroy');
+    });
+
+Route::resource('admin/etapas', EtapaController::class)->names('admin.etapas');
+
+Route::get('procesos/ordenes-trabajo/calendario',
+    [OrdenTrabajoController::class, 'calendario'])
+    ->name('procesos.ordenes_trabajo.calendario');
+Route::get('procesos/ordenes-trabajo/listado',
+    [OrdenTrabajoController::class, 'index'])
+    ->name('procesos.ordenes_trabajo.listado');
+Route::resource('procesos/ordenes-trabajo', OrdenTrabajoController::class)
+    ->names('procesos.ordenes_trabajo');
+
+
+Route::prefix('procesos/ordenes-trabajo/{ordenTrabajo}')
+    ->name('procesos.ordenes_trabajo.procesos.')
+    ->group(function () {
+
+        Route::get(
+            'procesos/create',
+            [ProcesoOrdenController::class, 'create']
+        )->name('create');
+
+        Route::post(
+            'procesos',
+            [ProcesoOrdenController::class, 'store']
+        )->name('store');
+
+        /*
+        |--------------------------------------------------------------------------
+        | DataTable
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            'procesos/data',
+            [ProcesoOrdenController::class, 'data']
+        )->name('data');
+
+        Route::get(
+            'procesos/{procesoOrden}/edit',
+            [ProcesoOrdenController::class, 'edit']
+        )->name('edit');
+
+        Route::put(
+            'procesos/{procesoOrden}',
+            [ProcesoOrdenController::class, 'update']
+        )->name('update');
+
+        Route::delete(
+            'procesos/{procesoOrden}',
+            [ProcesoOrdenController::class, 'destroy']
+        )->name('destroy');
+    });
+
+
+Route::resource(
+    'configuracion/categorias-costos',
+    CategoriaCostoController::class
+)->names('configuracion.categorias_costos');
+
+
+Route::resource(
+    'configuracion/tipos-pago-empleado',
+    TipoPagoEmpleadoController::class
+)
+    ->parameters([
+        'tipos-pago-empleado' => 'tipoPagoEmpleado',
+    ])
+    ->names('configuracion.tipos_pago_empleado');
+
+
+Route::get(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/trabajos-empleados/tarifa',
+    [TrabajosEmpleadoController::class, 'tarifaVigente']
+)->name('procesos.ordenes_trabajo.trabajos_empleados.tarifa');
+
+Route::resource(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/trabajos-empleados',
+    TrabajosEmpleadoController::class
+)->names('procesos.ordenes_trabajo.trabajos_empleados');
+
+
+}); // fin del grupo middleware('auth')
