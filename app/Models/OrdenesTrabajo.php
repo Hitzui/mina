@@ -20,4 +20,20 @@ class OrdenesTrabajo extends BaseOrdenesTrabajo
     {
         return $this->hasMany(ProcesosOrden::class, ProcesosOrden::ORDEN_TRABAJO_ID);
     }
+
+    /**
+     * Los trabajos de los empleados de esta orden, alcanzados a traves de
+     * sus procesos: el trabajo ya no guarda orden_trabajo_id.
+     */
+    public function trabajos_empleados()
+    {
+        return $this->hasManyThrough(
+            TrabajosEmpleado::class,
+            ProcesosOrden::class,
+            'orden_trabajo_id',
+            'proceso_orden_id',
+            'id',
+            'id'
+        );
+    }
 }

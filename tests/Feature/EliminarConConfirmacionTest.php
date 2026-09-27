@@ -169,34 +169,38 @@ class EliminarConConfirmacionTest extends TestCase
      */
     public function test_el_delete_de_un_trabajo_responde_con_aviso_y_no_con_json(): void
     {
-        $orden = OrdenesTrabajo::firstOrFail();
-        $trabajo = TrabajosEmpleado::where('orden_trabajo_id', $orden->id)->first();
+        $trabajo = TrabajosEmpleado::with('proceso_orden.orden_trabajo')->first();
 
         if (! $trabajo) {
-            $this->markTestSkipped('La orden no tiene trabajos de empleado.');
+            $this->markTestSkipped('No hay trabajos de empleado.');
         }
 
+        $orden = $trabajo->proceso_orden->orden_trabajo;
+        $proceso = $trabajo->proceso_orden;
+
         $url = route(
-            'procesos.ordenes_trabajo.trabajos_empleados.destroy',
-            [$orden->id, $trabajo->id]
+            'procesos.ordenes_trabajo.procesos.trabajos_empleados.destroy',
+            [$orden, $proceso, $trabajo]
         );
 
         // Peticion normal (la que hace la libreria con el formulario)
         $r = $this->delete($url);
 
-        $r->assertRedirect(route('procesos.ordenes_trabajo.show', $orden->id));
+        $r->assertRedirect(
+            route('procesos.ordenes_trabajo.procesos.show', [$orden, $proceso])
+        );
         $r->assertSessionHasNoErrors();
 
         $this->assertStringNotContainsString('"success":true', $r->getContent());
         $this->assertSoftDeleted($trabajo);
 
         // Y sigue respondiendo JSON si la llamada es AJAX de verdad
-        $otro = TrabajosEmpleado::where('orden_trabajo_id', $orden->id)->first();
+        $otro = TrabajosEmpleado::query()->first();
 
         if ($otro) {
             $this->deleteJson(route(
-                'procesos.ordenes_trabajo.trabajos_empleados.destroy',
-                [$orden->id, $otro->id]
+                'procesos.ordenes_trabajo.procesos.trabajos_empleados.destroy',
+                [$otro->proceso_orden->orden_trabajo, $otro->proceso_orden, $otro]
             ))->assertOk()->assertJsonPath('success', true);
         }
     }

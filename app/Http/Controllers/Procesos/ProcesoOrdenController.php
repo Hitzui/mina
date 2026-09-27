@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Procesos;
 
+use App\DataTables\EmpleadosSelectorDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
+use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Etapa;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
+use App\Models\TiposPagoEmpleado;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -19,6 +22,84 @@ class ProcesoOrdenController extends Controller
     public function __construct()
     {
         $this->authorizeModule('procesos_orden');
+    }
+
+    /**
+     * Pantalla del proceso.
+     *
+     * Aqui viven los trabajos de los empleados: el trabajo cuelga del
+     * proceso, no de la orden, asi que es su sitio natural para
+     * registrarlos y para ver cuanto se le paga al proceso.
+     */
+    public function show(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
+        TrabajosEmpleadosDataTable $trabajosDataTable,
+        EmpleadosSelectorDataTable $empleadosSelectorDataTable
+    ) {
+        $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
+
+        $procesoOrden->load('etapa');
+
+        $title = 'Información del Proceso';
+
+        $breadcrumbs = [
+            [
+                'label' => 'Dashboard',
+                'url' => route('home'),
+            ],
+            [
+                'label' => 'Órdenes de Trabajo',
+                'url' => route('procesos.ordenes_trabajo.index'),
+            ],
+            [
+                'label' => $ordenTrabajo->codigo,
+                'url' => route('procesos.ordenes_trabajo.show', $ordenTrabajo),
+            ],
+            [
+                'label' => $procesoOrden->nombre_completo,
+                'url' => '#',
+            ],
+        ];
+
+        $trabajosDataTable->setProcesoOrdenId($procesoOrden->id);
+        $trabajosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+
+        // Para el texto de cuanto trabajo tiene el proceso
+        $cantidadTrabajos = $procesoOrden->trabajos_empleados()->count();
+
+        // El formulario del trabajo necesita los tipos de pago para su combo
+        $tiposPago = TiposPagoEmpleado::query()
+            ->where('estado', true)
+            ->orderBy('nombre')
+            ->get();
+
+        return view(
+            'procesos.procesos_orden.show',
+            compact(
+                'title',
+                'breadcrumbs',
+                'ordenTrabajo',
+                'procesoOrden',
+                'trabajosDataTable',
+                'empleadosSelectorDataTable',
+                'cantidadTrabajos',
+                'tiposPago'
+            )
+        );
+    }
+
+    /**
+     * El proceso de la URL tiene que ser de la orden de la URL.
+     */
+    private function validarProcesoPertenece(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden
+    ): void {
+        abort_unless(
+            (int) $procesoOrden->orden_trabajo_id === $ordenTrabajo->id,
+            404
+        );
     }
 
     public function create(OrdenesTrabajo $ordenTrabajo)

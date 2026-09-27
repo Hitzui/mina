@@ -77,7 +77,6 @@ class TrabajosEmpleado extends Model
 	protected $casts = [
 		self::ID => 'int',
 		self::EMPLEADO_ID => 'int',
-		self::ORDEN_TRABAJO_ID => 'int',
 		self::PROCESO_ORDEN_ID => 'int',
 		self::TIPO_PAGO_ID => 'int',
 		self::FECHA => 'datetime',
@@ -104,11 +103,11 @@ class TrabajosEmpleado extends Model
 		return $this->belongsTo(Moneda::class);
 	}
 
-	public function orden_trabajo()
-	{
-		return $this->belongsTo(OrdenesTrabajo::class, \App\Models\TrabajosEmpleado::ORDEN_TRABAJO_ID);
-	}
-
+	/*
+	 * La relacion con la orden de trabajo se elimino junto con la columna
+	 * orden_trabajo_id: ahora el trabajo cuelga del proceso y la orden se
+	 * alcanza a traves de el. Queda en App\Models\TrabajosEmpleado.
+	 */
 	public function proceso_orden()
 	{
 		return $this->belongsTo(ProcesosOrden::class, \App\Models\TrabajosEmpleado::PROCESO_ORDEN_ID);

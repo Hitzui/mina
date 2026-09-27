@@ -12,9 +12,25 @@ use Yajra\DataTables\Services\DataTable;
 
 class TrabajosEmpleadosDataTable extends DataTable
 {
+    protected int $procesoOrdenId;
 
-    protected int $ordenTrabajoId;
+    protected ?int $ordenTrabajoId = null;
 
+    /**
+     * Los trabajos cuelgan del proceso, asi que la lista se acota al
+     * proceso que se esta viendo.
+     */
+    public function setProcesoOrdenId(int $procesoOrdenId): self
+    {
+        $this->procesoOrdenId = $procesoOrdenId;
+
+        return $this;
+    }
+
+    /**
+     * La orden solo hace falta para armar la url del ajax, que lleva el
+     * proceso: se deduce de el, asi que se recibe aparte.
+     */
     public function setOrdenTrabajoId(int $ordenTrabajoId): self
     {
         $this->ordenTrabajoId = $ordenTrabajoId;
@@ -33,7 +49,12 @@ class TrabajosEmpleadosDataTable extends DataTable
             ->editColumn('cantidad', fn($trabajo) => number_format($trabajo->cantidad, 2))
             ->editColumn('tarifa', fn($trabajo) => number_format($trabajo->tarifa, 2))
             ->editColumn('total', fn($trabajo) => number_format($trabajo->total, 2))
-            ->addColumn('action', 'procesos.ordenes_trabajo.trabajos_empleados._action')
+            // Se pasa el modelo entero y no sus atributos sueltos: la
+            // accion necesita el proceso para armar la url
+            ->addColumn('action', fn($trabajo) => view(
+                'procesos.ordenes_trabajo.trabajos_empleados._action',
+                ['trabajo' => $trabajo]
+            )->render())
             ->rawColumns(['action'])
             ->setRowId('id');
     }
@@ -41,22 +62,24 @@ class TrabajosEmpleadosDataTable extends DataTable
     public function query(TrabajosEmpleado $model): QueryBuilder
     {
         return $model->newQuery()
-            ->where('orden_trabajo_id', $this->ordenTrabajoId)
-            ->with(['empleado', 'tipo_pago', 'moneda']);
+            ->where('proceso_orden_id', $this->procesoOrdenId)
+            ->with(['empleado', 'tipo_pago', 'moneda', 'proceso_orden.orden_trabajo']);
     }
 
     public function html(): HtmlBuilder
     {
+        $url = route(
+            'procesos.ordenes_trabajo.procesos.trabajos_empleados.index',
+            [
+                'ordenTrabajo' => $this->ordenTrabajoId,
+                'procesoOrden' => $this->procesoOrdenId,
+            ]
+        );
+
         return $this->builder()
             ->setTableId('trabajos-empleados-table')
             ->columns($this->getColumns())
-            ->minifiedAjax(
-                route('procesos.ordenes_trabajo.trabajos_empleados.index',
-                    [
-                        'ordenTrabajo' => $this->ordenTrabajoId
-                    ]
-                )
-            )
+            ->minifiedAjax($url)
             ->orderBy(1, 'desc')
             ->responsive(true)
             ->autoWidth(false)

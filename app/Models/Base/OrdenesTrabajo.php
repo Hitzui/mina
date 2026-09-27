@@ -127,8 +127,24 @@ class OrdenesTrabajo extends Model
 		return $this->hasMany(Recuperacione::class, Recuperacione::ORDEN_TRABAJO_ID);
 	}
 
+	/*
+	 * Los trabajos de los empleados ya no tienen orden_trabajo_id: cuelgan
+	 * del proceso, y la orden se alcanza a traves de el.
+	 *
+	 * La relacion se declara en App\Models\OrdenesTrabajo usando
+	 * hasManyThrough, para que consultar los trabajos de una orden siga
+	 * funcionando. Esta de aqui queda solo si alguien la usa por su nombre
+	 * antiguo, y devuelve lo mismo.
+	 */
 	public function trabajos_empleados_where_orden_trabajo()
 	{
-		return $this->hasMany(TrabajosEmpleado::class, TrabajosEmpleado::ORDEN_TRABAJO_ID);
+		return $this->hasManyThrough(
+			TrabajosEmpleado::class,
+			ProcesosOrden::class,
+			'orden_trabajo_id',
+			'proceso_orden_id',
+			'id',
+			'id'
+		);
 	}
 }

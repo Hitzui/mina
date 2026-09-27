@@ -6,6 +6,7 @@ use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Empleado;
+use App\Models\EmpleadosPago;
 use App\Models\Moneda;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
@@ -14,9 +15,16 @@ use App\Models\TiposPagoEmpleado;
 use App\Models\TrabajosEmpleado;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use App\Models\EmpleadosPago;
 use RealRashid\SweetAlert\Facades\Alert;
 
+/**
+ * Trabajos de los empleados dentro de un proceso de la orden.
+ *
+ * El trabajo cuelga del proceso, no de la orden: la orden se alcanza a
+ * traves del proceso y no se guarda por separado, para que los dos datos
+ * no puedan quedar desincronizados. Por eso todas las rutas llevan el
+ * proceso, y la orden se deduce de el.
+ */
 class TrabajosEmpleadoController extends Controller
 {
     use AuthorizesModule;
@@ -26,81 +34,45 @@ class TrabajosEmpleadoController extends Controller
         $this->authorizeModule('trabajos_empleado');
     }
 
-    public function index(OrdenesTrabajo $ordenTrabajo, TrabajosEmpleadosDataTable $dataTable)
-    {
-        $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
+    public function index(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
+        TrabajosEmpleadosDataTable $dataTable
+    ) {
+        $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
+
+        $dataTable->setProcesoOrdenId($procesoOrden->id);
+
         return $dataTable->ajax();
     }
 
-    public function create(OrdenesTrabajo $ordenTrabajo)
+    /**
+     * El trabajo se registra desde el modal de la pantalla del proceso.
+     * Esta ruta se conserva para que la url no de error, pero lleva ahi.
+     */
+    public function create(OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden)
     {
-        $empleados = Empleado::where('estado', 1)
-            ->orderBy('nombre')
-            ->get();
+        $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
-        $tiposPago = TiposPagoEmpleado::where('estado', 1)
-            ->orderBy('nombre')
-            ->get();
-
-        $monedas = Moneda::where('estado', 1)
-            ->orderBy('nombre')
-            ->get();
-
-        $procesos = ProcesosOrden::where('orden_trabajo_id', $ordenTrabajo->id)
-            ->orderBy('id')
-            ->get();
-
-        return view('procesos.ordenes_trabajo.trabajos_empleados.create', compact(
-            'ordenTrabajo',
-            'empleados',
-            'tiposPago',
-            'monedas',
-            'procesos'
-        ));
+        return redirect()->route(
+            'procesos.ordenes_trabajo.procesos.show',
+            [$ordenTrabajo, $procesoOrden]
+        );
     }
 
-    public function store(Request $request, OrdenesTrabajo $ordenTrabajo)
+    public function store(Request $request, OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden)
     {
-        $validated = $request->validate([
-            'empleado_id' => [
-                'required',
-                'integer',
-                Rule::exists('empleados', 'id')->where('estado', 1),
-            ],
-            'proceso_orden_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('procesos_orden', 'id')->where(function ($query) use ($ordenTrabajo) {
-                    $query->where('orden_trabajo_id', $ordenTrabajo->id);
-                }),
-            ],
-            'tipo_pago_id' => [
-                'required',
-                'integer',
-                Rule::exists('tipos_pago_empleado', 'id')->where('estado', 1),
-            ],
-            'fecha' => ['required', 'date'],
-            'hora_inicio' => ['nullable', 'date_format:H:i'],
-            'hora_fin' => ['nullable', 'date_format:H:i', 'after_or_equal:hora_inicio'],
-            'descripcion' => ['nullable', 'string', 'max:255'],
-            'cantidad' => ['required', 'numeric', 'min:0'],
-            'unidad' => ['required', 'string', 'max:20'],
-            'observaciones' => ['nullable', 'string'],
-        ]);
+        $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
-        $pago = EmpleadosPago::with('moneda')
-            ->where('empleado_id', $validated['empleado_id'])
-            ->where('tipo_pago_id', $validated['tipo_pago_id'])
-            ->where('estado', 1)
-            ->whereDate('fecha_inicio', '<=', $validated['fecha'])
-            ->where(function ($query) use ($validated) {
-                $query->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', $validated['fecha']);
-            })
-            ->orderByDesc('fecha_inicio')
-            ->first();
+        $validated = $this->validarTrabajo($request);
 
-        if (!$pago) {
+        $tarifa = $this->tarifaVigentePara(
+            $validated['empleado_id'],
+            $validated['tipo_pago_id'],
+            $validated['fecha']
+        );
+
+        if ($tarifa === null) {
             return back()
                 ->withInput()
                 ->withErrors([
@@ -108,14 +80,11 @@ class TrabajosEmpleadoController extends Controller
                 ]);
         }
 
-        $tarifa = (float) $pago->tarifa;
-        $moneda = $pago->moneda;
-
         $tipoCambio = 1;
         $advertenciaTipoCambio = false;
 
-        if ($moneda && ! $moneda->es_moneda_base) {
-            $tipoCambio = $this->obtenerTipoCambio($pago->moneda_id, $validated['fecha']);
+        if ($tarifa['moneda'] && ! $tarifa['moneda']->es_moneda_base) {
+            $tipoCambio = $this->obtenerTipoCambio($tarifa['moneda_id'], $validated['fecha']);
 
             if ($tipoCambio === null) {
                 $advertenciaTipoCambio = true;
@@ -129,24 +98,22 @@ class TrabajosEmpleadoController extends Controller
          * El total se calcula con la regla del tipo de pago: para
          * "por trabajo" o "fijo" la tarifa ES el pago y la cantidad no
          * multiplica. Se resuelve desde el tipo de pago, no desde el
-         * nombre, para que serve para cualquier tipo futuro.
+         * nombre, para que sirva para cualquier tipo futuro.
          */
-        $tipoPago = TiposPagoEmpleado::findOrFail(
-            $validated['tipo_pago_id']
-        );
+        $tipoPago = TiposPagoEmpleado::findOrFail($validated['tipo_pago_id']);
 
-        $validated['orden_trabajo_id'] = $ordenTrabajo->id;
-        $validated['tarifa'] = $tarifa;
-        $validated['moneda_id'] = $pago->moneda_id;
+        $tarifaNio = round($tarifa['tarifa'] * $tipoCambio, 4);
+
+        // El proceso viene de la ruta, nunca del formulario
+        $validated['proceso_orden_id'] = $procesoOrden->id;
+        $validated['tarifa'] = $tarifa['tarifa'];
+        $validated['moneda_id'] = $tarifa['moneda_id'];
         $validated['tipo_cambio'] = $tipoCambio;
-        $validated['total'] = $tipoPago->calcularTotal($cantidad, $tarifa);
-        $validated['tarifa_nio'] = round($tarifa * $tipoCambio, 4);
-        $validated['total_nio'] = $tipoPago->calcularTotal(
-            $cantidad,
-            $validated['tarifa_nio']
-        );
+        $validated['total'] = $tipoPago->calcularTotal($cantidad, $tarifa['tarifa']);
+        $validated['tarifa_nio'] = $tarifaNio;
+        $validated['total_nio'] = $tipoPago->calcularTotal($cantidad, $tarifaNio);
 
-        $trabajo = TrabajosEmpleado::create($validated);
+        TrabajosEmpleado::create($validated);
 
         $mensaje = 'El trabajo del empleado se registró correctamente.';
 
@@ -155,27 +122,25 @@ class TrabajosEmpleadoController extends Controller
         }
 
         return redirect()
-            ->route('procesos.ordenes_trabajo.show', $ordenTrabajo)
+            ->route('procesos.ordenes_trabajo.procesos.show', [$ordenTrabajo, $procesoOrden])
             ->with('success', $mensaje);
     }
 
-    public function show(OrdenesTrabajo $ordenTrabajo, TrabajosEmpleado $trabajosEmpleado)
-    {
-        $this->validarTrabajoOrden($ordenTrabajo, $trabajosEmpleado);
+    public function show(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
+        TrabajosEmpleado $trabajosEmpleado
+    ) {
+        $this->validarTrabajoProceso($ordenTrabajo, $procesoOrden, $trabajosEmpleado);
 
-        $trabajosEmpleado->load([
-            'empleado',
-            'tipo_pago',
-            'moneda',
-            'proceso_orden',
-        ]);
+        $trabajosEmpleado->load(['empleado', 'tipo_pago', 'moneda']);
 
         return response()->json([
             'id' => $trabajosEmpleado->id,
             'empleado' => $trabajosEmpleado->empleado?->nombre ?? '—',
             'fecha' => $trabajosEmpleado->fecha?->format('d/m/Y'),
             'tipo_pago' => $trabajosEmpleado->tipo_pago?->nombre ?? '—',
-            'proceso' => $trabajosEmpleado->proceso_orden?->nombre_completo ?? TrabajosEmpleado::ETIQUETA_GENERAL,
+            'proceso' => $procesoOrden->nombre_completo,
             'hora_inicio' => $trabajosEmpleado->hora_inicio?->format('H:i'),
             'hora_fin' => $trabajosEmpleado->hora_fin?->format('H:i'),
             'cantidad' => $trabajosEmpleado->cantidad,
@@ -191,17 +156,19 @@ class TrabajosEmpleadoController extends Controller
         ]);
     }
 
-    public function edit(OrdenesTrabajo $ordenTrabajo, TrabajosEmpleado $trabajosEmpleado)
-    {
-        $this->validarTrabajoOrden($ordenTrabajo, $trabajosEmpleado);
+    public function edit(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
+        TrabajosEmpleado $trabajosEmpleado
+    ) {
+        $this->validarTrabajoProceso($ordenTrabajo, $procesoOrden, $trabajosEmpleado);
 
-        $trabajosEmpleado->load(['empleado', 'tipo_pago', 'moneda', 'proceso_orden']);
+        $trabajosEmpleado->load(['empleado', 'tipo_pago', 'moneda']);
 
         return response()->json([
             'id' => $trabajosEmpleado->id,
             'empleado_id' => $trabajosEmpleado->empleado_id,
             'empleado' => $trabajosEmpleado->empleado?->nombre ?? '—',
-            'proceso_orden_id' => $trabajosEmpleado->proceso_orden_id,
             'tipo_pago_id' => $trabajosEmpleado->tipo_pago_id,
             'fecha' => $trabajosEmpleado->fecha?->format('Y-m-d'),
             'hora_inicio' => $trabajosEmpleado->hora_inicio?->format('H:i'),
@@ -224,50 +191,23 @@ class TrabajosEmpleadoController extends Controller
         ]);
     }
 
-    public function update(Request $request, OrdenesTrabajo $ordenTrabajo, TrabajosEmpleado $trabajosEmpleado)
-    {
-        $this->validarTrabajoOrden($ordenTrabajo, $trabajosEmpleado);
+    public function update(
+        Request $request,
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
+        TrabajosEmpleado $trabajosEmpleado
+    ) {
+        $this->validarTrabajoProceso($ordenTrabajo, $procesoOrden, $trabajosEmpleado);
 
-        $validated = $request->validate([
-            'empleado_id' => [
-                'required',
-                'integer',
-                Rule::exists('empleados', 'id')->where('estado', 1),
-            ],
-            'proceso_orden_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('procesos_orden', 'id')->where(function ($query) use ($ordenTrabajo) {
-                    $query->where('orden_trabajo_id', $ordenTrabajo->id);
-                }),
-            ],
-            'tipo_pago_id' => [
-                'required',
-                'integer',
-                Rule::exists('tipos_pago_empleado', 'id')->where('estado', 1),
-            ],
-            'fecha' => ['required', 'date'],
-            'hora_inicio' => ['nullable', 'date_format:H:i'],
-            'hora_fin' => ['nullable', 'date_format:H:i', 'after_or_equal:hora_inicio'],
-            'descripcion' => ['nullable', 'string', 'max:255'],
-            'cantidad' => ['required', 'numeric', 'min:0'],
-            'unidad' => ['required', 'string', 'max:20'],
-            'observaciones' => ['nullable', 'string'],
-        ]);
+        $validated = $this->validarTrabajo($request);
 
-        $pago = EmpleadosPago::with('moneda')
-            ->where('empleado_id', $validated['empleado_id'])
-            ->where('tipo_pago_id', $validated['tipo_pago_id'])
-            ->where('estado', true)
-            ->whereDate('fecha_inicio', '<=', $validated['fecha'])
-            ->where(function ($query) use ($validated) {
-                $query->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', $validated['fecha']);
-            })
-            ->orderByDesc('fecha_inicio')
-            ->first();
+        $tarifa = $this->tarifaVigentePara(
+            $validated['empleado_id'],
+            $validated['tipo_pago_id'],
+            $validated['fecha']
+        );
 
-        if (!$pago) {
+        if ($tarifa === null) {
             return back()
                 ->withInput()
                 ->withErrors([
@@ -275,15 +215,11 @@ class TrabajosEmpleadoController extends Controller
                 ]);
         }
 
-        $monedaId = $pago->moneda_id;
-        $tarifa = (float) $pago->tarifa;
-        $moneda = $pago->moneda;
-
         $tipoCambio = 1;
         $advertenciaTipoCambio = false;
 
-        if ($moneda && ! $moneda->es_moneda_base) {
-            $tipoCambio = $this->obtenerTipoCambio($monedaId, $validated['fecha']);
+        if ($tarifa['moneda'] && ! $tarifa['moneda']->es_moneda_base) {
+            $tipoCambio = $this->obtenerTipoCambio($tarifa['moneda_id'], $validated['fecha']);
 
             if ($tipoCambio === null) {
                 $advertenciaTipoCambio = true;
@@ -292,23 +228,17 @@ class TrabajosEmpleadoController extends Controller
         }
 
         $cantidad = (float) $validated['cantidad'];
-        $tarifaNio = round($tarifa * $tipoCambio, 4);
+        $tarifaNio = round($tarifa['tarifa'] * $tipoCambio, 4);
 
         // Misma regla del tipo de pago que en store()
-        $tipoPago = TiposPagoEmpleado::findOrFail(
-            $validated['tipo_pago_id']
-        );
+        $tipoPago = TiposPagoEmpleado::findOrFail($validated['tipo_pago_id']);
 
-        $total = $tipoPago->calcularTotal($cantidad, $tarifa);
-        $totalNio = $tipoPago->calcularTotal($cantidad, $tarifaNio);
-
-        $validated['orden_trabajo_id'] = $ordenTrabajo->id;
-        $validated['moneda_id'] = $monedaId;
-        $validated['tarifa'] = $tarifa;
-        $validated['total'] = $total;
+        $validated['moneda_id'] = $tarifa['moneda_id'];
+        $validated['tarifa'] = $tarifa['tarifa'];
+        $validated['total'] = $tipoPago->calcularTotal($cantidad, $tarifa['tarifa']);
         $validated['tipo_cambio'] = $tipoCambio;
         $validated['tarifa_nio'] = $tarifaNio;
-        $validated['total_nio'] = $totalNio;
+        $validated['total_nio'] = $tipoPago->calcularTotal($cantidad, $tarifaNio);
 
         $trabajosEmpleado->update($validated);
 
@@ -319,16 +249,17 @@ class TrabajosEmpleadoController extends Controller
         }
 
         return redirect()
-            ->route('procesos.ordenes_trabajo.show', $ordenTrabajo)
+            ->route('procesos.ordenes_trabajo.procesos.show', [$ordenTrabajo, $procesoOrden])
             ->with('success', $mensaje);
     }
 
     public function destroy(
         Request $request,
         OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
         TrabajosEmpleado $trabajosEmpleado
     ) {
-        $this->validarTrabajoOrden($ordenTrabajo, $trabajosEmpleado);
+        $this->validarTrabajoProceso($ordenTrabajo, $procesoOrden, $trabajosEmpleado);
 
         $trabajosEmpleado->delete();
 
@@ -352,18 +283,72 @@ class TrabajosEmpleadoController extends Controller
 
         Alert::toast($mensaje)->success()->flash();
 
-        return redirect()
-            ->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
+        return redirect()->route(
+            'procesos.ordenes_trabajo.procesos.show',
+            [$ordenTrabajo, $procesoOrden]
+        );
     }
 
-    private function validarTrabajoOrden(
-        OrdenesTrabajo $ordenTrabajo,
-        TrabajosEmpleado $trabajosEmpleado
-    ): void {
-        abort_unless(
-            (int) $trabajosEmpleado->orden_trabajo_id === $ordenTrabajo->id,
-            404
-        );
+    /**
+     * Tarifa vigente de un empleado para un tipo de pago en una fecha.
+     *
+     * Devuelve null cuando no hay, para que cada llamador decida como
+     * avisar. Se centraliza aqui porque store() y update() la buscan
+     * igual y antes estaba duplicada.
+     *
+     * @return array{tarifa: float, moneda_id: int, moneda: ?Moneda}|null
+     */
+    private function tarifaVigentePara(int $empleadoId, int $tipoPagoId, string $fecha): ?array
+    {
+        $pago = EmpleadosPago::with('moneda')
+            ->where('empleado_id', $empleadoId)
+            ->where('tipo_pago_id', $tipoPagoId)
+            ->where('estado', true)
+            ->whereDate('fecha_inicio', '<=', $fecha)
+            ->where(function ($query) use ($fecha) {
+                $query->whereNull('fecha_fin')
+                    ->orWhereDate('fecha_fin', '>=', $fecha);
+            })
+            ->orderByDesc('fecha_inicio')
+            ->first();
+
+        if (!$pago) {
+            return null;
+        }
+
+        return [
+            'tarifa' => (float) $pago->tarifa,
+            'moneda_id' => $pago->moneda_id,
+            'moneda' => $pago->moneda,
+        ];
+    }
+
+    private function validarTrabajo(Request $request): array
+    {
+        /*
+         * El proceso no se valida aqui: viene de la ruta y ya se
+         * comprueba que pertenece a la orden. Aceptarlo del formulario
+         * permitiria colar un trabajo en un proceso de otra orden.
+         */
+        return $request->validate([
+            'empleado_id' => [
+                'required',
+                'integer',
+                Rule::exists('empleados', 'id')->where('estado', 1),
+            ],
+            'tipo_pago_id' => [
+                'required',
+                'integer',
+                Rule::exists('tipos_pago_empleado', 'id')->where('estado', 1),
+            ],
+            'fecha' => ['required', 'date'],
+            'hora_inicio' => ['nullable', 'date_format:H:i'],
+            'hora_fin' => ['nullable', 'date_format:H:i', 'after_or_equal:hora_inicio'],
+            'descripcion' => ['nullable', 'string', 'max:255'],
+            'cantidad' => ['required', 'numeric', 'min:0'],
+            'unidad' => ['required', 'string', 'max:20'],
+            'observaciones' => ['nullable', 'string'],
+        ]);
     }
 
     /**
@@ -392,8 +377,13 @@ class TrabajosEmpleadoController extends Controller
         return $valor > 0 ? $valor : null;
     }
 
-    public function tarifaVigente(Request $request, OrdenesTrabajo $ordenTrabajo)
-    {
+    public function tarifaVigente(
+        Request $request,
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden
+    ) {
+        $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
+
         $request->validate([
             'empleado_id' => ['required', 'integer', 'exists:empleados,id'],
             'tipo_pago_id' => ['required', 'integer', 'exists:tipos_pago_empleado,id'],
@@ -426,40 +416,75 @@ class TrabajosEmpleadoController extends Controller
         $tarifaNio = $tarifa;
         $tipoCambioEncontrado = true;
 
-        /*
-         * La moneda base (es_moneda_base) no necesita conversión.
-         * No se compara el código porque no es 'NIO': en la base de
-         * datos los códigos son '001' (córdoba) y '002' (dólar).
-         */
-        if (! $pago->moneda?->es_moneda_base) {
-            $tipoCambio = $this->obtenerTipoCambio($pago->moneda_id, $request->fecha);
+        if ($pago->moneda && ! $pago->moneda->es_moneda_base) {
+            $obtenido = $this->obtenerTipoCambio($pago->moneda_id, $request->fecha);
 
-            if ($tipoCambio !== null) {
-                $tarifaNio = round($tarifa * $tipoCambio, 4);
-            } else {
+            if ($obtenido === null) {
                 $tipoCambioEncontrado = false;
-                $tipoCambio = 1;
-                $tarifaNio = $tarifa;
+            } else {
+                $tipoCambio = $obtenido;
+                $tarifaNio = round($tarifa * $tipoCambio, 4);
             }
         }
 
         return response()->json([
             'tarifa' => $tarifa,
-            'moneda_id' => $pago->moneda_id,
             'moneda' => $codigoMoneda ?: '—',
             'tipo_cambio' => $tipoCambio,
             'tarifa_nio' => $tarifaNio,
             'tipo_cambio_encontrado' => $tipoCambioEncontrado,
-            'fecha_inicio' => $pago->fecha_inicio?->format('d/m/Y'),
-            'fecha_fin' => $pago->fecha_fin?->format('d/m/Y'),
-
-            /*
-             * El navegador necesita la regla para previsualizar el
-             * total. Es solo una ayuda visual: al guardar, el servidor
-             * la vuelve a aplicar y es la que manda.
-             */
             'metodo_calculo' => $pago->tipo_pago?->metodo_calculo
                 ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+            'fecha_inicio' => $pago->fecha_inicio?->format('d/m/Y'),
+            'fecha_fin' => $pago->fecha_fin?->format('d/m/Y'),
         ]);
+    }
+
+    /**
+     * El proceso de la URL tiene que ser de la orden de la URL.
+     *
+     * Sin esto se podria abrir el proceso de una orden escribiendo la de
+     * otra en la direccion, y el trabajo se guardaria en una orden
+     * distinta a la que se cree ver.
+     */
+    private function validarProcesoPertenece(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden
+    ): void {
+        abort_unless(
+            (int) $procesoOrden->orden_trabajo_id === $ordenTrabajo->id,
+            404
+        );
+    }
+
+    /**
+     * El trabajo de la URL tiene que ser del proceso de la URL.
+     */
+    private function validarTrabajoProceso(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrden $procesoOrden,
+        TrabajosEmpleado $trabajosEmpleado
+    ): void {
+        $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
+
+        abort_unless(
+            (int) $trabajosEmpleado->proceso_orden_id === $procesoOrden->id,
+            404
+        );
+    }
+
+    private function empleadosActivos()
+    {
+        return Empleado::where('estado', 1)->orderBy('nombre')->get();
+    }
+
+    private function tiposPagoActivos()
+    {
+        return TiposPagoEmpleado::where('estado', 1)->orderBy('nombre')->get();
+    }
+
+    private function monedasActivas()
+    {
+        return Moneda::where('estado', 1)->orderBy('nombre')->get();
     }
 }

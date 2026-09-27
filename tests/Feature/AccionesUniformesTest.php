@@ -103,6 +103,16 @@ class AccionesUniformesTest extends TestCase
     {
         $html = $this->leerPartial($relativo);
 
+        // Antes de buscar etiquetas se quitan dos cosas que rompen el
+        // barrido de "<a ...>" y "<button ...>":
+        //
+        // - los bloques @php, que no son HTML;
+        // - las expresiones {{ ... }}, porque dentro hay operadores como
+        //   $trabajo->id cuyo ">" cerraba la etiqueta a media lectura y
+        //   hacia creer que al boton le faltaba el title.
+        $html = preg_replace('/@php.*?@endphp/s', '', $html);
+        $html = preg_replace('/\{\{.*?\}\}/s', '{{ }}', $html);
+
         preg_match_all('/<(a|button)\b[^>]*class="[^"]*btn btn-sm[^"]*"[^>]*>/', $html, $botones);
 
         $this->assertNotEmpty($botones[0], "$relativo no tiene botones de accion");

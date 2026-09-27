@@ -173,7 +173,7 @@ $(function () {
                 empleadoNombre.val(response.empleado ?? '—');
                 habilitarTipoPago(true);
                 fijar(tipoPago, response.tipo_pago_id);
-                fijar($('#trabajoProceso'), response.proceso_orden_id ?? '');
+                // El proceso no se toca: viene de la url de la pantalla
                 fecha.val(response.fecha ?? '');
                 $('#trabajoHoraInicio').val(response.hora_inicio ?? '');
                 $('#trabajoHoraFin').val(response.hora_fin ?? '');
@@ -339,7 +339,7 @@ $(function () {
         tarifaNio.val(0);
         totalNio.val(0);
 
-        // El reset tambien tocaba proceso y unidad: se dejan como deben verse
+        // El reset tambien toca el combo de unidad: se deja como debe verse
         $formulario.find('select.select2').each(function () {
             sincronizarSelect2($(this));
         });

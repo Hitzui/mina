@@ -147,6 +147,16 @@ Route::prefix('procesos/ordenes-trabajo/{ordenTrabajo}')
             [ProcesoOrdenController::class, 'data']
         )->name('data');
 
+        /*
+        | El proceso es donde vive el trabajo de los empleados, asi que
+        | necesita pantalla propia: desde ahi se ven y se registran los
+        | trabajos del proceso y cuanto se le paga a cada uno.
+        */
+        Route::get(
+            'procesos/{procesoOrden}',
+            [ProcesoOrdenController::class, 'show']
+        )->name('show');
+
         Route::get(
             'procesos/{procesoOrden}/edit',
             [ProcesoOrdenController::class, 'edit']
@@ -180,15 +190,21 @@ Route::resource(
     ->names('configuracion.tipos_pago_empleado');
 
 
+/*
+| Los trabajos de los empleados cuelgan de un proceso, no de la orden
+| directamente. La orden sigue estando en la URL porque es el contexto de
+| navegación, y ademas sirve para comprobar que el proceso pertenece a esa
+| orden y no a otra.
+*/
 Route::get(
-    'procesos/ordenes-trabajo/{ordenTrabajo}/trabajos-empleados/tarifa',
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/trabajos-empleados/tarifa',
     [TrabajosEmpleadoController::class, 'tarifaVigente']
-)->name('procesos.ordenes_trabajo.trabajos_empleados.tarifa');
+)->name('procesos.ordenes_trabajo.procesos.trabajos_empleados.tarifa');
 
 Route::resource(
-    'procesos/ordenes-trabajo/{ordenTrabajo}/trabajos-empleados',
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/trabajos-empleados',
     TrabajosEmpleadoController::class
-)->names('procesos.ordenes_trabajo.trabajos_empleados');
+)->names('procesos.ordenes_trabajo.procesos.trabajos_empleados');
 
 
 }); // fin del grupo middleware('auth')

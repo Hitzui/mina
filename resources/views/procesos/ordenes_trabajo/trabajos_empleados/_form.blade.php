@@ -11,11 +11,6 @@
         </div>
     </div>
 
-    <div class="col-md-4">
-        <label for="trabajoFecha" class="form-label">Fecha <span class="text-danger">*</span></label>
-        <input type="date" name="fecha" id="trabajoFecha" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
-    </div>
-
     <div class="col-md-6">
         <label for="trabajoTipoPago" class="form-label">Tipo de pago <span class="text-danger">*</span></label>
         <select name="tipo_pago_id" id="trabajoTipoPago" class="form-select select2" required disabled>
@@ -30,29 +25,8 @@
     </div>
 
     <div class="col-md-6">
-        <label for="trabajoProceso" class="form-label">Proceso</label>
-        <select
-            name="proceso_orden_id"
-            id="trabajoProceso"
-            class="form-select select2"
-            data-select2-opciones='{"placeholder":"Buscar proceso..."}'
-        >
-            {{--
-                Sin proceso no significa sin_especificar: es un trabajo
-                general de la orden. Se guarda con proceso_orden_id nulo.
-            --}}
-            <option value="">
-                {{ \App\Models\TrabajosEmpleado::ETIQUETA_GENERAL }}
-            </option>
-            @foreach($procesos as $proceso)
-                <option value="{{ $proceso->id }}">
-                    {{ $proceso->nombre_completo }}
-                </option>
-            @endforeach
-        </select>
-        <small class="text-muted" id="trabajoProcesoAyuda">
-            Elija un proceso o deje el trabajo como general de la orden.
-        </small>
+        <label for="trabajoFecha" class="form-label">Fecha <span class="text-danger">*</span></label>
+        <input type="date" name="fecha" id="trabajoFecha" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
     </div>
 
     <div class="col-md-3">

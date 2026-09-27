@@ -290,7 +290,11 @@ class Select2EnFormulariosTest extends TestCase
     {
         $orden = OrdenesTrabajo::firstOrFail();
 
-        $r = $this->get('/procesos/ordenes-trabajo/' . $orden->id);
+        // Ahora el trabajo se registra dentro de un proceso, asi que la
+        // pantalla que lo tiene es la del proceso, no la de la orden.
+        $proceso = ProcesosOrden::where('orden_trabajo_id', $orden->id)->firstOrFail();
+
+        $r = $this->get("/procesos/ordenes-trabajo/{$orden->id}/procesos/{$proceso->id}");
 
         $r->assertOk();
         $r->assertSee('select2-init-', false);
@@ -298,9 +302,10 @@ class Select2EnFormulariosTest extends TestCase
 
         $html = $r->getContent();
 
-        foreach (['trabajoTipoPago', 'trabajoProceso', 'trabajoUnidad'] as $id) {
-            // Los atributos pueden caer en lineas distintas segun el
-            // formato del Blade, asi que se busca el tag completo.
+        // El combo de proceso ya no esta: viene de la url
+        $this->assertStringNotContainsString('id="trabajoProceso"', $html);
+
+        foreach (['trabajoTipoPago', 'trabajoUnidad'] as $id) {
             $this->assertMatchesRegularExpression(
                 '/<select\b[^>]*id="' . $id . '"[^>]*>/',
                 $html,

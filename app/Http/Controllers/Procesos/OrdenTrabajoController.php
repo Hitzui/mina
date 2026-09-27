@@ -134,9 +134,7 @@ class OrdenTrabajoController extends Controller
      */
     public function show(
         string                     $id,
-        ProcesosOrdenDataTable     $dataTable,
-        TrabajosEmpleadosDataTable $trabajosEmpleadosDataTable,
-        EmpleadosSelectorDataTable $empleadosSelectorDataTable
+        ProcesosOrdenDataTable     $dataTable
     )
     {
         $title = "Información de Orden de Trabajo";
@@ -152,28 +150,14 @@ class OrdenTrabajoController extends Controller
 
         if ($ordenTrabajo) {
             $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
-            $trabajosEmpleadosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
-            $tiposPago = TiposPagoEmpleado::query()
-                ->where('estado', true)
-                ->orderBy('nombre')
-                ->get();
 
-            $procesos = ProcesosOrden::query()
-                ->where('orden_trabajo_id', $ordenTrabajo->id)
-                ->with('etapa')
-                ->orderBy('codigo')
-                ->get();
             return view(
                 'procesos.ordenes_trabajo.show',
                 compact(
                     'title',
                     'breadcrumbs',
                     'ordenTrabajo',
-                    'dataTable',
-                    'trabajosEmpleadosDataTable',
-                    'tiposPago',
-                    'procesos',
-                    'empleadosSelectorDataTable'
+                    'dataTable'
                 )
             );
         } else {

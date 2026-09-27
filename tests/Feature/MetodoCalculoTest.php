@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Empleado;
 use App\Models\EmpleadosPago;
 use App\Models\OrdenesTrabajo;
+use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,8 @@ class MetodoCalculoTest extends TestCase
 
     private OrdenesTrabajo $orden;
 
+    private ProcesosOrden $proceso;
+
     private Empleado $empleado;
 
     protected function setUp(): void
@@ -42,6 +45,10 @@ class MetodoCalculoTest extends TestCase
 
         $this->orden = OrdenesTrabajo::firstOrFail();
         $this->empleado = Empleado::where('estado', 1)->firstOrFail();
+
+        // El trabajo se registra dentro de un proceso
+        $this->proceso = ProcesosOrden::where('orden_trabajo_id', $this->orden->id)
+            ->firstOrFail();
     }
 
     /**
@@ -72,12 +79,15 @@ class MetodoCalculoTest extends TestCase
         return $tipo;
     }
 
+    /**
+     * El trabajo cuelga de un proceso, asi que las rutas lo llevan.
+     */
     private function registrarTrabajo(
         TiposPagoEmpleado $tipo,
         float $cantidad
     ) {
         return $this->post(
-            "/procesos/ordenes-trabajo/{$this->orden->id}/trabajos-empleados",
+            $this->rutaTrabajos(),
             [
                 'empleado_id' => $this->empleado->id,
                 'tipo_pago_id' => $tipo->id,
@@ -89,6 +99,14 @@ class MetodoCalculoTest extends TestCase
                 'descripcion' => 'Prueba automatica',
             ]
         );
+    }
+
+    private function rutaTrabajos(?int $procesoId = null, string $sufijo = ''): string
+    {
+        $procesoId ??= $this->proceso->id;
+
+        return "/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$procesoId}"
+            . "/trabajos-empleados{$sufijo}";
     }
 
     public function test_tarifa_ignora_la_cantidad(): void
@@ -152,7 +170,7 @@ class MetodoCalculoTest extends TestCase
 
         // Se cambia la cantidad a 20: el total debe seguir siendo 700
         $this->put(
-            "/procesos/ordenes-trabajo/{$this->orden->id}/trabajos-empleados/{$trabajo->id}",
+            $this->rutaTrabajos(sufijo: "/{$trabajo->id}"),
             [
                 'empleado_id' => $this->empleado->id,
                 'tipo_pago_id' => $tipo->id,
@@ -177,7 +195,7 @@ class MetodoCalculoTest extends TestCase
         );
 
         $r = $this->getJson(
-            "/procesos/ordenes-trabajo/{$this->orden->id}/trabajos-empleados/tarifa"
+            $this->rutaTrabajos(sufijo: '/tarifa')
             . '?empleado_id=' . $this->empleado->id
             . '&tipo_pago_id=' . $tipo->id
             . '&fecha=2026-03-10'

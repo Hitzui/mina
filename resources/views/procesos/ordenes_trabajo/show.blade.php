@@ -2,7 +2,6 @@
     <x-slot:pageTitle>{{ $title ?? 'Información de Orden de Trabajo' }}</x-slot:pageTitle>
     <x-breadcrumb :items="$breadcrumbs"/>
     <x-slot:headerFiles>
-        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
     </x-slot>
 
     <div class="row layout-top-spacing">
@@ -118,30 +117,11 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-12 mt-4">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h5 class="mb-1"><i class="fa-solid fa-users-gear me-2"></i>Trabajos de empleados</h5>
-                            <p class="text-muted mb-0">Trabajos realizados por los empleados en esta orden.</p>
-                        </div>
-                        <button type="button" class="btn btn-primary" id="btnNuevoTrabajoEmpleado">
-                            <i class="fa-solid fa-plus me-1"></i> Nuevo trabajo
-                        </button>
-                    </div>
-
-                    <div class="table-responsive">
-                        {{ $trabajosEmpleadosDataTable->html()->ajax([
-                            'url' => route('procesos.ordenes_trabajo.trabajos_empleados.index', $ordenTrabajo),
-                            'type' => 'GET'
-                        ])->table(['class' => 'table table-hover'], true) }}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    {{--
+        Los trabajos de los empleados ya no se listan aqui: cuelgan de
+        cada proceso, asi que se ven entrando al proceso. La tabla de
+        procesos de arriba muestra cuanto cuesta cada uno en mano de obra.
+    --}}
 
     <form id="formEliminarOrden" action="{{ route('procesos.ordenes_trabajo.destroy', $ordenTrabajo) }}" method="POST" class="d-none">
         @csrf
@@ -150,13 +130,6 @@
 
     <x-slot:footerFiles>
         {{ $dataTable->html()->scripts() }}
-        {{ $trabajosEmpleadosDataTable->html()->scripts() }}
-        {{ $empleadosSelectorDataTable->html()->scripts() }}
-        @vite(['resources/assets/js/select2/select2-init.js'])
-        <script src="{{ asset('js/ordenes_trabajo/trabajos_empleados.js') }}"></script>
     </x-slot>
 
-    @include('procesos.ordenes_trabajo.trabajos_empleados._modal_form')
-    @include('admin.empleados._modal_empleado')
-    @include('procesos.ordenes_trabajo.trabajos_empleados._modal_show')
 </x-base-layout>

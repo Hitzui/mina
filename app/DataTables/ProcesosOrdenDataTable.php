@@ -82,9 +82,27 @@ class ProcesosOrdenDataTable extends DataTable
                 };
             })
 
+            /*
+             * Lo que se le paga a los empleados por este proceso: la suma
+             * de los trabajos registrados, calculada al momento. Se
+             * muestra en la lista de la orden para poder comparar de un
+             * vistazo cuanto cuesta cada proceso en mano de obra.
+             */
+            ->addColumn('costo_empleados', function (ProcesosOrden $proceso) {
+                return number_format($proceso->costo_empleados, 2);
+            })
+
             ->addColumn('action', function (ProcesosOrden $proceso) {
 
                 $ordenTrabajo = $proceso->orden_trabajo;
+
+                $ver = route(
+                    'procesos.ordenes_trabajo.procesos.show',
+                    [
+                        'ordenTrabajo' => $ordenTrabajo,
+                        'procesoOrden' => $proceso,
+                    ]
+                );
 
                 $editar = route(
                     'procesos.ordenes_trabajo.procesos.edit',
@@ -104,6 +122,12 @@ class ProcesosOrdenDataTable extends DataTable
 
                 return '
                     <div class="btn-group" role="group">
+
+                        <a href="' . $ver . '"
+                           class="btn btn-sm btn-primary"
+                           title="Ver el proceso y sus trabajos">
+                            <i class="bi bi-eye"></i>
+                        </a>
 
                         <a href="' . $editar . '"
                            class="btn btn-sm btn-warning"
@@ -145,6 +169,8 @@ class ProcesosOrdenDataTable extends DataTable
             ->with([
                 'etapa',
                 'orden_trabajo',
+                // Para el costo de mano de obra, que se calcula al momento
+                'trabajos_empleados',
             ])
             ->where(
                 'orden_trabajo_id',
@@ -224,11 +250,15 @@ class ProcesosOrdenDataTable extends DataTable
                 ->title('Estado')
                 ->addClass('text-center'),
 
+            Column::computed('costo_empleados')
+                ->title('Costo empleados')
+                ->addClass('text-end'),
+
             Column::computed('action')
                 ->title('Acciones')
                 ->exportable(false)
                 ->printable(false)
-                ->width(90)
+                ->width(130)
                 ->addClass('text-center'),
         ];
     }
