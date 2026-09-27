@@ -9,6 +9,7 @@ use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EtapaController;
 use App\Http\Controllers\Inventario\MaterialesController;
 use App\Http\Controllers\Inventario\ProductoController;
+use App\Http\Controllers\Inventario\ProveedorController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
@@ -243,6 +244,22 @@ Route::resource(
         'movimientos' => 'movimiento',
     ])
     ->names('inventario.movimientos');
+
+/*
+/*
+| Los proveedores van antes que los materiales a proposito: comparten el
+| camino de los modales y el mismo modelo, asi que leerlos uno tras otro
+| ayuda. El orden en que se declaran no importa para que no se solapen: los
+| prefijos son distintos.
+*/
+Route::resource(
+    'inventario/proveedores',
+    ProveedorController::class
+)
+    ->parameters([
+        'proveedores' => 'proveedor',
+    ])
+    ->names('inventario.proveedores');
 
 Route::resource(
     'inventario/productos',

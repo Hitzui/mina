@@ -335,6 +335,15 @@
                     data-bs-parent="#accordionExample"
                 >
 
+                    <li class="{{ Request::routeIs('inventario.proveedores.*') ? 'active' : '' }}">
+                        <a href="{{ route('inventario.proveedores.index') }}">
+                            <div>
+                                <i class="bi bi-truck"></i>
+                                <span>Proveedores</span>
+                            </div>
+                        </a>
+                    </li>
+
                     <li class="{{ Request::routeIs('inventario.productos.*') ? 'active' : '' }}">
                         <a href="{{ route('inventario.productos.index') }}">
                             <div>
