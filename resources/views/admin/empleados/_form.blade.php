@@ -198,18 +198,18 @@
     @if(isset($empleado))
         <a href="{{ route('admin.empleados.show', $empleado) }}"
            class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left"></i> Volver
+            <i class="bi bi-arrow-left"></i> Volver
         </a>
     @else
         <a href="{{ route('admin.empleados.index') }}"
            class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left"></i> Cancelar
+            <i class="bi bi-arrow-left"></i> Cancelar
         </a>
     @endif
 
 
     <button type="submit" class="btn btn-primary">
-        <i class="fa-regular fa-floppy-disk"></i> {{ isset($empleado) ? 'Actualizar' : 'Guardar' }}
+        <i class="bi bi-save"></i> {{ isset($empleado) ? 'Actualizar' : 'Guardar' }}
     </button>
 
 </div>

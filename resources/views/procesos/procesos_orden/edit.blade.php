@@ -28,7 +28,7 @@
                         <div>
 
                             <h4 class="mb-1">
-                                <i class="fa-solid fa-gears me-2"></i>
+                                <i class="bi bi-gear me-2"></i>
                                 Editar Proceso
                             </h4>
 
@@ -47,7 +47,7 @@
                                 ) }}"
                                 class="btn btn-light"
                             >
-                                <i class="fa-solid fa-arrow-left me-1"></i>
+                                <i class="bi bi-arrow-left me-1"></i>
                                 Volver
                             </a>
 
@@ -77,7 +77,7 @@
                 <div class="card-body">
 
                     <h5 class="mb-4">
-                        <i class="fa-solid fa-file-lines me-2"></i>
+                        <i class="bi bi-file-text me-2"></i>
                         Orden de Trabajo
                     </h5>
 
@@ -143,7 +143,7 @@
                 <div class="card-body">
 
                     <h5 class="mb-4">
-                        <i class="fa-solid fa-pen-to-square me-2"></i>
+                        <i class="bi bi-pencil-square me-2"></i>
                         Datos del Proceso
                     </h5>
 

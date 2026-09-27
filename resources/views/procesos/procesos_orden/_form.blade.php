@@ -349,7 +349,7 @@
             ) }}"
             class="btn btn-light"
         >
-            <i class="fa-solid fa-xmark me-1"></i>
+            <i class="bi bi-x me-1"></i>
             Cancelar
         </a>
 
@@ -357,7 +357,7 @@
             type="submit"
             class="btn btn-primary"
         >
-            <i class="fa-solid fa-floppy-disk me-1"></i>
+            <i class="bi bi-save me-1"></i>
 
             {{ $esEdicion
                 ? 'Actualizar proceso'

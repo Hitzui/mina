@@ -13,7 +13,7 @@
         <div class="card-header">Administrar Clientes</div>
         <div class="card-body">
             <a href="{{ route('admin.clientes.create') }}" class="btn btn-outline-info">
-                <i class="fa-solid fa-user-plus"></i> Ingresar Nuevo Cliente
+                <i class="bi bi-person-plus"></i> Ingresar Nuevo Cliente
             </a>
             <p>&nbsp;</p>
             <div class="table-responsive">

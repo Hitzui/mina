@@ -75,7 +75,7 @@
                     </a>
 
                     <a href="{{ route('admin.empleados.pagos.edit', [$empleado, $empleadoPago]) }}" class="btn btn-warning">
-                        <i class="fa-solid fa-pencil me-1"></i> Editar
+                        <i class="bi bi-pencil me-1"></i> Editar
                     </a>
 
                     <a href="{{ route('admin.empleados.pagos.destroy', [$empleado, $empleadoPago]) }}"
@@ -84,7 +84,7 @@
                        data-confirm-title="¿Eliminar tarifa?"
                        data-confirm-text="¿Desea eliminar esta tarifa del historial del empleado? Esta acción no se puede revertir."
                        data-confirm-button="Sí, eliminar">
-                        <i class="fa-solid fa-trash me-1"></i> Eliminar
+                        <i class="bi bi-trash me-1"></i> Eliminar
                     </a>
                 </div>
             </div>

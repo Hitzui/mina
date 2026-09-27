@@ -209,7 +209,7 @@
                 @guest
                 <li class="nav-item order-lg-0 order-1">
                     <a href="{{ route('login') }}" class="nav-link">
-                        <i class="fa-solid fa-right-to-bracket me-1"></i>
+                        <i class="bi bi-box-arrow-in-left me-1"></i>
                         Iniciar sesión
                     </a>
                 </li>

@@ -117,7 +117,7 @@
                 href="{{ route('configuracion.categorias_costos.show', $categoriaCosto->id) }}"
                 class="btn btn-outline-secondary"
             >
-                <i class="fa-solid fa-arrow-left"></i>
+                <i class="bi bi-arrow-left"></i>
                 Volver
             </a>
        @else

@@ -40,7 +40,7 @@
                         href="{{ route('procesos.ordenes_trabajo.calendario') }}"
                         class="btn btn-outline-primary">
 
-                        <i class="fa-solid fa-calendar-days me-1"></i>
+                        <i class="bi bi-calendar3 me-1"></i>
                         Calendario
 
                     </a>
@@ -51,7 +51,7 @@
                         href="{{ route('procesos.ordenes_trabajo.create') }}"
                         class="btn btn-primary">
 
-                        <i class="fa-solid fa-plus me-1"></i>
+                        <i class="bi bi-plus me-1"></i>
                         Nueva Orden de Trabajo
 
                     </a>

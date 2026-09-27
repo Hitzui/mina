@@ -102,12 +102,12 @@
 <div class="mt-4 d-flex gap-2">
 
     <button type="submit" class="btn btn-primary">
-        <i class="fa-solid fa-floppy-disk me-1"></i>
+        <i class="bi bi-save me-1"></i>
         {{ isset($cliente) ? 'Actualizar Cliente' : 'Guardar Cliente' }}
     </button>
 
     <a href="{{ route('admin.clientes.index') }}" class="btn btn-outline-secondary">
-        <i class="fa-solid fa-arrow-left me-1"></i>
+        <i class="bi bi-arrow-left me-1"></i>
         Cancelar
     </a>
 

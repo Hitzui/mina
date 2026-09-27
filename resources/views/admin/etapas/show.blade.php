@@ -118,13 +118,13 @@
                     <a
                         href="{{ route('admin.etapas.index') }}"
                         class="btn btn-light">
-                        <i class="fa-solid fa-arrow-left"></i> Regresar
+                        <i class="bi bi-arrow-left"></i> Regresar
                     </a>
 
                     <a
                         href="{{ route('admin.etapas.edit', $etapa) }}"
                         class="btn btn-warning">
-                        <i class="fa-regular fa-pen-to-square"></i> Editar
+                        <i class="bi bi-pencil-square"></i> Editar
                     </a>
 
                     <form
@@ -138,7 +138,7 @@
                         <button
                             type="submit"
                             class="btn btn-danger">
-                            <i class="fa-solid fa-trash-arrow-up"></i> Eliminar
+                            <i class="bi bi-trash"></i> Eliminar
                         </button>
                     </form>
 

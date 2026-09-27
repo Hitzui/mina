@@ -13,7 +13,7 @@
             <div class="modal-header">
 
                 <h5 class="modal-title" id="modalSeleccionarClienteLabel">
-                    <i class="fa-solid fa-users me-2"></i>
+                    <i class="bi bi-people me-2"></i>
                     Seleccionar Cliente
                 </h5>
 

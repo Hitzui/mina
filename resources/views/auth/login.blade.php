@@ -93,7 +93,7 @@
                                             aria-label="Mostrar contraseña"
                                             title="Mostrar contraseña"
                                         >
-                                            <i class="fa-regular fa-eye" id="toggle-password-icon"></i>
+                                            <i class="bi bi-eye" id="toggle-password-icon"></i>
                                         </button>
                                     </div>
 
@@ -127,7 +127,7 @@
                                         class="btn btn-primary w-100"
                                         id="btn-login"
                                     >
-                                        <i class="fa-solid fa-right-to-bracket me-1"></i>
+                                        <i class="bi bi-box-arrow-in-left me-1"></i>
                                         Entrar
                                     </button>
                                 </div>
@@ -159,8 +159,8 @@
 
                     input.type = visible ? 'password' : 'text';
                     icono.className = visible
-                        ? 'fa-regular fa-eye'
-                        : 'fa-regular fa-eye-slash';
+                        ? 'bi bi-eye'
+                        : 'bi bi-eye-slash';
 
                     boton.setAttribute(
                         'aria-label',

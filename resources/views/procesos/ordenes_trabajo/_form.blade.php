@@ -200,7 +200,7 @@
                         data-bs-toggle="modal"
                         data-bs-target="#modalSeleccionarCliente">
 
-                        <i class="fa-solid fa-search me-1"></i>
+                        <i class="bi bi-search me-1"></i>
                         {{ $esEdicion ? 'Cambiar' : 'Seleccionar' }}
 
                     </button>
@@ -208,7 +208,7 @@
                 @else
 
                     <span class="input-group-text">
-                        <i class="fa-solid fa-lock"></i>
+                        <i class="bi bi-lock"></i>
                     </span>
 
                 @endif
@@ -416,7 +416,7 @@
                 : route('procesos.ordenes_trabajo.index') }}"
             class="btn btn-light">
 
-            <i class="fa-solid fa-xmark me-1"></i>
+            <i class="bi bi-x me-1"></i>
             Cancelar
 
         </a>
@@ -425,7 +425,7 @@
             type="submit"
             class="btn btn-primary">
 
-            <i class="fa-solid fa-floppy-disk me-1"></i>
+            <i class="bi bi-save me-1"></i>
 
             {{ $esEdicion ? 'Actualizar Orden' : 'Guardar Orden' }}
 

@@ -11,7 +11,7 @@
         <div class="card-header">Administrar Empleados</div>
         <div class="card-body">
             <a href="{{ route('admin.empleados.create') }}" class="btn btn-outline-info">
-                <i class="fa-solid fa-user-plus"></i> Ingresar Nuevo Empleado
+                <i class="bi bi-person-plus"></i> Ingresar Nuevo Empleado
             </a>
             <p>&nbsp;</p>
             <div class="table-responsive">

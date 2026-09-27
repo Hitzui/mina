@@ -85,7 +85,7 @@
                 </button>
 
                 <a href="#" id="btnEditarEmpleadoPago" class="btn btn-warning">
-                    <i class="fa-solid fa-pencil me-1"></i> Editar
+                    <i class="bi bi-pencil me-1"></i> Editar
                 </a>
             </div>
 

@@ -121,7 +121,7 @@
             <a
                 href="{{ route('admin.etapas.index') }}"
                 class="btn btn-light">
-                <i class="fa-solid fa-arrow-left"></i> Volver
+                <i class="bi bi-arrow-left"></i> Volver
             </a>
         @else
             <a
@@ -136,7 +136,7 @@
             type="submit"
             class="btn btn-primary"
         >
-            <i class="fa-regular fa-floppy-disk"></i> {{ $esEdicion ? 'Actualizar Etapa' : 'Guardar Etapa' }}
+            <i class="bi bi-save"></i> {{ $esEdicion ? 'Actualizar Etapa' : 'Guardar Etapa' }}
         </button>
 
     </div>

@@ -11,7 +11,7 @@
         <div class="card-header">Administrar Etapas de OT</div>
         <div class="card-body">
             <a href="{{ route('admin.etapas.create') }}" class="btn btn-outline-info">
-                <i class="fa-solid fa-user-plus"></i> Ingresar Nueva Etapa
+                <i class="bi bi-person-plus"></i> Ingresar Nueva Etapa
             </a>
             <p>&nbsp;</p>
             <div class="table-responsive">

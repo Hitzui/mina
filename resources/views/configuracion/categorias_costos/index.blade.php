@@ -20,7 +20,7 @@
 
                     <div>
                         <h4 class="mb-1">
-                            <i class="fa-solid fa-tags me-2"></i>
+                            <i class="bi bi-tags me-2"></i>
                             Categorías de Costos
                         </h4>
 
@@ -34,7 +34,7 @@
                             href="{{ route('configuracion.categorias_costos.create') }}"
                             class="btn btn-primary"
                         >
-                            <i class="fa-solid fa-plus me-1"></i>
+                            <i class="bi bi-plus me-1"></i>
                             Nueva Categoría
                         </a>
                     </div>

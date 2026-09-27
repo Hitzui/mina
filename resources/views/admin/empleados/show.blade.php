@@ -87,7 +87,7 @@
                         </div>
                         <button type="button" class="btn btn-outline-info" id="btnNuevaTarifa"
                                 data-url="{{ route('admin.empleados.pagos.create', $empleado) }}">
-                            <i class="fa-solid fa-plus me-1"></i> Nueva tarifa
+                            <i class="bi bi-plus me-1"></i> Nueva tarifa
                         </button>
                     </div>
 
@@ -111,18 +111,18 @@
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <a href="{{ route('admin.empleados.index') }}" class="btn btn-secondary">
-                        <i class="fa-solid fa-arrow-left-long"></i> Regresar
+                        <i class="bi bi-arrow-return-left"></i> Regresar
                     </a>
 
                     <a href="{{ route('admin.empleados.edit', $empleado) }}" class="btn btn-primary">
-                        <i class="fa-solid fa-pen-to-square"></i> Editar
+                        <i class="bi bi-pencil-square"></i> Editar
                     </a>
 
                     <form action="{{ route('admin.empleados.destroy', $empleado) }}" method="POST" class="d-inline">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="btn btn-danger" data-confirm-delete="true">
-                            <i class="fa-solid fa-trash-arrow-up"></i> Eliminar
+                            <i class="bi bi-trash"></i> Eliminar
                         </button>
                     </form>
                 </div>

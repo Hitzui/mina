@@ -14,7 +14,7 @@
         <div class="card-header d-flex justify-content-between align-items-center">
 
             <h5 class="mb-0">
-                <i class="fa-solid fa-user me-2"></i>
+                <i class="bi bi-person me-2"></i>
                 Información del Cliente
             </h5>
 
@@ -96,7 +96,7 @@
                     href="{{ route('admin.clientes.index') }}"
                     class="btn btn-outline-secondary"
                 >
-                    <i class="fa-solid fa-arrow-left me-1"></i>
+                    <i class="bi bi-arrow-left me-1"></i>
                     Regresar
                 </a>
 
@@ -107,7 +107,7 @@
                         href="{{ route('admin.clientes.edit', $cliente) }}"
                         class="btn btn-outline-primary"
                     >
-                        <i class="fa-solid fa-pen-to-square me-1"></i>
+                        <i class="bi bi-pencil-square me-1"></i>
                         Editar
                     </a>
 
@@ -127,7 +127,7 @@
                             data-confirm-title="¿Eliminar cliente?"
                             data-confirm-text="¿Desea eliminar el cliente del sistema? Esta acción no se puede revertir."
                             data-confirm-button="Sí, eliminar">
-                            <i class="fa-solid fa-trash me-1"></i>
+                            <i class="bi bi-trash me-1"></i>
                             Eliminar
                         </button>
                     </form>
