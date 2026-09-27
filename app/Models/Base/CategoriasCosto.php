@@ -34,6 +34,7 @@ class CategoriasCosto extends Model
 	const NOMBRE = 'nombre';
 	const DESCRIPCION = 'descripcion';
 	const ESTADO = 'estado';
+	const AUTOMATICA = 'automatica';
 	const CREATED_AT = 'created_at';
 	const UPDATED_AT = 'updated_at';
 	const DELETED_AT = 'deleted_at';
@@ -42,6 +43,7 @@ class CategoriasCosto extends Model
 	protected $casts = [
 		self::ID => 'int',
 		self::ESTADO => 'bool',
+		self::AUTOMATICA => 'bool',
 		self::CREATED_AT => 'datetime',
 		self::UPDATED_AT => 'datetime'
 	];

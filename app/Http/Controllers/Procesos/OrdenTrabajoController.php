@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Procesos;
 
+use App\DataTables\CostosOrdenDataTable;
 use App\DataTables\EmpleadosSelectorDataTable;
 use App\DataTables\OrdenesTrabajoDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
+use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
@@ -17,6 +19,13 @@ use RealRashid\SweetAlert\Facades\Alert;
 class OrdenTrabajoController extends Controller
 {
     use AuthorizesModule;
+
+    /*
+     * Solo para los combos del modal de costos generales. El permiso sigue
+     * siendo el de ordenes_trabajo: ver una OT no es lo mismo que poder
+     * registrar costos en ella.
+     */
+    use ValidaCostos;
 
     public function __construct()
     {
@@ -134,7 +143,8 @@ class OrdenTrabajoController extends Controller
      */
     public function show(
         string                     $id,
-        ProcesosOrdenDataTable     $dataTable
+        ProcesosOrdenDataTable     $dataTable,
+        CostosOrdenDataTable       $costosDataTable
     )
     {
         $title = "Información de Orden de Trabajo";
@@ -150,6 +160,16 @@ class OrdenTrabajoController extends Controller
 
         if ($ordenTrabajo) {
             $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
+            $costosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+
+            // Los combos del modal de costos generales
+            $combos = $this->datosDeCombos();
+
+            $categorias = $combos['categorias'];
+            $monedas = $combos['monedas'];
+
+            // Un costo se fecha el dia en que se registra, no un dia antes
+            $fechaPorDefecto = now()->format('Y-m-d');
 
             return view(
                 'procesos.ordenes_trabajo.show',
@@ -157,7 +177,11 @@ class OrdenTrabajoController extends Controller
                     'title',
                     'breadcrumbs',
                     'ordenTrabajo',
-                    'dataTable'
+                    'dataTable',
+                    'costosDataTable',
+                    'categorias',
+                    'monedas',
+                    'fechaPorDefecto'
                 )
             );
         } else {

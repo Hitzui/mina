@@ -135,8 +135,52 @@
     {{--
         Los trabajos de los empleados ya no se listan aqui: cuelgan de
         cada proceso, asi que se ven entrando al proceso. La tabla de
-        procesos de arriba muestra cuanto cuesta cada uno en mano de obra.
+        procesos de arriba muestra cuanto cuesta cada uno.
+
+        Lo mismo con los costos que si son de un proceso: se registran y se
+        ven alli. Los de aqui son los que no son de ninguno.
     --}}
+
+    <div class="row">
+        <div class="col-12 mt-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="bi bi-cash-stack me-2"></i>
+                                Costos generales de la orden
+                            </h5>
+                            <p class="text-muted mb-0">
+                                Los gastos de toda la orden, sin proceso concreto.
+                            </p>
+                        </div>
+
+                        <button type="button" class="btn btn-primary" id="btnNuevoCostoOrden">
+                            <i class="bi bi-plus-lg me-1"></i>
+                            Registrar costo
+                        </button>
+                    </div>
+
+                    <div class="alert alert-light border d-flex align-items-start gap-2">
+                        <i class="bi bi-info-circle fs-5"></i>
+                        <div>
+                            Aquí van alquiler, transporte, un insumo suelto: lo
+                            que no pertenece a un proceso en concreto. Los
+                            consumos de cada proceso (energía, agua, materia
+                            prima) se registran en la pantalla de ese proceso,
+                            y su costo se ve en la columna de la tabla de
+                            procesos de arriba.
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        {{ $costosDataTable->html()->table() }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {{--
         La confirmacion va en el formulario, no en el boton: asi la libreria
@@ -156,6 +200,12 @@
 
     <x-slot:footerFiles>
         {{ $dataTable->html()->scripts() }}
+        {{ $costosDataTable->html()->scripts() }}
+        @vite(['resources/assets/js/select2/select2-init.js'])
+        <script src="{{ asset('js/ordenes_trabajo/costos.js') }}"></script>
     </x-slot>
+
+    @include('procesos.ordenes_trabajo.costos._modal_form')
+    @include('procesos.ordenes_trabajo.costos._modal_show')
 
 </x-base-layout>

@@ -7,6 +7,8 @@ use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EtapaController;
+use App\Http\Controllers\Procesos\CostosOrdenController;
+use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
@@ -251,6 +253,35 @@ Route::resource(
         'equipos' => 'procesoEquipo',
     ])
     ->names('procesos.ordenes_trabajo.procesos.equipos');
+
+
+/*
+| Los costos de la orden que no son de un proceso: alquiler, transporte,
+| un insumo suelto. Van con proceso_orden_id en NULL, que es para lo que
+| existe esa columna. Los que si son de un proceso se registran en el.
+*/
+Route::resource(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/costos',
+    CostosOrdenController::class
+)
+    ->parameters([
+        'costos' => 'costo',
+    ])
+    ->names('procesos.ordenes_trabajo.costos');
+
+
+/*
+| Los costos de un proceso: energia, agua, materia prima. Se registran
+| desde la pantalla del proceso, igual que los equipos.
+*/
+Route::resource(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/costos',
+    CostosProcesoController::class
+)
+    ->parameters([
+        'costos' => 'costo',
+    ])
+    ->names('procesos.ordenes_trabajo.procesos.costos');
 
 
 }); // fin del grupo middleware('auth')

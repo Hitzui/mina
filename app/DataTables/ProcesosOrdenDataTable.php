@@ -86,10 +86,24 @@ class ProcesosOrdenDataTable extends DataTable
              * Lo que se le paga a los empleados por este proceso: la suma
              * de los trabajos registrados, calculada al momento. Se
              * muestra en la lista de la orden para poder comparar de un
-             * vistazo cuanto cuesta cada proceso en mano de obra.
+             * vistazo cuanto cuesta cada proceso.
+             *
+             * Los tres importes se calculan al momento. La mano de obra se
+             * lee de la relacion ya cargada para no lanzar una consulta por
+             * fila; los otros dos son sumas cortas sobre su propia tabla.
              */
             ->addColumn('costo_empleados', function (ProcesosOrden $proceso) {
                 return number_format($proceso->costo_empleados, 2);
+            })
+
+            ->addColumn('costo_otros', function (ProcesosOrden $proceso) {
+                return number_format($proceso->costo_otros, 2);
+            })
+
+            ->addColumn('costo_total', function (ProcesosOrden $proceso) {
+                return '<span class="fw-semibold">'
+                    . number_format($proceso->costo_total, 2)
+                    . '</span>';
             })
 
             ->addColumn('action', function (ProcesosOrden $proceso) {
@@ -151,6 +165,7 @@ class ProcesosOrdenDataTable extends DataTable
 
             ->rawColumns([
                 'estado',
+                'costo_total',
                 'action',
             ])
 
@@ -251,7 +266,15 @@ class ProcesosOrdenDataTable extends DataTable
                 ->addClass('text-center'),
 
             Column::computed('costo_empleados')
-                ->title('Costo empleados')
+                ->title('Mano de obra')
+                ->addClass('text-end'),
+
+            Column::computed('costo_otros')
+                ->title('Otros costos')
+                ->addClass('text-end'),
+
+            Column::computed('costo_total')
+                ->title('Costo total')
                 ->addClass('text-end'),
 
             Column::computed('action')

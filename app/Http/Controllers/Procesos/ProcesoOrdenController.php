@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Procesos;
 
+use App\DataTables\CostosProcesoDataTable;
 use App\DataTables\EmpleadosSelectorDataTable;
 use App\DataTables\ProcesoEquiposDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
+use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\Equipo;
 use App\Models\Etapa;
@@ -20,6 +22,13 @@ use RealRashid\SweetAlert\Facades\Alert;
 class ProcesoOrdenController extends Controller
 {
     use AuthorizesModule;
+
+    /*
+     * Solo para los combos del modal de costos. El permiso sigue siendo
+     * el de procesos_orden: mostrar un proceso no es lo mismo que poder
+     * registrar costos, asi que no se pide el permiso de costos aqui.
+     */
+    use ValidaCostos;
 
     public function __construct()
     {
@@ -38,6 +47,7 @@ class ProcesoOrdenController extends Controller
         ProcesosOrden $procesoOrden,
         TrabajosEmpleadosDataTable $trabajosDataTable,
         ProcesoEquiposDataTable $equiposDataTable,
+        CostosProcesoDataTable $costosDataTable,
         EmpleadosSelectorDataTable $empleadosSelectorDataTable
     ) {
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
@@ -71,6 +81,9 @@ class ProcesoOrdenController extends Controller
         $equiposDataTable->setProcesoOrdenId($procesoOrden->id);
         $equiposDataTable->setOrdenTrabajoId($ordenTrabajo->id);
 
+        $costosDataTable->setProcesoOrdenId($procesoOrden->id);
+        $costosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+
         // Para el texto de cuanto trabajo y cuantos equipos tiene
         $cantidadTrabajos = $procesoOrden->trabajos_empleados()->count();
         $cantidadEquipos = $procesoOrden->equipos()->count();
@@ -93,6 +106,12 @@ class ProcesoOrdenController extends Controller
             ->orderBy('codigo')
             ->get();
 
+        // Los combos del modal de costos
+        $combos = $this->datosDeCombos();
+
+        $categorias = $combos['categorias'];
+        $monedas = $combos['monedas'];
+
         /*
          * Periodo por defecto: el propio del proceso. Es lo natural, un
          * equipo se usa mientras dura el proceso, y si el proceso todavia
@@ -101,6 +120,12 @@ class ProcesoOrdenController extends Controller
         $fechaInicioPorDefecto = $procesoOrden->fecha_inicio
             ? $procesoOrden->fecha_inicio->format('Y-m-d\TH:i')
             : now()->format('Y-m-d\TH:i');
+
+        // Un costo se fecha el dia en que se registra, no un dia antes
+        $fechaPorDefecto = now()->format('Y-m-d');
+
+        // El desglose de donde sale el total del proceso
+        $costosDesglosados = $procesoOrden->costosDesglosados();
 
         return view(
             'procesos.procesos_orden.show',
@@ -111,12 +136,17 @@ class ProcesoOrdenController extends Controller
                 'procesoOrden',
                 'trabajosDataTable',
                 'equiposDataTable',
+                'costosDataTable',
                 'empleadosSelectorDataTable',
                 'cantidadTrabajos',
                 'cantidadEquipos',
                 'tiposPago',
                 'equiposDisponibles',
-                'fechaInicioPorDefecto'
+                'fechaInicioPorDefecto',
+                'categorias',
+                'monedas',
+                'fechaPorDefecto',
+                'costosDesglosados'
             )
         );
     }

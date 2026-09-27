@@ -24,6 +24,7 @@ class RolesYPermisosSeeder extends Seeder
         'ordenes_trabajo',
         'procesos_orden',
         'proceso_equipo',
+        'movimientos_costo',
         'trabajos_empleado',
         'tipos_cambio',
         'configuracion.categorias_costos',
@@ -82,6 +83,7 @@ class RolesYPermisosSeeder extends Seeder
             'ordenes_trabajo.view', 'ordenes_trabajo.create', 'ordenes_trabajo.edit',
             'procesos_orden.view', 'procesos_orden.create', 'procesos_orden.edit',
             'proceso_equipo.view', 'proceso_equipo.create', 'proceso_equipo.edit',
+            'movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
             'configuracion.categorias_costos.view',
@@ -106,6 +108,8 @@ class RolesYPermisosSeeder extends Seeder
             // Registrar el uso de un equipo en el proceso es trabajo de
             // campo, igual que registrar el trabajo de un empleado
             'proceso_equipo.view', 'proceso_equipo.create', 'proceso_equipo.edit',
+            // Y cargar los consumos del proceso (energia, agua, material)
+            'movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
         ]);
 

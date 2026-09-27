@@ -354,27 +354,18 @@ class TrabajosEmpleadoController extends Controller
     /**
      * Obtener el tipo de cambio vigente de una moneda para una fecha dada.
      *
-     * Se toma el registro más reciente cuya fecha sea menor o igual a la
-     * fecha solicitada. Devuelve null cuando no hay tipo de cambio
-     * registrado para esa fecha, para que el llamador pueda aplicar
-     * su propia política de respaldo y avisar al usuario.
+     * La regla vive en TiposCambio::vigentePara() porque tambien la
+     * necesitan los costos de la orden; antes estaba duplicada aqui y
+     * cualquier retoque a una dejaba a la otra desfasada, que es
+     * exactamente lo que la documentacion pide evitar al centralizar el
+     * calculo de equivalentes NIO.
+     *
+     * Se devuelve null cuando no hay tipo de cambio para esa fecha, para
+     * que el llamador aplique su propia politica de respaldo y avise.
      */
     private function obtenerTipoCambio(int $monedaId, string $fecha): ?float
     {
-        $registro = TiposCambio::query()
-            ->where('moneda_id', $monedaId)
-            ->whereDate('fecha', '<=', $fecha)
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->first();
-
-        if (!$registro || !is_numeric($registro->valor)) {
-            return null;
-        }
-
-        $valor = (float) $registro->valor;
-
-        return $valor > 0 ? $valor : null;
+        return TiposCambio::vigentePara($monedaId, $fecha);
     }
 
     public function tarifaVigente(

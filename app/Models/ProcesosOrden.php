@@ -75,15 +75,102 @@ class ProcesosOrden extends BaseProcesosOrden
 	}
 
 	/**
-	 * Costo total del proceso: mano de obra mas depreciacion de equipos.
+	 * Los otros costos del proceso: energia, agua, materia prima y demas
+	 * conceptos que se cargan desde la pantalla de costos.
 	 *
-	 * Los demas costos (energia, agua, materia prima) van a
-	 * movimientos_costos, que ya existe en la base con sus columnas pero
-	 * todavia sin pantalla. Cuando se implemente, se sumara aqui.
+	 * Se suma al momento desde movimientos_costos. No se guarda un total
+	 * acumulado en el proceso porque entonces cualquier movimiento
+	 * registrado desde otra pantalla dejaria el proceso desfasado.
+	 */
+	public function getCostoOtrosAttribute(): float
+	{
+		return (float) MovimientosCosto::query()
+			->deProceso($this->id)
+			->sum(MovimientosCosto::COSTO_TOTAL);
+	}
+
+	/**
+	 * Costo total del proceso: mano de obra, depreciacion de equipos y los
+	 * demas costos registrados.
 	 */
 	public function getCostoTotalAttribute(): float
 	{
-		return $this->costo_empleados + $this->costo_equipos;
+		return $this->costo_empleados
+			+ $this->costo_equipos
+			+ $this->costo_otros;
+	}
+
+	/**
+	 * El costo del proceso desglosado por concepto.
+	 *
+	 * Devuelve una lista de filas con nombre, importe y de donde sale
+	 * cada una, para que la pantalla muestre de donde viene cada numero en
+	 * vez de un total que nadie puede desarmar.
+	 *
+	 * Los dos conceptos que calcula el sistema aparecen siempre, esten o
+	 * no tengan movimientos: si su importe es cero, es informacion utile
+	 * (dice que aun no se registro nada), no ruido. Lo mismo con las
+	 * categorias que se pueden cargar a mano y todavia no tienen ninguna:
+	 * asi se ve que faltan, no que no existen.
+	 *
+	 * @return \Illuminate\Support\Collection<int, array{nombre: string, importe: float, origen: string, automatico: bool}>
+	 */
+	public function costosDesglosados()
+	{
+		$filas = [
+			[
+				'nombre' => 'Mano de obra',
+				'importe' => $this->costo_empleados,
+				'origen' => 'Trabajos de los empleados registrados en el proceso.',
+				'automatico' => true,
+			],
+			[
+				'nombre' => 'Depreciación de equipos',
+				'importe' => $this->costo_equipos,
+				'origen' => 'Equipos asignados al proceso, según los días de uso.',
+				'automatico' => true,
+			],
+		];
+
+		// Se agrupa en la base, no en php: una consulta y no una por fila
+		$porCategoria = MovimientosCosto::query()
+			->deProceso($this->id)
+			->selectRaw('categoria_costo_id, SUM(costo_total) AS importe')
+			->groupBy('categoria_costo_id')
+			->get()
+			->keyBy('categoria_costo_id');
+
+		$conMovimiento = [];
+
+		foreach ($porCategoria as $categoriaId => $movimiento) {
+			$categoria = CategoriasCosto::find($categoriaId);
+			$conMovimiento[] = (int) $categoriaId;
+
+			$filas[] = [
+				'nombre' => $categoria?->nombre ?? 'Categoría eliminada',
+				'importe' => (float) $movimiento->importe,
+				'origen' => $categoria?->descripcion
+					?: 'Costo registrado a mano en este proceso.',
+				'automatico' => false,
+			];
+		}
+
+		// Las que todavia no tienen movimientos, para que se vea que faltan
+		foreach (CategoriasCosto::paraRegistrar()->get() as $categoria) {
+			if (in_array((int) $categoria->id, $conMovimiento, true)) {
+				continue;
+			}
+
+			$filas[] = [
+				'nombre' => $categoria->nombre,
+				'importe' => 0.0,
+				'origen' => $categoria->descripcion
+					?: 'Costo registrado a mano en este proceso.',
+				'automatico' => false,
+			];
+		}
+
+		return collect($filas);
 	}
 
 	protected $fillable = [

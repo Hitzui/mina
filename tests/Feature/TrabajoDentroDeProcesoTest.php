@@ -320,7 +320,9 @@ class TrabajoDentroDeProcesoTest extends TestCase
         $r = $this->get("/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$this->proceso->id}");
 
         $r->assertOk();
-        $r->assertSee('Costo de mano de obra del proceso');
+        // El rotulo se acorto al repartirse la fila en tres componentes:
+        // mano de obra, depreciacion y otros costos
+        $r->assertSee('Costo de mano de obra');
         $r->assertSee(number_format(700, 2));
     }
 
