@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inventario;
 
 use App\DataTables\ProveedoresDataTable;
+use App\DataTables\ProveedorSelectorDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Proveedore;
@@ -25,7 +26,30 @@ class ProveedorController extends Controller
 
     public function __construct()
     {
-        $this->authorizeModule('proveedores');
+        // El selector va aqui, y no en el permiso de crear, porque elegir un
+        // proveedor es mirar el catalogo: quien registra una compra tiene
+        // que poder verlo para saber a quien le compra. Sin esto, el metodo
+        // se quedaria sin permiso, y con el trait puesto no se cuela nadie.
+        $this->authorizeModule('proveedores', ['index', 'show', 'selector']);
+    }
+
+    /**
+     * Los proveedores para elegir uno desde un modal.
+     *
+     * Devuelve solo los datos de la tabla, sin pagina alrededor, porque lo
+     * que lo pide es el buscador de DataTables dentro de una ventana y no
+     * una visita. El buscador de la tabla pide filas paginadas y las
+     * quiere en json; si esta ruta devolviera html, el buscador se
+     * quedaria en blanco sin decir por que.
+     *
+     * El permission de ver va aqui explicito porque el constructor solo lo
+     * pone en index y show. Escribir en un modal que se abre encima de un
+     * formulario no es escribir en el catalogo: quien registra una compra
+     * tiene que poder mirar el catalogo para saber a quien le compra.
+     */
+    public function selector(ProveedorSelectorDataTable $dataTable)
+    {
+        return $dataTable->ajax();
     }
 
     public function index(ProveedoresDataTable $dataTable)

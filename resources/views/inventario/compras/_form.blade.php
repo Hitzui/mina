@@ -32,31 +32,13 @@
 
                     <div class="row g-3">
 
-                        <div class="col-md-4">
-                            <label for="proveedor_id" class="form-label">
-                                Proveedor <span class="text-danger">*</span>
-                            </label>
-                            <select
-                                id="proveedor_id"
-                                name="proveedor_id"
-                                class="form-select select2 @error('proveedor_id') is-invalid @enderror"
-                                required
-                            >
-                                <option value="">Seleccione el proveedor</option>
-                                @foreach($proveedores as $proveedor)
-                                    <option
-                                        value="{{ $proveedor->id }}"
-                                        @selected(old('proveedor_id', $compra->proveedor_id) == $proveedor->id)
-                                    >
-                                        {{ $proveedor->nombre_completo }}
-                                        ({{ $proveedor->codigo }})
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('proveedor_id')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
+                        {{--
+                            El proveedor se elige en un modal y no en un
+                            desplegable. El catalogo de proveedores crece sin
+                            limite y con un desplegable habia que abrirlo y
+                            recorrerlo entero en un telefono, sin buscar nada.
+                        --}}
+                        @include('inventario.compras._campo_proveedor')
 
                         <div class="col-md-3">
                             <label for="fecha" class="form-label">

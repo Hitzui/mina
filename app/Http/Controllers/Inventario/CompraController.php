@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Inventario;
 
 use App\DataTables\ComprasDataTable;
+use App\DataTables\ProveedorSelectorDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Compra;
 use App\Models\DetalleCompra;
 use App\Models\Moneda;
 use App\Models\Producto;
-use App\Models\Proveedore;
 use App\Services\ComprasInventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +51,7 @@ class CompraController extends Controller
         );
     }
 
-    public function create()
+    public function create(ProveedorSelectorDataTable $selectorProveedor)
     {
         $compra = new Compra([
             Compra::FECHA => today(),
@@ -60,7 +60,7 @@ class CompraController extends Controller
 
         return view(
             'inventario.compras.create',
-            $this->datosDeFormulario($compra)
+            $this->datosDeFormulario($compra, $selectorProveedor)
         );
     }
 
@@ -113,13 +113,13 @@ class CompraController extends Controller
         );
     }
 
-    public function edit(Compra $compra)
+    public function edit(Compra $compra, ProveedorSelectorDataTable $selectorProveedor)
     {
         $compra->load('detalles');
 
         return view(
             'inventario.compras.edit',
-            $this->datosDeFormulario($compra)
+            $this->datosDeFormulario($compra, $selectorProveedor)
         );
     }
 
@@ -174,13 +174,11 @@ class CompraController extends Controller
     /**
      * Lo que necesitan los formularios de alta y de edicion.
      */
-    private function datosDeFormulario(Compra $compra): array
+    private function datosDeFormulario(
+        Compra $compra,
+        ProveedorSelectorDataTable $selectorProveedor
+    ): array
     {
-        $proveedores = Proveedore::query()
-            ->where('estado', true)
-            ->whereNull('deleted_at')
-            ->orderBy('nombre')
-            ->get();
 
         $productos = Producto::query()
             ->where('estado', true)
@@ -226,11 +224,11 @@ class CompraController extends Controller
             'title',
             'breadcrumbs',
             'compra',
-            'proveedores',
             'productos',
             'monedas',
             'esEdicion',
-            'lineasParaJs'
+            'lineasParaJs',
+            'selectorProveedor'
         );
     }
 

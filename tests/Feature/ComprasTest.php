@@ -868,6 +868,259 @@ class ComprasTest extends TestCase
         $this->assertSame(5000.0, round((float) $saldo->valor_actual, 2));
     }
 
+    // ==================================================================
+    // El proveedor se elige en un modal
+    // ==================================================================
+
+    public function test_el_proveedor_se_elige_en_un_modal_y_no_en_un_desplegable(): void
+    {
+        /*
+         * Con un desplegable habia que abrirlo y recorrer la lista entera
+         * hasta dar con el proveedor, sin buscar nada, y en un telefono son
+         * quince taps con la pantalla medio tapada. Con el modal hay un
+         * buscador que filtra mientras se escribe.
+         *
+         * Se comprueba que no quede el desplegable, y no que este el campo:
+         * dos caminos para elegir lo mismo es peor que ninguno, porque
+         * nadie sabria cual de los dos manda.
+         */
+        $html = $this->get('/inventario/compras/create')->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="btnBuscarProveedor"', $html);
+        $this->assertStringContainsString('id="modalSeleccionarProveedor"', $html);
+        $this->assertStringContainsString('proveedor-selector-table', $html);
+
+        $this->assertStringNotContainsString(
+            '<select',
+            $this->parteDelCampoProveedor($html),
+            'El proveedor deberia elegirse en el modal, no en un desplegable'
+        );
+    }
+
+    public function test_el_campo_del_proveedor_manda_el_id_y_no_el_nombre(): void
+    {
+        /*
+         * El id va escondido y es lo unico que se guarda. El nombre va en un
+         * campo que no se manda, y es solo para que el usuario vea a quien
+         * le esta comprando: si se guardara el nombre, cambiar el nombre de
+         * un proveedor dejaria las compras viejas apuntando a un nombre que
+         * ya no es.
+         */
+        $html = $this->get('/inventario/compras/create')->assertOk()->getContent();
+
+        $campo = $this->parteDelCampoProveedor($html);
+
+        $this->assertMatchesRegularExpression(
+            '/<input[^>]*type="hidden"[^>]*name="proveedor_id"/s',
+            $campo,
+            'El id del proveedor deberia ir en un campo escondido'
+        );
+
+        $this->assertMatchesRegularExpression(
+            '/<input[^>]*name="proveedor_nombre"[^>]*readonly/s',
+            $campo,
+            'El campo del nombre deberia ser de solo lectura: se elige en el modal'
+        );
+    }
+
+    public function test_una_compra_guardada_trae_su_proveedor_puesto(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+
+        $this->crearCompra($this->datosCompra($proveedor, $material))->assertRedirect();
+
+        $compra = Compra::where('proveedor_id', $proveedor->id)->firstOrFail();
+
+        $html = $this->get('/inventario/compras/' . $compra->id . '/edit')
+            ->assertOk()
+            ->getContent();
+
+        $campo = $this->parteDelCampoProveedor($html);
+
+        $this->assertStringContainsString(
+            'value="' . $proveedor->id . '"',
+            $campo,
+            'Al editar deberia venir el proveedor que ya tenia la compra'
+        );
+
+        $this->assertStringContainsString($proveedor->nombre, $campo);
+    }
+
+    public function test_el_modal_del_selector_tambien_lo_trae_la_edicion(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+
+        $this->crearCompra($this->datosCompra($proveedor, $material))->assertRedirect();
+
+        $compra = Compra::where('proveedor_id', $proveedor->id)->firstOrFail();
+
+        $html = $this->get('/inventario/compras/' . $compra->id . '/edit')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('id="btnBuscarProveedor"', $html);
+        $this->assertStringContainsString('id="modalSeleccionarProveedor"', $html);
+    }
+
+    public function test_el_catalogo_para_el_modal_solo_tiene_proveedores_activos(): void
+    {
+        /*
+         * Un proveedor desactivado se puede volver a activar y se sigue
+         * viendo en las compras viejas, pero no se le compra de nuevo, asi
+         * que no tiene sentido ofrecerlo al elegir uno.
+         */
+        $activo = Proveedore::crearConCodigo([
+            Proveedore::NOMBRE => 'Proveedor activo del selector',
+            Proveedore::ESTADO => true,
+        ]);
+
+        $inactivo = Proveedore::crearConCodigo([
+            Proveedore::NOMBRE => 'Proveedor desactivado del selector',
+            Proveedore::ESTADO => false,
+        ]);
+
+        $json = $this->ajaxJson('/inventario/proveedores/selector');
+
+        $nombres = array_column($json['data'], 'nombre');
+
+        $this->assertContains($activo->nombre, $nombres);
+        $this->assertNotContains($inactivo->nombre, $nombres);
+    }
+
+    public function test_el_catalogo_para_el_modal_devuelve_json_y_no_html(): void
+    {
+        /*
+         * Lo que lo pide es el buscador de DataTables dentro de una ventana,
+         * y ese quiere filas paginadas en json. Si esta ruta devolviera html,
+         * el buscador se quedaria en blanco sin decir por que.
+         */
+        $this->ajaxJson('/inventario/proveedores/selector');
+    }
+
+    public function test_el_js_del_selector_rellena_el_id_y_el_nombre(): void
+    {
+        $js = file_get_contents(public_path('js/inventario/selector_proveedor.js'));
+
+        // El id es lo que se guarda
+        $this->assertStringContainsString("val(\$elegido.data('id'))", $js);
+
+        // Y el nombre y el codigo van juntos, para no dudar de cual es
+        $this->assertStringContainsString("data('nombre')", $js);
+        $this->assertStringContainsString("data('codigo')", $js);
+
+        // La tabla se monta al abrir el modal, no al cargar la pagina
+        $this->assertStringContainsString('shown.bs.modal', $js);
+    }
+
+    public function test_el_js_del_selector_no_manda_el_nombre_al_servidor(): void
+    {
+        /*
+         * El nombre es de lectura. Si el formulario lo mandara, el servidor
+         * tendria un campo que dice de que proveedor es la compra y podria
+         * fiarse de el, y entonces bastaria cambiar el campo oculto para
+         * apuntar a otro proveedor del que se eligio.
+         */
+        $formulario = $this->get('/inventario/compras/create')->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<input[^>]*name="proveedor_nombre"[^>]*>/s',
+            $formulario
+        );
+
+        /*
+         * Que el campo exista con ese nombre no es el problema: el problema
+         * seria que tambien fuera un campo que se mande. Se comprueba que la
+         * compra se guarda solo con el id.
+         */
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+
+        $this->crearCompra([
+            'proveedor_id' => $proveedor->id,
+            'fecha' => '2026-09-20',
+            'moneda_id' => $this->moneda()->id,
+            'estado' => Compra::ESTADO_PENDIENTE,
+            'productos' => [
+                ['producto_id' => $material->id, 'cantidad' => 1, 'costo_unitario' => 5],
+            ],
+        ])->assertRedirect();
+
+        $compra = Compra::firstOrFail();
+
+        $this->assertSame($proveedor->id, $compra->proveedor_id);
+    }
+
+    public function test_una_compra_sin_proveedor_no_se_guarda(): void
+    {
+        $material = $this->crearMaterial();
+
+        $datos = $this->datosCompra($this->crearProveedor(), $material);
+        $datos['proveedor_id'] = '';
+
+        $this->from('/inventario/compras/create')
+            ->post('/inventario/compras', $datos)
+            ->assertSessionHasErrors('proveedor_id');
+
+        $this->assertSame(0, Compra::count());
+    }
+
+    public function test_el_nombre_del_proveedor_no_puede_apuntar_a_otro_proveedor(): void
+    {
+        /*
+         * Solo el id cuenta. Se manda el nombre de un proveedor y el id de
+         * otro, y tiene que ganar el id: si ganara el nombre, bastaria
+         * escribir en el campo de texto para que la compra quedara a nombre
+         * de quien se puso.
+         */
+        $primero = $this->crearProveedor();
+        $segundo = Proveedore::crearConCodigo([
+            Proveedore::NOMBRE => 'Segundo proveedor de la prueba',
+            Proveedore::ESTADO => true,
+        ]);
+
+        $material = $this->crearMaterial();
+
+        $this->crearCompra(array_merge(
+            $this->datosCompra($primero, $material),
+            ['proveedor_nombre' => $segundo->nombre . ' (' . $segundo->codigo . ')']
+        ))->assertRedirect();
+
+        $compra = Compra::firstOrFail();
+
+        $this->assertSame(
+            $primero->id,
+            $compra->proveedor_id,
+            'La compra deberia apuntar al proveedor cuyo id se mando'
+        );
+    }
+
+    /**
+     * El trozo de html del campo del proveedor, y nada mas.
+     *
+     * Se recorta por el div del campo, que es donde empieza, y por el div
+     * del campo siguiente, que es donde acaba de verdad. No se corta por el
+     * primer </div> que sale, porque ese es el del grupo de botones y dejaria
+     * fuera el input escondido del id, que va justo despues.
+     *
+     * Recortar asi evita ademas que el desplegable del material, que tambien
+     * es un select, se cuele en lo que se comprueba del proveedor.
+     */
+    private function parteDelCampoProveedor(string $html): string
+    {
+        $inicio = strpos($html, '<div class="col-md-4">');
+
+        if ($inicio === false) {
+            return '';
+        }
+
+        $fin = strpos($html, '<div class="col-md-3">', $inicio);
+
+        return $fin === false
+            ? substr($html, $inicio)
+            : substr($html, $inicio, $fin - $inicio);
+    }
     public function test_las_lineas_de_una_compra_amanecen_soft_delete(): void
     {
         $proveedor = $this->crearProveedor();

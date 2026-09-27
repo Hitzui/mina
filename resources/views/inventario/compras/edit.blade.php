@@ -86,9 +86,26 @@
 
     </div>
 
+    {{--
+        El modal de elegir proveedor va fuera del formulario, a proposito: un
+        formulario dentro de un modal dentro de un formulario es un formulario
+        anidado, y el navegador no sabe a cual de los dos pertenece un campo.
+    --}}
+    @include('inventario.compras._modal_selector_proveedor')
+
     <x-slot:footerFiles>
 
         <script src="{{ asset('js/inventario/compras.js') }}"></script>
+
+        {{--
+            La tabla del selector va con los scripts del DataTable, y no
+            dentro de la vista del modal: los scripts tienen que salir
+            despues del modal en el html, y blade no tiene forma de
+            decidir eso desde dentro del include.
+        --}}
+        {{ $selectorProveedor->html()->scripts() }}
+
+        <script src="{{ asset('js/inventario/selector_proveedor.js') }}"></script>
 
     </x-slot>
 

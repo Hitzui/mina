@@ -247,6 +247,23 @@ Route::resource(
     ->names('inventario.movimientos');
 
 /*
+| El catalogo de proveedores para elegir uno desde un modal.
+|
+| Va antes que el resource y no por casualidad: el resource mete un
+| {proveedor} que se tragaria el texto "selector" y dejaria el catalogo sin su
+| pagina de mostrar. Con la ruta esta primero, el literal llega aqui y el
+| resource no lo ve nunca.
+|
+| La url lleva una barra, y no un guion, por lo mismo: si fuera
+| inventario/proveedores-selector no habria colision, pero entonces el patron
+| seria distinto del resto de rutas del proyecto sin ninguna necesidad.
+*/
+Route::get(
+    'inventario/proveedores/selector',
+    [ProveedorController::class, 'selector']
+)->name('inventario.proveedores.selector');
+
+/*
 | Los proveedores van antes que los materiales a proposito: comparten el
 | camino de los modales y el mismo modelo, asi que leerlos uno tras otro
 | ayuda. El orden en que se declaran no importa para que no se solapen: los
@@ -260,6 +277,7 @@ Route::resource(
         'proveedores' => 'proveedor',
     ])
     ->names('inventario.proveedores');
+
 
 Route::resource(
     'inventario/productos',
