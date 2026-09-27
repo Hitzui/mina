@@ -160,7 +160,9 @@
                     </div>
                 </div>
 
-                {!! $equiposDataTable->html()->table(['class' => 'table table-hover'], true) !!}
+                <div class="table-responsive">
+                    {!! $equiposDataTable->html()->table(['class' => 'table table-hover'], true) !!}
+                </div>
 
                 <hr class="my-4">
 
