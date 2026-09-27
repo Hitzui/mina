@@ -167,6 +167,55 @@ class EliminarConConfirmacionTest extends TestCase
      * formulario normal, asi que el navegador terminaba mostrando el
      * JSON crudo en vez del aviso.
      */
+    /**
+     * El boton de eliminar de la pantalla de la orden usaba
+     * data-form-delete, que la libreria no soporta: sin href ni formulario
+     * asociado la libreria salia en silencio y el boton no hacia nada.
+     *
+     * El patron correcto es poner la confirmacion en el formulario y
+     * asociar el boton con el atributo HTML "form".
+     */
+    public function test_el_boton_de_eliminar_de_la_orden_usa_el_patron_de_la_libreria(): void
+    {
+        // Se lee el fuente y no se renderiza: la vista necesita el datatable
+        // montado y aqui solo importa como esta escrito el boton
+        $html = (string) file_get_contents(
+            resource_path('views/procesos/ordenes_trabajo/show.blade.php')
+        );
+
+        // Se quitan los comentarios de Blade: aqui se explica por que
+        // data-form-delete no sirve, y el test comprobaria su propio texto
+        $html = preg_replace('/\{\{--.*?--\}\}/s', '', $html);
+
+        // El boton se asocia al formulario con el atributo HTML form=
+        $this->assertStringContainsString(
+            'form="formEliminarOrden"',
+            $html,
+            'El boton de eliminar deberia asociarse al formulario con el atributo form'
+        );
+
+        // Y la confirmacion va en el formulario
+        $this->assertMatchesRegularExpression(
+            '/<form[^>]*id="formEliminarOrden"[\s\S]*?data-confirm-delete/',
+            $html,
+            'La confirmacion deberia estar en el formulario, no en el boton'
+        );
+
+        // data-form-delete no existe en la libreria: no debe quedar
+        $this->assertStringNotContainsString(
+            'data-form-delete',
+            $html,
+            'data-form-delete no lo soporta la libreria de confirmacion'
+        );
+
+        // El boton no puede ser type=button, o nunca dispara el formulario
+        $this->assertDoesNotMatchRegularExpression(
+            '/<button[^>]*form="formEliminarOrden"[^>]*type="button"/',
+            $html,
+            'El boton deberia ser type=submit para enviar el formulario'
+        );
+    }
+
     public function test_el_delete_de_un_trabajo_responde_con_aviso_y_no_con_json(): void
     {
         $trabajo = TrabajosEmpleado::with('proceso_orden.orden_trabajo')->first();

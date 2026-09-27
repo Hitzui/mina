@@ -36,7 +36,22 @@
                             <a href="{{ route('procesos.ordenes_trabajo.edit', $ordenTrabajo) }}" class="btn btn-primary">
                                 <i class="bi bi-pencil-square me-1"></i> Editar
                             </a>
-                            <button type="button" class="btn btn-danger" data-confirm-delete="true" data-form-delete="#formEliminarOrden">
+                            {{--
+                                El boton va associado al formulario oculto con el
+                                atributo HTML "form". La libreria de confirmacion
+                                resuelve el borrado en este orden:
+
+                                - si el elemento tiene href, arma un formulario y lo
+                                  envia a esa url (patron de las filas del listado);
+                                - si el elemento pertenece a un formulario, lo envia.
+
+                                Con "form=" el boton pertenece al formulario aunque
+                                este mas abajo en el DOM, asi que funciona el segundo
+                                caso. Antes se usaba data-form-delete, que esa
+                                libreria no soporta: sin href ni formulario la
+                                libreria salia en silencio y el boton no hacia nada.
+                            --}}
+                            <button type="submit" form="formEliminarOrden" class="btn btn-danger">
                                 <i class="bi bi-trash me-1"></i> Eliminar
                             </button>
                             <a href="{{ route('procesos.ordenes_trabajo.index') }}" class="btn btn-light">
@@ -123,7 +138,18 @@
         procesos de arriba muestra cuanto cuesta cada uno en mano de obra.
     --}}
 
-    <form id="formEliminarOrden" action="{{ route('procesos.ordenes_trabajo.destroy', $ordenTrabajo) }}" method="POST" class="d-none">
+    {{--
+        La confirmacion va en el formulario, no en el boton: asi la libreria
+        lo pide antes de enviarlo y si se cancela no se envia nada.
+    --}}
+    <form id="formEliminarOrden"
+          action="{{ route('procesos.ordenes_trabajo.destroy', $ordenTrabajo) }}"
+          method="POST"
+          class="d-none"
+          data-confirm-delete
+          data-confirm-title="¿Eliminar la orden de trabajo?"
+          data-confirm-text="Esta acción no se puede deshacer."
+          data-confirm-button="Sí, eliminar">
         @csrf
         @method('DELETE')
     </form>
