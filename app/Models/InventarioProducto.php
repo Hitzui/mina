@@ -89,6 +89,27 @@ class InventarioProducto extends BaseInventarioProducto
     }
 
     /**
+     * Recalcula el costo promedio con lo que queda en el almacen.
+     *
+     * Es para cuando se deshace una entrada, no cuando se consume: al
+     * deshacer, el material se devuelve porque no llego a estar dentro, y el
+     * promedio de lo que queda es otro. Si la cantidad queda en cero se
+     * conserva el ultimo promedio, que es lo que dice la documentacion: en
+     * vacio no hay nada que promediar, y ponerlo a cero haria que el
+     * siguiente consumo saliera a coste cero.
+     */
+    public function recalcularPromedio(): self
+    {
+        $cantidad = (float) $this->cantidad_actual;
+
+        if ($cantidad > 0) {
+            $this->cpp_actual = round((float) $this->valor_actual / $cantidad, 4);
+        }
+
+        return $this;
+    }
+
+    /**
      * Si queda material por debajo del minimo del producto.
      *
      * Sirve para avisar, no para impedir: un faltante de stock es una

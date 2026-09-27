@@ -1,0 +1,28 @@
+3. Etapas -> ok
+4. Órdenes de trabajo -> ya está ingresar y editar, y el show
+5. Procesos de la orden -> CRUD, faltaría validaciones, luego
+6. Categorías de costos ->Crud listo
+7. Tipos de pago de empleado -> Crud listo
+8. Pagos/tarifas de empleados -> Crud listo
+9. Trabajos de empleados -> Crud listo
+10. Productos
+11. Proveedores
+12. Compras
+13. Inventario
+14. Tipos de producción
+15. Producciones
+16. Recuperaciones
+17. Monedas
+18. Tipos de cambio
+19. Precios de oro
+20. Valoraciones de oro
+21. Tipos de participación
+22. Acuerdos
+23. Liquidaciones
+24. Tipos de ingreso
+25. Ingresos
+26. Cajas
+27. Métodos de pago
+28. Cobros
+29. Detalle de cobros
+30. Cierres

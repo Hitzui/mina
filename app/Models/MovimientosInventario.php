@@ -19,6 +19,13 @@ class MovimientosInventario extends BaseMovimientosInventario
      *
      * signo = +1 mete material en el almacen, -1 lo saca.
      */
+    /*
+     * La compra de la que viene el movimiento, si viene de una. La columna se
+     * agrego despues con una migracion, asi que el modelo base, que se
+     * genero cuando se creo la tabla, no la conoce.
+     */
+    public const COMPRA_ID = 'compra_id';
+
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_SALIDA = 'salida';
     public const TIPO_AJUSTE_POSITIVO = 'ajuste_positivo';
@@ -35,6 +42,7 @@ class MovimientosInventario extends BaseMovimientosInventario
         self::PRODUCTO_ID,
         self::ORDEN_TRABAJO_ID,
         self::PROCESO_ORDEN_ID,
+        self::COMPRA_ID,
         self::TIPO,
         self::FECHA,
         self::CANTIDAD,

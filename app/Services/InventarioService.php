@@ -94,6 +94,14 @@ class InventarioService
             MovimientosInventario::PRODUCTO_ID => $datos['producto_id'] ?? null,
             MovimientosInventario::ORDEN_TRABAJO_ID => $datos['orden_trabajo_id'] ?? null,
             MovimientosInventario::PROCESO_ORDEN_ID => $datos['proceso_orden_id'] ?? null,
+
+            /*
+             * De que compra viene el movimiento, si viene de una. Va en la
+             * lista de las columnas que se copian porque el servicio arma el
+             * modelo con claves sueltas: sin esto, la compra se pierde y la
+             * entrada de almacen queda sin origen.
+             */
+            MovimientosInventario::COMPRA_ID => $datos['compra_id'] ?? null,
             MovimientosInventario::FECHA => $datos['fecha'] ?? null,
             MovimientosInventario::CANTIDAD => $datos['cantidad'] ?? 0,
             MovimientosInventario::REFERENCIA => $datos['referencia'] ?? null,
@@ -173,6 +181,18 @@ class InventarioService
         $saldo->cantidad_actual = $nuevo['cantidad'];
         $saldo->valor_actual = $nuevo['valor'];
         $saldo->cpp_actual = $nuevo['cpp'];
+
+        /*
+         * Al deshacer, el promedio se recalcula con lo que queda. Consumir
+         * no lo movia a proposito, pero deshacer una entrada si: el material
+         * se devuelve porque no llego a estar dentro, y el promedio de lo
+         * que queda en el almacen es otro. Sin esto, el costo promedio se
+         * quedaria con el precio de algo que ya no esta.
+         */
+        if ($revertiendo) {
+            $saldo->recalcularPromedio();
+        }
+
         $saldo->save();
     }
 
