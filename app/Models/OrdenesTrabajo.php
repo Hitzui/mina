@@ -14,21 +14,53 @@ class OrdenesTrabajo extends BaseOrdenesTrabajo
      * de que uno se quedara sin actualizar, y el desajuste se ve enseguida:
      * una orden "En proceso" pintada de otro color.
      *
+     * La numeracion es la que usa el negocio: 0 Cancelada, 1 Pendiente,
+     * 2 En proceso, 3 Finalizada. Ojo con el 0: no es "sin estado", es
+     * "cancelada", y por eso no puede valer como valor por defecto de un
+     * formulario. Lo que si es un valor por defecto es 1, Pendiente.
+     *
      * El color va en dos formas porque se usa en dos sitios: la clase de
      * Bootstrap, que pintan las etiquetas del listado, y el hexadecimal,
      * que es lo que necesita el calendario, que no usa clases de Bootstrap.
+     *
+     * Finalizada y Cancelada son las dos cerradas: en ninguna de las dos se
+     * admiten datos nuevos en la orden.
      */
+    public const ESTADO_CANCELADA = 0;
     public const ESTADO_PENDIENTE = 1;
     public const ESTADO_EN_PROCESO = 2;
     public const ESTADO_FINALIZADA = 3;
-    public const ESTADO_CANCELADA = 4;
 
     public const ESTADOS = [
+        self::ESTADO_CANCELADA => ['texto' => 'Cancelada', 'color' => 'bg-danger', 'hex' => '#e7515a'],
         self::ESTADO_PENDIENTE => ['texto' => 'Pendiente', 'color' => 'bg-primary', 'hex' => '#4361ee'],
         self::ESTADO_EN_PROCESO => ['texto' => 'En proceso', 'color' => 'bg-warning', 'hex' => '#e2a03f'],
         self::ESTADO_FINALIZADA => ['texto' => 'Finalizada', 'color' => 'bg-success', 'hex' => '#00ab55'],
-        self::ESTADO_CANCELADA => ['texto' => 'Cancelada', 'color' => 'bg-danger', 'hex' => '#e7515a'],
     ];
+
+    /**
+     * En que estados la orden esta cerrada y ya no admite datos nuevos.
+     *
+     * Finalizada y Cancelada se parecen en eso: el trabajo se acabo, o se
+     * tiro la toalla, y en los dos casos la orden se cierra. Por eso se
+     * pregunta por la lista y no por un estado suelto.
+     */
+    public const ESTADOS_CERRADOS = [
+        self::ESTADO_CANCELADA,
+        self::ESTADO_FINALIZADA,
+    ];
+
+    /**
+     * Si la orden esta en un estado en el que ya no se admiten datos.
+     */
+    public function estaCerrada(): bool
+    {
+        return in_array(
+            (int) $this->estado,
+            self::ESTADOS_CERRADOS,
+            true
+        );
+    }
 
 	protected $fillable = [
 		self::CODIGO,

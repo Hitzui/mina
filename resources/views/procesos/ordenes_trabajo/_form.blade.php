@@ -112,51 +112,20 @@
                 Estado
             </label>
 
-            <div class="form-control bg-light">
-
+            {{--
+                La etiqueta sale del modelo. Aqui hubo un switch con los
+                cuatro estados escritos a mano, que es una copia mas que se
+                desfasaba en cuanto el catalogo cambiaba: la numeracion va
+                de 0 a 3 y ese switch llegaba hasta el 4.
+            --}}
+            <div class="form-control bg-light d-flex align-items-center">
                 @if($esEdicion)
-
-                    @switch($ordenTrabajo->estado)
-
-                        @case(1)
-                            <span class="badge bg-primary">
-                                Pendiente
-                            </span>
-                            @break
-
-                        @case(2)
-                            <span class="badge bg-warning">
-                                En proceso
-                            </span>
-                            @break
-
-                        @case(3)
-                            <span class="badge bg-success">
-                                Finalizada
-                            </span>
-                            @break
-
-                        @case(4)
-                            <span class="badge bg-danger">
-                                Cancelada
-                            </span>
-                            @break
-
-                        @default
-                            <span class="badge bg-secondary">
-                                Desconocido
-                            </span>
-
-                    @endswitch
-
+                    {!! $ordenTrabajo->estadoEtiqueta() !!}
                 @else
-
                     <span class="badge bg-primary">
                         Pendiente
                     </span>
-
                 @endif
-
             </div>
 
             <div class="form-text">

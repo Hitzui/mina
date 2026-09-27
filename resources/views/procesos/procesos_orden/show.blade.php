@@ -54,8 +54,8 @@
                     {{--
                         Los tres componentes del costo van en una fila de
                         tres, y el total ocupa la fila entera: es el número
-                        que se viene a mirar, y Bury it en una esquina de la
-                        rejilla lo dejaria como uno más de cuatro.
+                        que se viene a mirar, y esconderlo en una esquina de
+                        la rejilla lo dejaria como uno más de cuatro.
                     --}}
                     <div class="col-md-3">
                         <label class="form-label text-muted">Costo de mano de obra</label>

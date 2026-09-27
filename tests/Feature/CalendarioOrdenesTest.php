@@ -76,10 +76,10 @@ class CalendarioOrdenesTest extends TestCase
     public function test_cada_estado_da_su_texto_y_su_color(): void
     {
         $esperados = [
+            0 => ['Cancelada', '#e7515a'],
             1 => ['Pendiente', '#4361ee'],
             2 => ['En proceso', '#e2a03f'],
             3 => ['Finalizada', '#00ab55'],
-            4 => ['Cancelada', '#e7515a'],
         ];
 
         foreach ($esperados as $numero => [$texto, $hex]) {
@@ -110,6 +110,88 @@ class CalendarioOrdenesTest extends TestCase
 
         $this->assertStringContainsString('bg-warning', $etiqueta);
         $this->assertStringContainsString('En proceso', $etiqueta);
+    }
+
+    public function test_el_cero_es_cancelada_y_no_sin_estado(): void
+    {
+        /*
+         * Es la numeracion que usa el negocio: 0 Cancelada, 1 Pendiente,
+         * 2 En proceso, 3 Finalizada. El 0 no es "sin estado", que es el
+         * error facil de cometer y dejaria toda orden sin estadoar en rojo.
+         */
+        $orden = new OrdenesTrabajo();
+        $orden->estado = OrdenesTrabajo::ESTADO_CANCELADA;
+
+        $this->assertSame(0, OrdenesTrabajo::ESTADO_CANCELADA);
+        $this->assertSame('Cancelada', $orden->estadoTexto());
+        $this->assertStringContainsString('bg-danger', $orden->estadoEtiqueta());
+    }
+
+    public function test_el_catalogo_no_llega_a_cuatro(): void
+    {
+        /*
+         * Antes el estado 4 era Cancelada, y con el 0 de Cancelada ese 4
+         * queda libre. Si alguien vuelve a anadirlo, el catalogo estara mal
+         * respecto de lo que dice el negocio.
+         */
+        $this->assertArrayNotHasKey(
+            4,
+            OrdenesTrabajo::ESTADOS,
+            'Cancelada es el estado 0, no el 4'
+        );
+
+        $this->assertSame(
+            [0, 1, 2, 3],
+            array_keys(OrdenesTrabajo::ESTADOS)
+        );
+    }
+
+    // ==================================================================
+    // Los estados cerrados
+    // ==================================================================
+
+    public function test_los_estados_cerrados_son_cancelada_y_finalizada(): void
+    {
+        $this->assertSame(
+            [
+                OrdenesTrabajo::ESTADO_CANCELADA,
+                OrdenesTrabajo::ESTADO_FINALIZADA,
+            ],
+            OrdenesTrabajo::ESTADOS_CERRADOS
+        );
+    }
+
+    public function test_se_sabe_si_la_orden_esta_cerrada(): void
+    {
+        $orden = new OrdenesTrabajo();
+
+        // Finalizada y cancelada cierran la orden
+        $orden->estado = OrdenesTrabajo::ESTADO_FINALIZADA;
+        $this->assertTrue($orden->estaCerrada(), 'Una orden finalizada esta cerrada');
+
+        $orden->estado = OrdenesTrabajo::ESTADO_CANCELADA;
+        $this->assertTrue($orden->estaCerrada(), 'Una orden cancelada esta cerrada');
+
+        // Estas dos no
+        $orden->estado = OrdenesTrabajo::ESTADO_PENDIENTE;
+        $this->assertFalse($orden->estaCerrada(), 'Una orden pendiente no esta cerrada');
+
+        $orden->estado = OrdenesTrabajo::ESTADO_EN_PROCESO;
+        $this->assertFalse($orden->estaCerrada(), 'Una orden en proceso no esta cerrada');
+    }
+
+    public function test_el_estado_por_defecto_de_un_formulario_no_es_el_cero(): void
+    {
+        /*
+         * El cero es Cancelada. Si un formulario cayera en el 0 por no
+         * tener nada marcado, la orden se crearia cancelada, que es lo
+         * peor que puede pasar: nadie la ve en el listado de trabajo.
+         */
+        $this->assertSame(1, OrdenesTrabajo::ESTADO_PENDIENTE);
+        $this->assertNotSame(
+            OrdenesTrabajo::ESTADO_CANCELADA,
+            OrdenesTrabajo::ESTADO_PENDIENTE
+        );
     }
 
     // ==================================================================
