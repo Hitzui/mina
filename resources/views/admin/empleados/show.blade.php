@@ -121,7 +121,13 @@
                     <form action="{{ route('admin.empleados.destroy', $empleado) }}" method="POST" class="d-inline">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-danger" data-confirm-delete="true">
+                        <button
+                            type="submit"
+                            class="btn btn-danger"
+                            data-confirm-delete
+                            data-confirm-title="¿Eliminar el empleado?"
+                            data-confirm-text="Se eliminará de la lista de empleados. Sus tarifas y sus trabajos se conservan porque el historial de la orden los necesita; lo que se pierde es la posibilidad de registrarle trabajo nuevo."
+                            data-confirm-button="Sí, eliminar">
                             <i class="bi bi-trash"></i> Eliminar
                         </button>
                     </form>

@@ -77,6 +77,96 @@ class EliminarConConfirmacionTest extends TestCase
         );
     }
 
+    /**
+     * El texto de la confirmacion tiene que estar en el atributo que la
+     * libreria lee.
+     *
+     * data-confirm-delete es solo la bandera que dice "este boton pide
+     * confirmacion". Poner ahi el mensaje no da error ni aviso: la
+     * libreria lo ignora y sale el dialogo por defecto, que antes estaba
+     * en ingles. Y esto no se ve leyendo el partial, sino el texto que
+     * sale en pantalla.
+     */
+    public function test_el_texto_de_la_confirmacion_esta_en_su_atributo(): void
+    {
+        $parciales = [
+            'inventario.productos._action',
+            'inventario.movimientos._action',
+            'procesos.procesos_orden.materiales._action',
+        ];
+
+        foreach ($parciales as $vista) {
+            $ruta = resource_path('views/' . str_replace('.', '/', $vista) . '.blade.php');
+
+            $this->assertFileExists($ruta, "No existe el partial {$vista}");
+
+            $contenido = file_get_contents($ruta);
+
+            $this->assertStringContainsString(
+                'data-confirm-title',
+                $contenido,
+                "El partial {$vista} no trae el titulo de la confirmacion"
+            );
+
+            $this->assertStringContainsString(
+                'data-confirm-text',
+                $contenido,
+                "El partial {$vista} no trae el texto de la confirmacion"
+            );
+
+            $this->assertStringContainsString(
+                'data-confirm-button',
+                $contenido,
+                "El partial {$vista} no trae el texto del boton"
+            );
+
+            /*
+             * El atributo de la bandera no debe llevar el mensaje. Se
+             * comprueba que venga solo o con "true", y no con una frase:
+             * es la causa del fallo.
+             */
+            $this->assertDoesNotMatchRegularExpression(
+                '/data-confirm-delete\s*=\s*["\'][^"\']{20,}["\']/',
+                $contenido,
+                "El partial {$vista} tiene el mensaje en data-confirm-delete, "
+                . 'que es solo la bandera: el texto se ignoraria'
+            );
+        }
+    }
+
+    /**
+     * Los textos por defecto del dialogo, en español.
+     *
+     * Son la red de seguridad para los botones que no traen texto propio.
+     * Si vuelven al inglés, cualquier boton nuevo que se olvide de ponerlos
+     * los saca en pantalla en inglés sin que nadie se entere.
+     */
+    public function test_los_textos_por_defecto_estan_en_espanol(): void
+    {
+        $ingleses = [
+            'Are you sure',
+            'This cannot be undone',
+            'Yes, delete it',
+            "'OK'",
+            "'Cancel'",
+            "'Deny'",
+        ];
+
+        $contenido = file_get_contents(config_path('sweetalert.php'));
+
+        foreach ($ingleses as $ingles) {
+            $this->assertStringNotContainsString(
+                $ingles,
+                $contenido,
+                "Quedo un texto en ingles en la config: {$ingles}"
+            );
+        }
+
+        // Y que los de confirmar y borrar esten puestos
+        $this->assertStringContainsString('¿Eliminar?', $contenido);
+        $this->assertStringContainsString('Cancelar', $contenido);
+    }
+
     public function test_todos_los_listados_tienen_boton_de_eliminar(): void
     {
         $parciales = [

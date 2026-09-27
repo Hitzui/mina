@@ -1,3 +1,14 @@
+{{--
+    Los botones de la fila del kardex.
+
+    El texto de la confirmacion va en data-confirm-title, -text y -button.
+    El data-confirm-delete a secas es solo la bandera que le dice al
+    javascript que el boton pide confirmacion; el mensaje ahi se ignora.
+
+    Aqui el borrado no es solo quitar una fila: ademas devuelve el material
+    al almacen. Es lo que dice el texto, porque es la parte que se puede
+    llevar por sorpresa.
+--}}
 <td>
     <div class="d-flex justify-content-center gap-1">
 
@@ -16,7 +27,10 @@
                 method="POST"
                 action="{{ route('inventario.movimientos.destroy', $movimiento) }}"
                 class="d-inline"
-                data-confirm-delete="¿Eliminar este movimiento? El material volverá al almacén y las existencias se corregirán solas."
+                data-confirm-delete
+                data-confirm-title="¿Eliminar este movimiento?"
+                data-confirm-text="Se deshará el movimiento: el material volverá al almacén y la existencia se corregirá sola. Si lo que se registró no era lo que pasó, esta es la manera de arreglarlo."
+                data-confirm-button="Sí, deshacer"
             >
                 @csrf
                 @method('DELETE')

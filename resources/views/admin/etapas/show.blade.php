@@ -131,7 +131,10 @@
                         action="{{ route('admin.etapas.destroy', $etapa) }}"
                         method="POST"
                         class="d-inline"
-                        data-confirm-delete="true">
+                        data-confirm-delete
+                        data-confirm-title="¿Eliminar la etapa?"
+                        data-confirm-text="Se eliminará de la lista de etapas. Si algún proceso de alguna orden usa esta etapa, esa asignación se queda sin nombre y el proceso se verá raro; en ese caso conviene desactivarla en lugar de borrarla."
+                        data-confirm-button="Sí, eliminar">
                         @csrf
                         @method('DELETE')
 

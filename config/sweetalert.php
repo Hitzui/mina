@@ -78,9 +78,9 @@ return [
     */
 
     'button_text' => [
-        'confirm' => env('SWEET_ALERT_CONFIRM_BUTTON_TEXT', 'OK'),
-        'cancel' => env('SWEET_ALERT_CANCEL_BUTTON_TEXT', 'Cancel'),
-        'deny' => env('SWEET_ALERT_DENY_BUTTON_TEXT', 'Deny'),
+        'confirm' => env('SWEET_ALERT_CONFIRM_BUTTON_TEXT', 'Aceptar'),
+        'cancel' => env('SWEET_ALERT_CANCEL_BUTTON_TEXT', 'Cancelar'),
+        'deny' => env('SWEET_ALERT_DENY_BUTTON_TEXT', 'No'),
     ],
 
     /*
@@ -134,11 +134,11 @@ return [
     'confirm' => [
         'auto' => env('SWEET_ALERT_AUTO_CONFIRM', true),
         'icon' => 'question',
-        'title' => 'Are you sure?',
+        'title' => '¿Está seguro?',
         'text' => '',
-        'confirm_button_text' => 'Yes',
+        'confirm_button_text' => 'Sí, continuar',
         'confirm_button_color' => '#3085d6',
-        'cancel_button_text' => 'Cancel',
+        'cancel_button_text' => 'Cancelar',
         'show_cancel_button' => true,
         'show_close_button' => false,
     ],
@@ -154,11 +154,11 @@ return [
 
     'confirm_delete' => [
         'icon' => 'warning',
-        'title' => 'Are you sure?',
-        'text' => 'This cannot be undone.',
-        'confirm_button_text' => 'Yes, delete it!',
+        'title' => '¿Eliminar?',
+        'text' => 'Esta acción no se puede deshacer.',
+        'confirm_button_text' => 'Sí, eliminar',
         'confirm_button_color' => '#d33',
-        'cancel_button_text' => 'Cancel',
+        'cancel_button_text' => 'Cancelar',
         'show_close_button' => false,
         'show_cancel_button' => true,
         'show_loader_on_confirm' => true,
