@@ -7,8 +7,11 @@ use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EtapaController;
+use App\Http\Controllers\Inventario\MaterialesController;
+use App\Http\Controllers\Inventario\ProductoController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
+use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
@@ -217,6 +220,41 @@ Route::resource(
 
 
 /*
+| El almacen: el catalogo de materiales y el kardex de lo que entra y sale.
+|
+| Las salidas sin proceso tambien se registran aqui, y son las que se
+| usan para una salida que no corresponde a ningun proceso (una muestra,
+| una venta). El consumo de un proceso tiene su propia pantalla, dentro de
+| la orden, porque ahi es donde se sabe a que etapa se le carga.
+|
+| No hay pantalla de editar un movimiento a proposito: corregir uno quiere
+| decir deshacerlo y volverlo a registrar. Editar la cantidad en su lugar
+| tendria que volver a tocar el saldo por el camino inverso, y con ello la
+| oportunidad de que el almacen y el kardex se queden discrepantes. Dejar
+| las rutas de edicion sin implementar daria un error 500 feo a quien las
+| encontrara, asi que directamente no se registran.
+*/
+Route::resource(
+    'inventario/movimientos',
+    MaterialesController::class
+)
+    ->only(['index', 'create', 'store', 'show', 'destroy'])
+    ->parameters([
+        'movimientos' => 'movimiento',
+    ])
+    ->names('inventario.movimientos');
+
+Route::resource(
+    'inventario/productos',
+    ProductoController::class
+)
+    ->parameters([
+        'productos' => 'producto',
+    ])
+    ->names('inventario.productos');
+
+
+/*
 | Los trabajos de los empleados cuelgan de un proceso, no de la orden
 | directamente. La orden sigue estando en la URL porque es el contexto de
 | navegación, y ademas sirve para comprobar que el proceso pertenece a esa
@@ -292,6 +330,34 @@ Route::resource(
         'costos' => 'costo',
     ])
     ->names('procesos.ordenes_trabajo.procesos.costos');
+
+
+/*
+| La materia prima que consume un proceso: el cemento y los quimicos de
+| la etapa de Pilas, o de cualquiera otra. Se registra desde la pantalla
+| del proceso, no desde el almacen, porque la fila tiene que quedar
+| imputada a la etapa que lo gasta: si se registrara sin proceso, el
+| material saldria del stock sin cargarse a ninguna parte.
+*/
+Route::get(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/materiales',
+    [MaterialesProcesoController::class, 'index']
+)->name('procesos.ordenes_trabajo.procesos.materiales.index');
+
+Route::get(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/materiales/create',
+    [MaterialesProcesoController::class, 'create']
+)->name('procesos.ordenes_trabajo.procesos.materiales.create');
+
+Route::post(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/materiales',
+    [MaterialesProcesoController::class, 'store']
+)->name('procesos.ordenes_trabajo.procesos.materiales.store');
+
+Route::delete(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/materiales/{movimiento}',
+    [MaterialesProcesoController::class, 'destroy']
+)->name('procesos.ordenes_trabajo.procesos.materiales.destroy');
 
 
 }); // fin del grupo middleware('auth')

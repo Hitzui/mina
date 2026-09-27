@@ -187,15 +187,63 @@
                 <div class="alert alert-light border d-flex align-items-start gap-2">
                     <i class="bi bi-info-circle fs-5"></i>
                     <div>
-                        Aquí van los consumos de este proceso. La mano de obra
-                        y la depreciación <strong>no</strong> se registran aquí:
-                        las calcula el sistema desde los trabajos de los
-                        empleados y desde los equipos asignados, y escribirlas
-                        también las contaría dos veces.
+                        Aquí van los consumos de este proceso: energía, agua y
+                        demás conceptos. La mano de obra, la depreciación y la
+                        <strong>materia prima</strong> <strong>no</strong> se
+                        registran aquí: las calcula el sistema desde los
+                        trabajos de los empleados, desde los equipos asignados y
+                        desde el almacén, y escribirlas también las contaría
+                        dos veces.
                     </div>
                 </div>
 
                 {!! $costosDataTable->html()->table(['class' => 'table table-hover'], true) !!}
+
+                <hr class="my-4">
+
+                {{--
+                    La materia prima del proceso. Va aparte de los costos de
+                    arriba y no es solo estetico: estos consumos salen del
+                    almacen, mueven las existencias y se valuan al costo
+                    promedio. Registrarlos como un costo mas haria que el
+                    material se descontara dos veces, una del stock y otra del
+                    costo del proceso.
+                --}}
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <h5 class="mb-0">
+                        <i class="bi bi-box-seam me-2"></i>
+                        Materia prima consumida
+                    </h5>
+
+                    <button type="button" class="btn btn-primary" id="btnNuevoMaterial">
+                        <i class="bi bi-plus-lg me-1"></i>
+                        Registrar consumo
+                    </button>
+                </div>
+
+                <div class="alert alert-light border d-flex align-items-start gap-2">
+                    <i class="bi bi-info-circle fs-5"></i>
+                    <div>
+                        Cemento, químicos, reactivos: lo que se gasta en este
+                        proceso. Al registrar el consumo el material
+                        <strong>se descuenta del almacén</strong> y su costo
+                        entra al total de este proceso con el valor del costo
+                        promedio del almacén, no con el precio que se escriba
+                        aquí. Si el material aún no tiene costo cargado, el
+                        consumo sumará cero.
+                    </div>
+                </div>
+
+                @if($cantidadMateriales > 0)
+                    <p class="form-text">
+                        {{ $cantidadMateriales }} consumo(s) registrado(s),
+                        por {{ number_format($procesoOrden->costo_materia_prima, 2) }}.
+                    </p>
+                @endif
+
+                <div class="table-responsive">
+                    {!! $materialesDataTable->html()->table(['class' => 'table table-hover'], true) !!}
+                </div>
 
                 <hr class="my-4">
 
@@ -270,11 +318,13 @@
         {{ $trabajosDataTable->html()->scripts() }}
         {{ $equiposDataTable->html()->scripts() }}
         {{ $costosDataTable->html()->scripts() }}
+        {{ $materialesDataTable->html()->scripts() }}
         {{ $empleadosSelectorDataTable->html()->scripts() }}
         @vite(['resources/assets/js/select2/select2-init.js'])
         <script src="{{ asset('js/ordenes_trabajo/trabajos_empleados.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/proceso_equipos.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/costos.js') }}"></script>
+        <script src="{{ asset('js/ordenes_trabajo/materiales.js') }}"></script>
     </x-slot>
 
     @include('procesos.ordenes_trabajo.trabajos_empleados._modal_form')
@@ -284,5 +334,6 @@
     @include('procesos.procesos_orden.equipos._modal_show')
     @include('procesos.procesos_orden.costos._modal_form')
     @include('procesos.procesos_orden.costos._modal_show')
+    @include('procesos.procesos_orden.materiales._modal_form')
 
 </x-base-layout>

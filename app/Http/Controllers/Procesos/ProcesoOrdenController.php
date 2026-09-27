@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Procesos;
 
 use App\DataTables\CostosProcesoDataTable;
 use App\DataTables\EmpleadosSelectorDataTable;
+use App\DataTables\MaterialesProcesoDataTable;
 use App\DataTables\ProcesoEquiposDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\DataTables\TrabajosEmpleadosDataTable;
@@ -12,7 +13,9 @@ use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\Equipo;
 use App\Models\Etapa;
+use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
+use App\Models\Producto;
 use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Http\Request;
@@ -48,6 +51,7 @@ class ProcesoOrdenController extends Controller
         TrabajosEmpleadosDataTable $trabajosDataTable,
         ProcesoEquiposDataTable $equiposDataTable,
         CostosProcesoDataTable $costosDataTable,
+        MaterialesProcesoDataTable $materialesDataTable,
         EmpleadosSelectorDataTable $empleadosSelectorDataTable
     ) {
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
@@ -84,9 +88,15 @@ class ProcesoOrdenController extends Controller
         $costosDataTable->setProcesoOrdenId($procesoOrden->id);
         $costosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
 
-        // Para el texto de cuanto trabajo y cuantos equipos tiene
+        $materialesDataTable->setProcesoOrdenId($procesoOrden->id);
+        $materialesDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+
+        // Para el texto de cuanto trabajo, cuantos equipos y cuanto material
         $cantidadTrabajos = $procesoOrden->trabajos_empleados()->count();
         $cantidadEquipos = $procesoOrden->equipos()->count();
+        $cantidadMateriales = $procesoOrden->movimientos_materia_prima()
+            ->where('tipo', MovimientosInventario::TIPO_SALIDA)
+            ->count();
 
         // El formulario del trabajo necesita los tipos de pago para su combo
         $tiposPago = TiposPagoEmpleado::query()
@@ -127,6 +137,20 @@ class ProcesoOrdenController extends Controller
         // El desglose de donde sale el total del proceso
         $costosDesglosados = $procesoOrden->costosDesglosados();
 
+        /*
+         * Los materiales para el modal de consumo. Van con su saldo
+         * cargado porque el desplegable muestra cuanto hay de cada uno y a
+         * cuanto costo promedio: es la unica forma de que se vea, antes de
+         * guardar, que el material no tiene costo cargado y que el consumo
+         * sumaria cero al proceso.
+         */
+        $productos = Producto::query()
+            ->where('estado', true)
+            ->whereNull('deleted_at')
+            ->with('inventario')
+            ->orderBy('nombre')
+            ->get();
+
         return view(
             'procesos.procesos_orden.show',
             compact(
@@ -137,14 +161,17 @@ class ProcesoOrdenController extends Controller
                 'trabajosDataTable',
                 'equiposDataTable',
                 'costosDataTable',
+                'materialesDataTable',
                 'empleadosSelectorDataTable',
                 'cantidadTrabajos',
                 'cantidadEquipos',
+                'cantidadMateriales',
                 'tiposPago',
                 'equiposDisponibles',
                 'fechaInicioPorDefecto',
                 'categorias',
                 'monedas',
+                'productos',
                 'fechaPorDefecto',
                 'costosDesglosados'
             )

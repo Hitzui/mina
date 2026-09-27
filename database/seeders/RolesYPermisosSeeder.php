@@ -25,6 +25,8 @@ class RolesYPermisosSeeder extends Seeder
         'procesos_orden',
         'proceso_equipo',
         'movimientos_costo',
+        'movimientos_inventario',
+        'productos',
         'trabajos_empleado',
         'tipos_cambio',
         'configuracion.categorias_costos',
@@ -84,6 +86,11 @@ class RolesYPermisosSeeder extends Seeder
             'procesos_orden.view', 'procesos_orden.create', 'procesos_orden.edit',
             'proceso_equipo.view', 'proceso_equipo.create', 'proceso_equipo.edit',
             'movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit',
+            // El almacen lo lleva administracion: el material entra por ahi y
+            // el catalogo es un dato maestro, no trabajo de campo
+            'movimientos_inventario.view', 'movimientos_inventario.create',
+            'movimientos_inventario.edit', 'movimientos_inventario.delete',
+            'productos.view', 'productos.create', 'productos.edit', 'productos.delete',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
             'configuracion.categorias_costos.view',
@@ -110,6 +117,15 @@ class RolesYPermisosSeeder extends Seeder
             'proceso_equipo.view', 'proceso_equipo.create', 'proceso_equipo.edit',
             // Y cargar los consumos del proceso (energia, agua, material)
             'movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit',
+            /*
+             * El consumo de material en un proceso tambien es trabajo de
+             * campo: es quien esta en la etapa de Pilas el que sabe cuanto
+             * cemento se gasto. Lo que no lleva el operador es el catalogo
+             * de materiales ni el kardex general, que son dato maestro y
+             * control de almacen.
+             */
+            'movimientos_inventario.view', 'movimientos_inventario.create',
+            'productos.view',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
         ]);
 

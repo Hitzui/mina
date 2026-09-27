@@ -306,13 +306,54 @@
                 </div>
             </li>
 
-            <li class="menu">
-                <a href="javascript:void(0);" aria-expanded="false" class="dropdown-toggle disabled">
+            @php
+                $inventarioActivo = Request::is('inventario/*')
+                    || Request::routeIs('procesos.ordenes_trabajo.procesos.materiales.*');
+            @endphp
+
+            <li class="menu {{ $inventarioActivo ? 'active' : '' }}">
+
+                <a
+                    href="#inventario"
+                    data-bs-toggle="collapse"
+                    aria-expanded="{{ $inventarioActivo ? 'true' : 'false' }}"
+                    class="dropdown-toggle"
+                >
                     <div>
                         <i class="bi bi-boxes"></i>
                         <span>Inventario</span>
                     </div>
+
+                    <div>
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
                 </a>
+
+                <ul
+                    class="collapse submenu list-unstyled {{ $inventarioActivo ? 'show' : '' }}"
+                    id="inventario"
+                    data-bs-parent="#accordionExample"
+                >
+
+                    <li class="{{ Request::routeIs('inventario.productos.*') ? 'active' : '' }}">
+                        <a href="{{ route('inventario.productos.index') }}">
+                            <div>
+                                <i class="bi bi-box-seam"></i>
+                                <span>Materiales</span>
+                            </div>
+                        </a>
+                    </li>
+
+                    <li class="{{ Request::routeIs('inventario.movimientos.*') ? 'active' : '' }}">
+                        <a href="{{ route('inventario.movimientos.index') }}">
+                            <div>
+                                <i class="bi bi-arrow-left-right"></i>
+                                <span>Almacén</span>
+                            </div>
+                        </a>
+                    </li>
+
+                </ul>
             </li>
 
             {{-- =====================================================

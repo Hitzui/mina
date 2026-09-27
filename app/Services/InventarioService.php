@@ -109,18 +109,25 @@ class InventarioService
          */
         $movimiento->tipo = (string) $datos['tipo'];
 
+        /*
+         * El precio de una salida lo pone el inventario: lo que sale de un
+         * almacen ya esta valuado en la moneda base. El precio que venga en
+         * el formulario se pisa, que es lo que se aseguro con el cliente.
+         */
         if ($movimiento->esSalida()) {
             $movimiento->costo_unitario = (float) $saldo->cpp_actual;
-
-            /*
-             * La columna moneda_id no admite nulos, y una salida no tiene
-             * moneda: se valora al promedio del almacen, que ya esta en la
-             * moneda base. Se rellena con esa para no dejar la columna
-             * vacia, y no con la que venga del formulario.
-             */
-            $movimiento->moneda_id = $this->monedaBaseId();
         } else {
             $movimiento->costo_unitario = (float) ($datos['costo_unitario'] ?? 0);
+        }
+
+        /*
+         * La columna moneda_id no admite nulos. Cuando no se indica ninguna
+         * se pone la moneda base, que es el NIO: es lo unico que se puede
+         * dejar vacio sin que la base lo rechace, y para una salida es ademas
+         * lo correcto, porque lo que sale del almacen ya esta en NIO.
+         */
+        if ($movimiento->moneda_id === null) {
+            $movimiento->moneda_id = $this->monedaBaseId();
         }
 
         // El equivalente en NIO lo pone el tipo de cambio de la fecha
