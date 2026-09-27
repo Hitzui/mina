@@ -39,13 +39,14 @@
                             Ver el kardex
                         </a>
 
-                        <a
-                            href="{{ route('inventario.productos.create') }}"
+                        <button
+                            type="button"
                             class="btn btn-primary"
+                            id="btnNuevoProducto"
                         >
                             <i class="bi bi-plus me-1"></i>
                             Nuevo Material
-                        </a>
+                        </button>
                     </div>
 
                 </div>
@@ -64,9 +65,15 @@
 
     </div>
 
+    {{-- El alta, la edicion y la ficha van en modal, sobre la lista --}}
+    @include('inventario.productos._modal_form')
+    @include('inventario.productos._modal_show')
+
     <x-slot:footerFiles>
 
         {!! $dataTable->scripts() !!}
+
+        <script src="{{ asset('js/inventario/productos.js') }}"></script>
 
     </x-slot>
 

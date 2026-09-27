@@ -110,8 +110,12 @@
             Estado
         </label>
 
-        {{-- El 0 va por delante: el interruptor manda 0 o 1 y el 1 --
-             tiene que estar despues para que el 0 no se quede sin marcar --}}
+        {{--
+            El 0 va por delante a proposito. El interruptor manda 0 o 1, y si
+            el 1 estuviera primero, al desmarcarlo se quedaria sin marcar y
+            el navegador no mandaria nada: el material se guardaria con el
+            valor por defecto de la base en vez de inactivo.
+        --}}
         <input type="hidden" name="estado" value="0">
 
         <div class="form-check form-switch mt-2">
@@ -126,6 +130,10 @@
             <label class="form-check-label" for="estado">
                 Activo
             </label>
+        </div>
+
+        <div class="form-text">
+            Un material inactivo no se puede consumir ni registrar entradas.
         </div>
         @error('estado')
             <div class="invalid-feedback">{{ $message }}</div>
@@ -148,20 +156,24 @@
         @enderror
     </div>
 
-    <div class="col-12">
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check me-1"></i>
-                {{ $editando ? 'Guardar cambios' : 'Crear material' }}
-            </button>
-
-            <a
-                href="{{ route('inventario.productos.index') }}"
-                class="btn btn-light"
-            >
-                Cancelar
-            </a>
+    {{--
+        Lo que hay en el almacen no se toca aqui: lo mueve cada movimiento
+        del kardex. Se dice dentro del modal, no en la lista, porque es justo
+        lo que alguien viene a buscar cuando entra a editar.
+    --}}
+    @if($editando)
+        <div class="col-12">
+            <div class="alert alert-light border mb-0 d-flex align-items-start gap-2">
+                <i class="bi bi-info-circle"></i>
+                <div class="small">
+                    La existencia, el costo promedio y el valor en almacén
+                    (<strong>{{ number_format($producto->existencia, 3) }}
+                    {{ $producto->unidad_medida }}</strong>) no se cambian aquí:
+                    los mueve cada entrada y cada consumo. Para corregirlos hay
+                    que deshacer el movimiento y registrarlo de nuevo.
+                </div>
+            </div>
         </div>
-    </div>
+    @endif
 
 </div>

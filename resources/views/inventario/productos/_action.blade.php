@@ -1,21 +1,30 @@
+{{--
+    Los botones de la fila de materiales.
+
+    Cada uno lleva su url en un data-url y una clase que el javascript
+    reconoce. El boton de eliminar va en un formulario aparte porque el
+    borrado necesita POST con _method, no se puede con un enlace.
+--}}
 <td>
     <div class="d-flex justify-content-center gap-1">
 
-        <a
-            href="{{ route('inventario.productos.show', $producto) }}"
-            class="btn btn-sm btn-light"
+        <button
+            type="button"
+            class="btn btn-sm btn-light btn-show-producto"
+            data-url="{{ route('inventario.productos.show', $producto) }}"
             title="Ver la ficha del material"
         >
             <i class="bi bi-eye"></i>
-        </a>
+        </button>
 
-        <a
-            href="{{ route('inventario.productos.edit', $producto) }}"
-            class="btn btn-sm btn-light"
+        <button
+            type="button"
+            class="btn btn-sm btn-light btn-edit-producto"
+            data-url="{{ route('inventario.productos.edit', $producto) }}"
             title="Editar"
         >
             <i class="bi bi-pencil"></i>
-        </a>
+        </button>
 
         <form
             method="POST"

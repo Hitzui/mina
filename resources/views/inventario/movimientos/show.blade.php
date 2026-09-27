@@ -40,9 +40,16 @@
                     <div class="col-md-4">
                         <label class="form-label text-muted">Material</label>
                         <div class="form-control bg-light">
-                            <a href="{{ route('inventario.productos.show', $movimiento->producto_id) }}">
-                                {{ $movimiento->producto?->nombre ?? 'Producto eliminado' }}
-                            </a>
+                            {{ $movimiento->producto?->nombre ?? 'Producto eliminado' }}
+                            {{-- La ficha del material vive en un modal dentro
+                                 del catálogo, y esa ruta devuelve json:
+                                 enlazarla desde aqui abriria el json crudo
+                                 en el navegador. --}}
+                            <span class="text-muted d-block small">
+                                <a href="{{ route('inventario.productos.index') }}">
+                                    Ver en el catálogo
+                                </a>
+                            </span>
                         </div>
                     </div>
 

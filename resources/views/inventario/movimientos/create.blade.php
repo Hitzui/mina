@@ -34,7 +34,7 @@
                     <div class="alert alert-warning" role="alert">
                         <i class="bi bi-exclamation-triangle me-1"></i>
                         Todavía no hay ningún material dado de alta.
-                        <a href="{{ route('inventario.productos.create') }}">
+                        <a href="{{ route('inventario.productos.index') }}">
                             Cree el primero
                         </a>
                         para poder registrar entradas.

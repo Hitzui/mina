@@ -10,6 +10,7 @@ use App\Models\Producto;
 use App\Models\ProcesosOrden;
 use App\Models\User;
 use App\Services\InventarioService;
+
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -193,18 +194,204 @@ class PantallasDeMaterialTest extends TestCase
             ->assertSessionHasErrors('producto_id');
     }
 
-    public function test_la_ficha_del_material_muestra_el_saldo_y_el_kardex(): void
+    // ==================================================================
+    // Los modales: alta, edicion y ficha
+    // ==================================================================
+
+    public function test_los_modales_estan_en_la_pagina_de_materiales(): void
+    {
+        $html = $this->get('/inventario/productos')->assertOk()->getContent();
+
+        // El boton de nuevo material abre el modal, no lleva a otra pagina
+        $this->assertStringContainsString('id="btnNuevoProducto"', $html);
+        $this->assertStringNotContainsString(
+            'route(\'inventario.productos.create\')',
+            $html,
+            'El alta se hace en modal, no en otra pagina'
+        );
+
+        $this->assertStringContainsString('id="modalProducto"', $html);
+        $this->assertStringContainsString('id="formProducto"', $html);
+        $this->assertStringContainsString('id="modalShowProducto"', $html);
+        $this->assertStringContainsString('productos.js', $html);
+    }
+
+    public function test_el_modal_de_alta_apunta_a_la_ruta_de_crear(): void
+    {
+        $html = $this->get('/inventario/productos')->assertOk()->getContent();
+
+        $this->assertStringContainsString(
+            'data-store-url="' . route('inventario.productos.store') . '"',
+            $html
+        );
+
+        $this->assertStringContainsString('__ID__', $html, 'La url de editar se completa en el navegador');
+    }
+
+    public function test_el_alta_sigue_aceptando_el_formulario_normal(): void
+    {
+        /*
+         * El modal manda ajax, pero la ruta tiene que seguir sirviendo para
+         * quien entre por la url o con el javascript desactivado: si no, la
+         * aplicacion dejaria de dar de alta materiales en cuanto el js
+         * fallara.
+         */
+        $this->post('/inventario/productos', [
+            'codigo' => 'CEM-002',
+            'nombre' => 'Cemento sin modal',
+            'unidad_medida' => 'kg',
+            'estado' => 1,
+        ])->assertRedirect(route('inventario.productos.index'));
+
+        $this->assertDatabaseHas('productos', ['codigo' => 'CEM-002']);
+    }
+
+    public function test_alta_y_edicion_responden_json_cuando_se_piden_por_ajax(): void
+    {
+        $r = $this->postJson('/inventario/productos', [
+            'codigo' => 'CEM-003',
+            'nombre' => 'Cemento por ajax',
+            'unidad_medida' => 'kg',
+            'estado' => 1,
+        ])->assertOk();
+
+        $this->assertTrue($r->json('success'));
+        $this->assertNotEmpty($r->json('message'));
+    }
+
+    public function test_la_edicion_devuelve_los_datos_para_el_modal(): void
+    {
+        $this->producto->update([
+            'nombre' => 'Cimento editado',
+            'categoria' => 'Cementos',
+            'stock_minimo' => 250,
+            'descripcion' => 'Para la pila',
+        ]);
+
+        $r = $this->getJson("/inventario/productos/{$this->producto->id}/edit")
+            ->assertOk();
+
+        $this->assertSame($this->producto->id, $r->json('id'));
+        $this->assertSame('Cimento editado', $r->json('nombre'));
+        $this->assertSame($this->producto->codigo, $r->json('codigo'));
+        $this->assertSame('Cementos', $r->json('categoria'));
+        $this->assertEqualsWithDelta(250.0, (float) $r->json('stock_minimo'), 0.01);
+        $this->assertSame('Para la pila', $r->json('descripcion'));
+        $this->assertTrue($r->json('estado'));
+    }
+
+    public function test_el_alta_y_la_edicion_no_piden_lo_que_calcula_el_sistema(): void
     {
         $this->entrar(200, 4.00);
 
-        $html = $this->get("/inventario/productos/{$this->producto->id}")
-            ->assertOk()
-            ->getContent();
+        $r = $this->getJson("/inventario/productos/{$this->producto->id}/edit")->assertOk();
 
-        $this->assertStringContainsString($this->producto->nombre, $html);
-        $this->assertStringContainsString('Existencia', $html);
-        $this->assertStringContainsString('Costo promedio', $html);
-        $this->assertStringContainsString('Últimos movimientos', $html);
+        /*
+         * La existencia y el costo promedio los mueve el kardex, no el
+         * formulario. Si el modal los enviara, un valor tecleado se
+         * guardaria como si fuera verdad y el almacen quedaria mentido.
+         */
+        $formulario = file_get_contents(
+            resource_path('views/inventario/productos/_form.blade.php')
+        );
+
+        $this->assertStringNotContainsString('name="existencia"', $formulario);
+        $this->assertStringNotContainsString('name="cpp_actual"', $formulario);
+        $this->assertStringNotContainsString('name="valor_actual"', $formulario);
+
+        // Y el modal lo dice, para que quede claro
+        $this->assertStringContainsString(
+            'no se cambian aquí',
+            $formulario
+        );
+
+        $this->assertIsArray($r->json());
+    }
+
+    public function test_la_ficha_devuelve_el_saldo_y_el_kardex_reciente(): void
+    {
+        $this->entrar(200, 4.00);
+
+        $salida = $this->inventario->registrar([
+            'producto_id' => $this->producto->id,
+            'tipo' => MovimientosInventario::TIPO_SALIDA,
+            'cantidad' => 50,
+            'fecha' => '2026-02-01',
+        ]);
+
+        $r = $this->getJson("/inventario/productos/{$this->producto->id}")
+            ->assertOk()
+            ->assertJsonStructure([
+                'id', 'codigo', 'nombre', 'unidad_medida', 'existencia',
+                'costo_promedio', 'valor_inventario', 'por_debajo_del_minimo',
+                'url_kardex', 'movimientos',
+            ]);
+
+        $this->assertSame($this->producto->codigo, $r->json('codigo'));
+        $this->assertEqualsWithDelta(150.0, (float) $r->json('existencia'), 0.001);
+        $this->assertEqualsWithDelta(4.00, (float) $r->json('costo_promedio'), 0.0001);
+        $this->assertEqualsWithDelta(600.00, (float) $r->json('valor_inventario'), 0.01);
+        $this->assertFalse($r->json('por_debajo_del_minimo'));
+
+        // El kardex reciente trae los dos movimientos, del mas nuevo al viejo
+        $movimientos = $r->json('movimientos');
+        $this->assertCount(2, $movimientos);
+        $this->assertSame($salida->id, $movimientos[0]['id']);
+        $this->assertFalse($movimientos[0]['es_entrada']);
+        $this->assertTrue($movimientos[1]['es_entrada']);
+        $this->assertStringContainsString('Entrada', $movimientos[1]['tipo']);
+    }
+
+    public function test_la_ficha_avisa_cuando_no_hay_costo_cargado(): void
+    {
+        // Un material dado de alta pero al que nunca se le registro una
+        // entrada: no tiene costo, y consumirlo sumaria cero al proceso
+        $r = $this->getJson("/inventario/productos/{$this->producto->id}")->assertOk();
+
+        $this->assertEqualsWithDelta(0.0, (float) $r->json('costo_promedio'), 0.0001);
+        $this->assertSame([], $r->json('movimientos'));
+    }
+
+    public function test_la_ficha_avisa_cuando_queda_bajo_el_minimo(): void
+    {
+        $this->entrar(5, 4.00);
+
+        $r = $this->getJson("/inventario/productos/{$this->producto->id}")->assertOk();
+
+        $this->assertTrue(
+            $r->json('por_debajo_del_minimo'),
+            'Con 5 kg de existencia y un minimo de 10, tiene que avisar'
+        );
+    }
+
+    public function test_borrar_por_ajax_avisa_si_desactivo_en_vez_de_borrar(): void
+    {
+        $this->entrar(100, 4.00);
+
+        $r = $this->deleteJson("/inventario/productos/{$this->producto->id}")
+            ->assertOk();
+
+        $this->assertTrue($r->json('success'));
+
+        $this->assertTrue(
+            $r->json('desactivado'),
+            'Con movimientos hay que decir que se desactivo, no que se borro'
+        );
+
+        $this->assertNotSoftDeleted('productos', ['id' => $this->producto->id]);
+    }
+
+    public function test_el_alta_por_ajax_crea_el_material(): void
+    {
+        $this->postJson('/inventario/productos', [
+            'codigo' => 'CEM-AJAX',
+            'nombre' => 'Cemento por ajax',
+            'unidad_medida' => 'kg',
+            'stock_minimo' => 20,
+            'estado' => 1,
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('productos', ['codigo' => 'CEM-AJAX']);
     }
 
     // ==================================================================

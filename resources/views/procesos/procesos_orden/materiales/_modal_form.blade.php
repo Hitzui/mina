@@ -44,7 +44,7 @@
                         <div class="alert alert-warning mb-0" role="alert">
                             <i class="bi bi-exclamation-triangle me-1"></i>
                             Todavía no hay ningún material dado de alta en el almacén.
-                            <a href="{{ route('inventario.productos.create') }}" target="_blank">
+                            <a href="{{ route('inventario.productos.index') }}" target="_blank">
                                 Cree el primero
                             </a>
                             y registre su entrada para poder consumirlo.
