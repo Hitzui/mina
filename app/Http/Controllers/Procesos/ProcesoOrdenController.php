@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Procesos;
 
 use App\DataTables\EmpleadosSelectorDataTable;
+use App\DataTables\ProcesoEquiposDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
+use App\Models\Equipo;
 use App\Models\Etapa;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
@@ -35,6 +37,7 @@ class ProcesoOrdenController extends Controller
         OrdenesTrabajo $ordenTrabajo,
         ProcesosOrden $procesoOrden,
         TrabajosEmpleadosDataTable $trabajosDataTable,
+        ProcesoEquiposDataTable $equiposDataTable,
         EmpleadosSelectorDataTable $empleadosSelectorDataTable
     ) {
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
@@ -65,14 +68,39 @@ class ProcesoOrdenController extends Controller
         $trabajosDataTable->setProcesoOrdenId($procesoOrden->id);
         $trabajosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
 
-        // Para el texto de cuanto trabajo tiene el proceso
+        $equiposDataTable->setProcesoOrdenId($procesoOrden->id);
+        $equiposDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+
+        // Para el texto de cuanto trabajo y cuantos equipos tiene
         $cantidadTrabajos = $procesoOrden->trabajos_empleados()->count();
+        $cantidadEquipos = $procesoOrden->equipos()->count();
 
         // El formulario del trabajo necesita los tipos de pago para su combo
         $tiposPago = TiposPagoEmpleado::query()
             ->where('estado', true)
             ->orderBy('nombre')
             ->get();
+
+        /*
+         * El combo de equipos del modal. Se ofrecen todos los activos
+         * aunque alguno ya este asignado a otro proceso: la regla de que
+         * no pueden cruzarse los periodos la avisa el propio formulario,
+         * que es donde el usuario puede entender el conflicto, en vez de
+         * esconder el equipo de la lista sin explicacion.
+         */
+        $equiposDisponibles = Equipo::query()
+            ->where('estado', 1)
+            ->orderBy('codigo')
+            ->get();
+
+        /*
+         * Periodo por defecto: el propio del proceso. Es lo natural, un
+         * equipo se usa mientras dura el proceso, y si el proceso todavia
+         * no tiene fecha de inicio se propone la de hoy.
+         */
+        $fechaInicioPorDefecto = $procesoOrden->fecha_inicio
+            ? $procesoOrden->fecha_inicio->format('Y-m-d\TH:i')
+            : now()->format('Y-m-d\TH:i');
 
         return view(
             'procesos.procesos_orden.show',
@@ -82,9 +110,13 @@ class ProcesoOrdenController extends Controller
                 'ordenTrabajo',
                 'procesoOrden',
                 'trabajosDataTable',
+                'equiposDataTable',
                 'empleadosSelectorDataTable',
                 'cantidadTrabajos',
-                'tiposPago'
+                'cantidadEquipos',
+                'tiposPago',
+                'equiposDisponibles',
+                'fechaInicioPorDefecto'
             )
         );
     }

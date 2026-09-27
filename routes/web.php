@@ -5,7 +5,9 @@ use App\Http\Controllers\Configuracion\CategoriaCostoController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
+use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EtapaController;
+use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
 use App\Http\Controllers\Procesos\ProcesoOrdenController;
@@ -102,6 +104,18 @@ Route::prefix('admin/empleados/{empleado}/pagos')
     });
 
 Route::resource('admin/etapas', EtapaController::class)->names('admin.etapas');
+
+/*
+|--------------------------------------------------------------------------
+| Equipos
+|--------------------------------------------------------------------------
+|
+| Los equipos son dato maestro del taller. Del valor de adquisicion, el
+| valor residual y la vida util sale la depreciacion diaria, que despues
+| se cobra a cada proceso donde se use el equipo.
+|
+*/
+Route::resource('admin/equipos', EquipoController::class)->names('admin.equipos');
 
 Route::get('procesos/ordenes-trabajo/calendario',
     [OrdenTrabajoController::class, 'calendario'])
@@ -205,6 +219,38 @@ Route::resource(
     'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/trabajos-empleados',
     TrabajosEmpleadoController::class
 )->names('procesos.ordenes_trabajo.procesos.trabajos_empleados');
+
+
+/*
+| Los equipos usados en el proceso. Igual que los trabajos, cuelgan del
+| proceso y no de la orden: se llegan por el proceso, que es quien sabe
+| de que orden se trata.
+*/
+
+/*
+| Esta va antes que el resource a proposito: la ruta del resource para
+| ver uno es equipos/{procesoEquipo}, y sin este orden se comeria la
+| palabra depreciacion como si fuera el id de una asignacion.
+*/
+Route::get(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/equipos/depreciacion',
+    [ProcesoEquipoController::class, 'depreciacion']
+)->name('procesos.ordenes_trabajo.procesos.equipos.depreciacion');
+
+/*
+| El resource deduciria {equipo} del ultimo segmento, y ese nombre lo
+| busca en la tabla equipos, que es la de los equipos maestros, no la de
+| las asignaciones. Se le fija {procesoEquipo} para que el enlace de
+| modelo resuelva contra proceso_equipos.
+*/
+Route::resource(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/equipos',
+    ProcesoEquipoController::class
+)
+    ->parameters([
+        'equipos' => 'procesoEquipo',
+    ])
+    ->names('procesos.ordenes_trabajo.procesos.equipos');
 
 
 }); // fin del grupo middleware('auth')

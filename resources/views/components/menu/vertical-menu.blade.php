@@ -167,6 +167,15 @@
                         </a>
                     </li>
 
+                    <li class="{{ Request::routeIs('admin.equipos.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.equipos.index') }}">
+                            <div>
+                                <i class="bi bi-gear-wide-connected"></i>
+                                <span>Equipos</span>
+                            </div>
+                        </a>
+                    </li>
+
                 </ul>
             </li>
 

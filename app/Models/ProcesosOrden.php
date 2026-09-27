@@ -33,6 +33,14 @@ class ProcesosOrden extends BaseProcesosOrden
 	}
 
 	/**
+	 * Equipos usados en este proceso, con su periodo de uso.
+	 */
+	public function equipos()
+	{
+		return $this->hasMany(ProcesoEquipo::class, ProcesoEquipo::PROCESO_ORDEN_ID);
+	}
+
+	/**
 	 * Cuanto se le paga a los empleados por este proceso: la suma de los
 	 * totales de los trabajos registrados.
 	 *
@@ -53,6 +61,29 @@ class ProcesosOrden extends BaseProcesosOrden
 		}
 
 		return (float) $this->trabajos_empleados()->withTrashed()->sum('total');
+	}
+
+	/**
+	 * Depreciacion de los equipos que se usaron en este proceso.
+	 *
+	 * El detalle de cada equipo si queda guardado en proceso_equipos; el
+	 * total se suma al momento para que nunca quede desfasado.
+	 */
+	public function getCostoEquiposAttribute(): float
+	{
+		return ProcesoEquipo::depreciacionDeProceso($this->id);
+	}
+
+	/**
+	 * Costo total del proceso: mano de obra mas depreciacion de equipos.
+	 *
+	 * Los demas costos (energia, agua, materia prima) van a
+	 * movimientos_costos, que ya existe en la base con sus columnas pero
+	 * todavia sin pantalla. Cuando se implemente, se sumara aqui.
+	 */
+	public function getCostoTotalAttribute(): float
+	{
+		return $this->costo_empleados + $this->costo_equipos;
 	}
 
 	protected $fillable = [
