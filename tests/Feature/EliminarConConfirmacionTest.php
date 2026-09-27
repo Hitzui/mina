@@ -91,7 +91,9 @@ class EliminarConConfirmacionTest extends TestCase
     {
         $parciales = [
             'inventario.productos._action',
+            'inventario.proveedores._action',
             'inventario.movimientos._action',
+            'inventario.compras._action',
             'procesos.procesos_orden.materiales._action',
         ];
 

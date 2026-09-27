@@ -7,6 +7,7 @@ use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\EtapaController;
+use App\Http\Controllers\Inventario\CompraController;
 use App\Http\Controllers\Inventario\MaterialesController;
 use App\Http\Controllers\Inventario\ProductoController;
 use App\Http\Controllers\Inventario\ProveedorController;
@@ -246,7 +247,6 @@ Route::resource(
     ->names('inventario.movimientos');
 
 /*
-/*
 | Los proveedores van antes que los materiales a proposito: comparten el
 | camino de los modales y el mismo modelo, asi que leerlos uno tras otro
 | ayuda. El orden en que se declaran no importa para que no se solapen: los
@@ -269,6 +269,21 @@ Route::resource(
         'productos' => 'producto',
     ])
     ->names('inventario.productos');
+
+/*
+| Las compras van despues de los proveedores y de los materiales, que son
+| los dos que las llenan. El orden no importa para que no se solapen los
+| prefijos, pero leerlos en este orden ayuda: la compra es donde converge lo
+| que se dio de alta antes.
+*/
+Route::resource(
+    'inventario/compras',
+    CompraController::class
+)
+    ->parameters([
+        'compras' => 'compra',
+    ])
+    ->names('inventario.compras');
 
 
 /*

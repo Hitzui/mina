@@ -353,6 +353,15 @@
                         </a>
                     </li>
 
+                    <li class="{{ Request::routeIs('inventario.compras.*') ? 'active' : '' }}">
+                        <a href="{{ route('inventario.compras.index') }}">
+                            <div>
+                                <i class="bi bi-bag-plus"></i>
+                                <span>Compras</span>
+                            </div>
+                        </a>
+                    </li>
+
                     <li class="{{ Request::routeIs('inventario.movimientos.*') ? 'active' : '' }}">
                         <a href="{{ route('inventario.movimientos.index') }}">
                             <div>

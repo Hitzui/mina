@@ -17,8 +17,7 @@ use RealRashid\SweetAlert\Facades\Alert;
  *
  * Un proveedor que ya tiene compras no se borra de verdad, se desactiva:
  * las compras registradas dependen de el, y borrarlo dejaria filas
- * apuntando a un proveedor que no existe. Por ahora compras no tiene
- * pantalla, asi que la regla esta puesta antes de que haga falta.
+ * apuntando a un proveedor que no existe.
  */
 class ProveedorController extends Controller
 {
@@ -76,9 +75,9 @@ class ProveedorController extends Controller
     /**
      * La ficha del proveedor, en JSON para que la rellene el modal.
      *
-     * Las compras se piden solo como un numero. La tabla esta vacia y no
-     * tiene pantalla todavia; cuando la tenga, la ficha/enlazara a la lista
-     * de compras de este proveedor.
+     * Las compras se piden solo como un numero. Va en la ficha para poder
+     * decir cuantos pedidos tiene este proveedor, que es lo que hace
+     * falta para decidir si se desactiva o se borra.
      */
     public function show(Proveedore $proveedor)
     {
