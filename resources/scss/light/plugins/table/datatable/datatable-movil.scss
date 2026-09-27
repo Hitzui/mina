@@ -1,21 +1,16 @@
 /*
  * DataTables: lo que la app necesita y el theme no trae cargado.
  *
+ * Este archivo se ocupa del comportamiento en pantallas pequenas. No
+ * incluye estilos de los botones de exportar porque la extension que los
+ * dibuja no se puede cargar con el core que trae el theme: el motivo
+ * largo esta en el layout, junto a los scripts de DataTables.
+ *
  * Por que este archivo existe:
  *
  * El theme trae styles para la tabla (dt-global_style.scss,
  * custom_dt_miscellaneous.scss, public/plugins/.../datatables.css) pero
- * ningun layout los carga: se quedaron en elTheme original. Por eso los
- * botones de exportar se verian como texto sin estilo.
- *
- * DataTables 2.x no distribuye CSS en los paquetes de npm, asi que el de
- * la extension de botones hay que escreverlo a mano. Es poco: separacion
- * de los botones y estado deshabilitado.
- *
- * En movil se apoya en las clases de Bootstrap que lleva cada columna
- * (d-none d-lg-table-cell y las de los otros tramos). Ese reparto se
- * define columna a columna en cada DataTable; aqui solo se ajusta que las
- * tablas se comporten y que nada se desbord.
+ * ningun layout los carga: se quedaron en el theme original.
  */
 
 $movil: 576px;
@@ -46,45 +41,6 @@ table.dataTable th.columna-texto {
   max-width: 380px;
 }
 
-/* Grupo de botones de la cabecera */
-.dt-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 10px;
-}
-
-.dt-buttons .dt-button {
-  color: #fff;
-  background-color: #4361ee;
-  border: 1px solid #4361ee;
-  border-radius: 4px;
-  padding: 5px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.dt-buttons .dt-button:hover,
-.dt-buttons .dt-button:focus {
-  color: #fff;
-  background-color: #3a51d0;
-  border-color: #3a51d0;
-}
-
-.dt-buttons .dt-button:active {
-  color: #fff;
-  background-color: #2f43b3;
-  border-color: #2f43b3;
-}
-
-.dt-buttons .dt-button.dt-button-disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
 /* El buscador y el selector de filas que DataTables dibuja arriba */
 .dataTables_length label,
 .dataTables_filter label {
@@ -104,10 +60,6 @@ table.dataTable th.columna-texto {
     flex: 1 1 100%;
     text-align: left;
     margin-bottom: 8px;
-  }
-
-  .dt-buttons .dt-button {
-    flex: 1 1 auto;
   }
 
   /* Las acciones se mantienen a la vista: son el motivo de estar en la

@@ -170,21 +170,25 @@
     <script src="{{ asset('plugins/table/datatable/dataTables.js') }}"></script>
     <script src="{{ asset('plugins/table/datatable/dataTables.bootstrap5.js') }}"></script>
     {{--
-        La extension de botones va despues del core, porque se registra
-        sobre el. Sin ella los botones de exportar (excel, csv, print) se
-        dibujaban pero no tenian manejador de clic: se veian y no
-        hacian nada.
+        NO se carga la extension de botones de DataTables.
 
-        DataTables 2.x no distribuye CSS para las extensiones: los estilos
-        del grupo de botones estan en datatables.css, que se carga mas
-        abajo en la pagina.
-    --}}
-    <script src="{{ asset('plugins/table/datatable/dataTables.buttons.min.js') }}"></script>
-    <script src="{{ asset('plugins/table/datatable/buttons.html5.min.js') }}"></script>
-    <script src="{{ asset('plugins/table/datatable/buttons.print.min.js') }}"></script>
-    {{--
-        Va despues de DataTables porque se engancha a sus eventos, y antes
-        del script de cada tabla porque estas leen las clases de columna.
+        El core que trae el theme es el 2.3.8, que registra sus
+        extensions con DataTable.feature.register (en singular). Todos los
+        botones disponibles en npm, del 2.1.0 al 2.3.6, llaman a
+        DataTable.ext.features.register, que en ese core no existe. Al
+        cargarlos salia en consola, en cada tabla:
+
+          e.ext.features.register is not a function
+          Cannot extend unknown button type: reset
+
+        y el boton de reset se resolvia antes que el resto, asi que la
+        tabla se quedaba a medio construir.
+
+        While no haya un build compatible, los botones de exportar no se
+        declaran tampoco: declararlos sin que hagan nada es exactamente
+        la confianza falsa que se quiere evitar. En cuanto se consiga el
+        build del 2.3.8, se anaden aqui los tres scripts y se quita este
+        comentario.
     --}}
     <script src="{{ asset('js/datatables/columnas-visibles.js') }}"></script>
 

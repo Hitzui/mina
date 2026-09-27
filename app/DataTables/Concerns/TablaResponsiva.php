@@ -2,7 +2,6 @@
 
 namespace App\DataTables\Concerns;
 
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
 
 /**
@@ -72,18 +71,18 @@ trait TablaResponsiva
         $builder->autoWidth(false);
 
         /*
-         * Exportar a PDF necesita pdfmake, que son casi 1,5 MB de
-         * libreria, asi que no se incluye. Quien lo necesite lo saca con
-         * el boton de imprimir, que ya genera un PDF con lo mismo.
+         * Aqui no se declaran botones de exportar.
+         *
+         * Harian falta la extension Buttons de DataTables, y no hay build
+         * compatible con el core 2.3.8 del theme: las que hay en npm llaman
+         * a DataTable.ext.features.register y ese core solo tiene
+         * DataTable.feature.register. Al cargarlas, la tabla reventaba.
+         *
+         * Declararlos sin que hagan nada seria la misma confianza falsa
+         * que se acaba de quitar, asi que preferimos que no haya botones a
+         * que haya botones que no responden. Ver el comentario del
+         * layout, que explica el detalle.
          */
-        $builder->buttons([
-            Button::make('excel'),
-            Button::make('csv'),
-            Button::make('print'),
-            Button::make('reset'),
-            Button::make('reload'),
-        ]);
-
         return $builder;
     }
 }

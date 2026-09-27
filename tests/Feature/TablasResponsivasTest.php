@@ -155,51 +155,92 @@ class TablasResponsivasTest extends TestCase
         }
     }
 
-    public function test_la_extension_de_botones_esta_cargada_antes_que_las_tablas(): void
+    public function test_el_layout_no_carga_la_extension_de_botones_que_no_es_compatible(): void
     {
         $layout = file_get_contents(
             resource_path('views/components/base-layout.blade.php')
         );
 
         /*
-         * Sin la extension, los botones de exportar se dibujan pero no
-         * tienen manejador de clic: se ven y no hacen nada. Ledia de
-         * cuatro años atrás.
+         * El core del theme es el 2.3.8, que registra extensions con
+         * DataTable.feature.register. Todas las extensiones de botones que
+         * hay en npm (2.1.0 a 2.3.6) llaman a
+         * DataTable.ext.features.register, que ese core no tiene: al
+         * cargarlas, en cada tabla salia
+         *
+         *   e.ext.features.register is not a function
+         *   Cannot extend unknown button type: reset
+         *
+         * y la tabla se quedaba a medio construir. Mientras no haya un
+         * build compatible, la extension no se carga.
          */
-        foreach ([
-            'dataTables.buttons.min.js',
-            'buttons.html5.min.js',
-        ] as $archivo) {
-            $this->assertStringContainsString(
-                $archivo,
-                $layout,
-                "El layout no carga $archivo: los botones de exportar no funcionarian"
-            );
-        }
+        $this->assertStringNotContainsString(
+            'dataTables.buttons',
+            $layout,
+            'La extension de botones no es compatible con el core 2.3.8 del theme'
+        );
 
-        $posicion = strpos($layout, 'dataTables.buttons.min.js');
-        $posicionCore = strpos($layout, 'dataTables.bootstrap5.js');
-
-        $this->assertNotFalse($posicion);
-        $this->assertNotFalse($posicionCore);
-
-        $this->assertGreaterThan(
-            $posicionCore,
-            $posicion,
-            'La extension de botones se registra sobre el core: tiene que cargarse despues'
+        $this->assertStringNotContainsString(
+            'buttons.html5',
+            $layout,
+            'La extension de botones no es compatible con el core 2.3.8 del theme'
         );
     }
 
-    public function test_los_archivos_de_las_extensiones_estan_en_el_proyecto(): void
+    /**
+     * La causa raiz, comprobada contra el archivo y no de memoria.
+     *
+     * Si alguien vuelve a meter una extension, este test dice por que no
+     * funciona en vez de dejar que se descubra en el navegador.
+     */
+    public function test_el_core_y_las_extensiones_de_npm_no_hablan_el_mismo_idioma(): void
     {
-        foreach ([
-            'plugins/table/datatable/dataTables.buttons.min.js',
-            'plugins/table/datatable/buttons.html5.min.js',
-            'plugins/table/datatable/buttons.print.min.js',
-        ] as $archivo) {
-            $this->assertFileExists(
-                public_path($archivo),
-                "Falta $archivo: se borro del proyecto y el layout lo sigue pidiendo"
+        $core = file_get_contents(public_path('plugins/table/datatable/dataTables.js'));
+
+        $this->assertStringContainsString(
+            'feature.register',
+            $core,
+            'Se espera que el core registre extensions con feature.register (singular)'
+        );
+
+        /*
+         * Si alguna vez se deja un build de botones en el proyecto, este
+         * test avisa de que hay que mirar que hable el mismo idioma. Ahora
+         * no hay ninguno, y por eso no se comprueba contra ningun archivo.
+         */
+        $botones = public_path('plugins/table/datatable/dataTables.buttons.js');
+
+        if (! file_exists($botones)) {
+            $this->assertTrue(
+                true,
+                'No hay build de botones en el proyecto: es lo esperado'
+            );
+
+            return;
+        }
+
+        $codigo = file_get_contents($botones);
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/ext\.features\.register/',
+            $codigo,
+            'Este build de botones llama a la API de DataTables 3.x y '
+            . 'no funciona con el core 2.3.8 del theme'
+        );
+    }
+
+    public function test_las_tablas_no_declaran_botones_que_no_hacen_nada(): void
+    {
+        /*
+         * Declarar botones sin la extension que los dibuja es la misma
+         * confianza falsa que ya se quito una vez: se ven y no hacen
+         * nada. Mejor que no haya.
+         */
+        foreach (self::TABLAS as $tabla) {
+            $this->assertStringNotContainsString(
+                '->buttons(',
+                $this->fuente($tabla),
+                "$tabla declara botones sin la extension que los hace funcionar"
             );
         }
     }
@@ -214,6 +255,24 @@ class TablasResponsivasTest extends TestCase
             'datatable-movil.scss',
             $layout,
             'El layout no carga los estilos de tabla'
+        );
+    }
+
+    public function test_los_estilos_no_traen_clases_de_una_extension_que_no_se_carga(): void
+    {
+        /*
+         * Los estilos de .dt-buttons sin la extension que dibuja esos
+         * botones son CSS muerto. No es grave, pero conviene que el archivo
+         * no prometa lo que el layout no carga.
+         */
+        $scss = file_get_contents(
+            resource_path('scss/light/plugins/table/datatable/datatable-movil.scss')
+        );
+
+        $this->assertStringNotContainsString(
+            '.dt-buttons',
+            $scss,
+            'Estilos de los botones de exportar sin la extension que los dibuja'
         );
     }
 
