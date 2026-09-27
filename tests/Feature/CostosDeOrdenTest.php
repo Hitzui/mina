@@ -47,9 +47,21 @@ class CostosDeOrdenTest extends TestCase
 
     private CategoriasCosto $categoriaAutomatica;
 
+    /**
+     * Cuantos costos habia en la tabla al empezar la prueba.
+     *
+     * Los conteos se comparan contra esta cifra y no contra cero, porque
+     * la tabla no esta vacia: se esta usando desde la aplicacion y un
+     * test que supone que no hay nada falla en cuanto alguien carga un
+     * costo de verdad. Asi el test mide lo que hizo el, no lo que hay.
+     */
+    private int $costosIniciales;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->costosIniciales = MovimientosCosto::withTrashed()->count();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -105,6 +117,18 @@ class CostosDeOrdenTest extends TestCase
     private function rutaOrden(string $accion = ''): string
     {
         return "/procesos/ordenes-trabajo/{$this->orden->id}/costos{$accion}";
+    }
+
+    /**
+     * Cuantos costos creo esta prueba.
+     *
+     * Cuenta tambien los borrados logicamente, para que un delete mal
+     * hecho tampoco pase por alto: lo que importa es cuantas filas toco el
+     * test, no cuantas siguen visibles.
+     */
+    private function costosCreados(): int
+    {
+        return MovimientosCosto::withTrashed()->count() - $this->costosIniciales;
     }
 
     private function payload(array $extra = []): array
@@ -240,7 +264,7 @@ class CostosDeOrdenTest extends TestCase
             $this->payload(['categoria_costo_id' => $this->categoriaAutomatica->id])
         )->assertSessionHasErrors('categoria_costo_id');
 
-        $this->assertSame(0, MovimientosCosto::count());
+        $this->assertSame(0, $this->costosCreados());
     }
 
     public function test_las_categorias_automaticas_no_aparecen_en_el_combo(): void
@@ -330,7 +354,7 @@ class CostosDeOrdenTest extends TestCase
             $this->payload()
         )->assertNotFound();
 
-        $this->assertSame(0, MovimientosCosto::count());
+        $this->assertSame(0, $this->costosCreados());
     }
 
     public function test_no_se_puede_tocar_un_costo_de_otro_proceso(): void
@@ -596,7 +620,7 @@ class CostosDeOrdenTest extends TestCase
         ]))->assertRedirect();
 
         $costo = MovimientosCosto::latest('id')->firstOrFail();
-        $this->assertSame(1, MovimientosCosto::count());
+        $this->assertSame(1, $this->costosCreados());
 
         $this->put($this->rutaProceso("/{$costo->id}"), $this->payload([
             'cantidad' => 5,
@@ -605,7 +629,7 @@ class CostosDeOrdenTest extends TestCase
 
         $this->assertSame(
             1,
-            MovimientosCosto::count(),
+            $this->costosCreados(),
             'Editar no debe crear una fila nueva'
         );
 
@@ -652,7 +676,7 @@ class CostosDeOrdenTest extends TestCase
         $this->post($this->rutaProceso(), $this->payload(['cantidad' => 0]))
             ->assertSessionHasErrors('cantidad');
 
-        $this->assertSame(0, MovimientosCosto::count());
+        $this->assertSame(0, $this->costosCreados());
     }
 
     public function test_la_descripcion_es_obligatoria(): void
@@ -677,8 +701,13 @@ class CostosDeOrdenTest extends TestCase
 
     public function test_las_tablas_de_costo_responden(): void
     {
-        $this->post($this->rutaProceso(), $this->payload())->assertRedirect();
-        $this->post($this->rutaOrden(), $this->payload())->assertRedirect();
+        $this->post($this->rutaProceso(), $this->payload([
+            'descripcion' => 'Proceso de la prueba automatica',
+        ]))->assertRedirect();
+
+        $this->post($this->rutaOrden(), $this->payload([
+            'descripcion' => 'Automatica de la prueba',
+        ]))->assertRedirect();
 
         $r = $this->getJson(
             $this->rutaProceso() . '?draw=1&start=0&length=50',
@@ -692,7 +721,23 @@ class CostosDeOrdenTest extends TestCase
             ['X-Requested-With' => 'XMLHttpRequest']
         )->assertOk();
 
-        $this->assertCount(1, $r->json('data'));
+        /*
+         * No se comprueba que haya exactamente una fila: la tabla de
+         * costos generales de la orden tambien lista los que ya habia de
+         * antes. Lo que se comprueba es que aparezca la que se acabo de
+         * crear, y que la tabla responda con filas.
+         */
+        $ids = array_column($r->json('data'), 'id');
+        $propio = MovimientosCosto::generalesDe($this->orden->id)
+            ->where('descripcion', 'like', '%Automatica de la prueba%')
+            ->value('id');
+
+        $this->assertNotNull(
+            $propio,
+            'El costo general creado deberia estar en la tabla de la orden'
+        );
+
+        $this->assertContains((int) $propio, array_map('intval', $ids));
     }
 
     public function test_la_orden_muestra_los_costos_generales(): void
@@ -763,7 +808,7 @@ class CostosDeOrdenTest extends TestCase
 
         $this->post($this->rutaProceso(), $this->payload())->assertForbidden();
 
-        $this->assertSame(0, MovimientosCosto::count());
+        $this->assertSame(0, $this->costosCreados());
     }
 
     public function test_operador_puede_cargar_costos_pero_no_verlos_al_agregar(): void
@@ -777,7 +822,7 @@ class CostosDeOrdenTest extends TestCase
 
         $this->post($this->rutaProceso(), $this->payload())->assertRedirect();
 
-        $this->assertSame(1, MovimientosCosto::count());
+        $this->assertSame(1, $this->costosCreados());
 
         // Y no puede borrar: el costo es parte de la trazabilidad
         $costo = MovimientosCosto::latest('id')->firstOrFail();

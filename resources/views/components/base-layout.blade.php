@@ -30,6 +30,12 @@
     <link rel="stylesheet" type="text/css" href="{{asset('plugins/flatpickr/flatpickr.css')}}">
     <link rel="stylesheet" href='{{ asset('plugins/bootstrap-icon/bootstrap-icons.min.css') }}' />
     @vite(['resources/scss/light/assets/main.scss', 'resources/scss/dark/assets/main.scss'])
+    {{--
+        Estilos de las tablas: los botones de exportar y el
+        comportamiento en pantallas pequeñas. Se carga siempre, y no solo
+        en las paginas con tabla, porque el layout es comun a todas.
+    --}}
+    @vite(['resources/scss/light/plugins/table/datatable/datatable-movil.scss'])
 
     @if (
             !Request::routeIs('404') &&
@@ -163,6 +169,24 @@
     <script src="{{asset('plugins/bootstrap/bootstrap.bundle.min.js')}}"></script>
     <script src="{{ asset('plugins/table/datatable/dataTables.js') }}"></script>
     <script src="{{ asset('plugins/table/datatable/dataTables.bootstrap5.js') }}"></script>
+    {{--
+        La extension de botones va despues del core, porque se registra
+        sobre el. Sin ella los botones de exportar (excel, csv, print) se
+        dibujaban pero no tenian manejador de clic: se veian y no
+        hacian nada.
+
+        DataTables 2.x no distribuye CSS para las extensiones: los estilos
+        del grupo de botones estan en datatables.css, que se carga mas
+        abajo en la pagina.
+    --}}
+    <script src="{{ asset('plugins/table/datatable/dataTables.buttons.min.js') }}"></script>
+    <script src="{{ asset('plugins/table/datatable/buttons.html5.min.js') }}"></script>
+    <script src="{{ asset('plugins/table/datatable/buttons.print.min.js') }}"></script>
+    {{--
+        Va despues de DataTables porque se engancha a sus eventos, y antes
+        del script de cada tabla porque estas leen las clases de columna.
+    --}}
+    <script src="{{ asset('js/datatables/columnas-visibles.js') }}"></script>
 
     <script src="{{asset('plugins/perfect-scrollbar/perfect-scrollbar.min.js')}}"></script>
     <script src="{{asset('plugins/mousetrap/mousetrap.min.js')}}"></script>

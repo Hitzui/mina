@@ -323,6 +323,12 @@ export default defineConfig({
                 'resources/scss/light/plugins/table/datatable/dt-global_style.scss',
                 'resources/scss/light/plugins/table/datatable/custom_dt_custom.scss',
                 'resources/scss/light/plugins/table/datatable/custom_dt_miscellaneous.scss',
+
+                // Estilos de tabla que usa la app: botones de exportar y
+                // el comportamiento en pantallas pequenas. Va aparte
+                // porque el layout lo carga siempre, y los de arriba son
+                // del theme y solo se usan si el layout los pide.
+                'resources/scss/light/plugins/table/datatable/datatable-movil.scss',
                 'resources/scss/light/plugins/tagify/custom-tagify.scss',
                 'resources/scss/light/plugins/tomSelect/custom-tomSelect.scss',
 

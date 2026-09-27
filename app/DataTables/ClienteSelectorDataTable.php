@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\Cliente;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
@@ -11,6 +12,8 @@ use Yajra\DataTables\Services\DataTable;
 
 class ClienteSelectorDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * Construye el DataTable.
      *
@@ -55,11 +58,12 @@ class ClienteSelectorDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('cliente-selector-table')
             ->addTableClass(['table-hover', 'table-bordered'])
-            ->columns($this->getColumns())
-            ->selectStyleSingle();
+            ->columns($this->getColumns());
     }
 
     /**
@@ -72,17 +76,20 @@ class ClienteSelectorDataTable extends DataTable
                 ->title('Cliente'),
 
             Column::make('telefono')
-                ->title('Teléfono'),
+                ->title('Teléfono')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('direccion')
-                ->title('Dirección'),
+                ->title('Dirección')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('seleccionar')
                 ->title('Acción')
                 ->exportable(false)
                 ->printable(false)
                 ->width(120)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

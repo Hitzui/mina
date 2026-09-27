@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\ProcesoEquipo;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class ProcesoEquiposDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     protected int $procesoOrdenId;
 
     protected ?int $ordenTrabajoId = null;
@@ -83,22 +85,13 @@ class ProcesoEquiposDataTable extends DataTable
             ]
         );
 
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('proceso-equipos-table')
             ->columns($this->getColumns())
             ->minifiedAjax($url)
-            ->orderBy(0, 'asc')
-            ->responsive(true)
-            ->autoWidth(false)
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(0, 'asc');
     }
 
     public function getColumns(): array
@@ -117,31 +110,36 @@ class ProcesoEquiposDataTable extends DataTable
 
             Column::make('fecha_fin')
                 ->title('Fin')
-                ->width(130),
+                ->width(130)
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('dias')
                 ->title('Días')
                 ->width(80)
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('depreciacion_diaria')
                 ->title('Deprec./día')
                 ->width(110)
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('depreciacion_total')
                 ->title('Depreciación')
                 ->addClass('text-end fw-semibold'),
 
             Column::make('observaciones')
-                ->title('Observaciones'),
+                ->title('Observaciones')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('action')
                 ->title('Acciones')
                 ->exportable(false)
                 ->printable(false)
                 ->width(90)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

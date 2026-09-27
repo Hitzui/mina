@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\ProcesosOrden;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class ProcesosOrdenDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     protected int $ordenTrabajoId;
 
     public function setOrdenTrabajoId(int $ordenTrabajoId): self
@@ -198,7 +200,9 @@ class ProcesosOrdenDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
 
             ->setTableId('procesos-orden-table')
 
@@ -218,18 +222,7 @@ class ProcesosOrdenDataTable extends DataTable
                 )
             )
 
-            ->orderBy(2, 'asc')
-
-            ->selectStyleSingle()
-
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(2, 'asc');
     }
 
     /**
@@ -247,19 +240,23 @@ class ProcesosOrdenDataTable extends DataTable
 
             Column::make('fecha_inicio')
                 ->title('Inicio')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('fecha_fin')
                 ->title('Fin')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('peso_entrada')
                 ->title('Peso entrada')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('peso_salida')
                 ->title('Peso salida')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::computed('estado')
                 ->title('Estado')
@@ -267,11 +264,13 @@ class ProcesosOrdenDataTable extends DataTable
 
             Column::computed('costo_empleados')
                 ->title('Mano de obra')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('costo_otros')
                 ->title('Otros costos')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('costo_total')
                 ->title('Costo total')
@@ -282,7 +281,8 @@ class ProcesosOrdenDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(130)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

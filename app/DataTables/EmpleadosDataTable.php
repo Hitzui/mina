@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\Empleado;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class EmpleadosDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * Build the DataTable class.
      *
@@ -73,21 +75,14 @@ class EmpleadosDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('empleados-table')
             ->columns($this->getColumns())
             ->addTableClass([' table-hover', 'table-bordered'])
             ->minifiedAjax()
-            ->orderBy(1)
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(1);
     }
 
     /**
@@ -103,14 +98,17 @@ class EmpleadosDataTable extends DataTable
                 ->title('Nombre'),
 
             Column::make('telefono')
-                ->title('Teléfono'),
+                ->title('Teléfono')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('tipo_empleado_nombre')
                 ->title('Tipo de empleado')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('fecha_ingreso')
-                ->title('Fecha de ingreso'),
+                ->title('Fecha de ingreso')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado'),
@@ -120,7 +118,8 @@ class EmpleadosDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(60)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

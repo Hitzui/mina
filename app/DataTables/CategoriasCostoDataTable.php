@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\CategoriasCosto;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
@@ -11,6 +12,8 @@ use Yajra\DataTables\Services\DataTable;
 
 class CategoriasCostoDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * Build DataTable class.
      *
@@ -61,12 +64,13 @@ class CategoriasCostoDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('categorias-costos-table')
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(0, 'asc')
-            ->selectStyleSingle();
+            ->orderBy(0, 'asc');
     }
 
     /**
@@ -79,7 +83,8 @@ class CategoriasCostoDataTable extends DataTable
                 ->title('Nombre'),
 
             Column::make('descripcion')
-                ->title('Descripción'),
+                ->title('Descripción')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado')
@@ -90,7 +95,8 @@ class CategoriasCostoDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(100)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

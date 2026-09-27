@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\Empleado;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
@@ -11,6 +12,8 @@ use Yajra\DataTables\Services\DataTable;
 
 class EmpleadosSelectorDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
         return new EloquentDataTable($query)
@@ -38,14 +41,13 @@ class EmpleadosSelectorDataTable extends DataTable
 
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('empleados-selector-table')
             ->columns($this->getColumns())
             ->minifiedAjax(route('admin.empleados.selector.data'))
-            ->orderBy(2, 'asc')
-            ->responsive(true)
-            ->autoWidth(false)
-            ->selectStyleSingle();
+            ->orderBy(2, 'asc');
     }
 
     public function getColumns(): array
@@ -58,7 +60,8 @@ class EmpleadosSelectorDataTable extends DataTable
                 ->orderable(false)
                 ->searchable(false)
                 ->width(45)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
 
             Column::make('codigo')
                 ->title('Código'),
@@ -67,10 +70,12 @@ class EmpleadosSelectorDataTable extends DataTable
                 ->title('Empleado'),
 
             Column::make('tipo_empleado')
-                ->title('Tipo de empleado'),
+                ->title('Tipo de empleado')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('telefono')
-                ->title('Teléfono'),
+                ->title('Teléfono')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado')

@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\EmpleadosPago;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class EmpleadosPagosDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * ID del empleado al que pertenecen las tarifas.
      */
@@ -119,7 +121,9 @@ class EmpleadosPagosDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('empleados-pagos-table')
             ->columns($this->getColumns())
             ->minifiedAjax(
@@ -128,8 +132,7 @@ class EmpleadosPagosDataTable extends DataTable
                     $this->empleadoId
                 )
             )
-            ->orderBy(4, 'desc')
-            ->selectStyleSingle()
+            ->orderBy(4, 'desc')
             ->parameters([
                 'responsive' => true,
                 'autoWidth' => false,
@@ -137,14 +140,6 @@ class EmpleadosPagosDataTable extends DataTable
                 'language' => [
                     'url' => 'https://cdn.datatables.net/plug-ins/2.3.8/i18n/es-ES.json',
                 ],
-            ])
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
             ]);
     }
 
@@ -164,15 +159,18 @@ class EmpleadosPagosDataTable extends DataTable
 
             Column::make('moneda')
                 ->title('Moneda')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('fecha_inicio')
                 ->title('Inicio')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('fecha_fin')
                 ->title('Fin')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado')
@@ -183,7 +181,8 @@ class EmpleadosPagosDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(110)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

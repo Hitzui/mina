@@ -2,11 +2,11 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\MovimientosCosto;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
@@ -19,6 +19,8 @@ use Yajra\DataTables\Services\DataTable;
  */
 class CostosOrdenDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     protected int $ordenTrabajoId;
 
     public function setOrdenTrabajoId(int $ordenTrabajoId): self
@@ -63,22 +65,13 @@ class CostosOrdenDataTable extends DataTable
             ['ordenTrabajo' => $this->ordenTrabajoId]
         );
 
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('costos-orden-table')
             ->columns($this->getColumns())
             ->minifiedAjax($url)
-            ->orderBy(1, 'desc')
-            ->responsive(true)
-            ->autoWidth(false)
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(1, 'desc');
     }
 
     public function getColumns(): array
@@ -92,21 +85,25 @@ class CostosOrdenDataTable extends DataTable
                 ->width(100),
 
             Column::make('descripcion')
-                ->title('Descripción'),
+                ->title('Descripción')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('cantidad')
                 ->title('Cantidad')
                 ->width(90)
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('costo_unitario')
                 ->title('Costo unitario')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('moneda')
                 ->title('Moneda')
                 ->width(80)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('costo_total')
                 ->title('Total')
@@ -114,14 +111,16 @@ class CostosOrdenDataTable extends DataTable
 
             Column::make('costo_total_nio')
                 ->title('Total NIO')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('action')
                 ->title('Acciones')
                 ->exportable(false)
                 ->printable(false)
                 ->width(90)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

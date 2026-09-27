@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\Equipo;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class EquiposDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
         return new EloquentDataTable($query)
@@ -43,20 +45,13 @@ class EquiposDataTable extends DataTable
 
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('equipo-table')
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(1, 'asc')
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(1, 'asc');
     }
 
     public function getColumns(): array
@@ -71,7 +66,8 @@ class EquiposDataTable extends DataTable
 
             Column::make('fecha_adquisicion')
                 ->title('Adquisición')
-                ->width(120),
+                ->width(120)
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('valor_adquisicion')
                 ->title('Valor adquisición')
@@ -79,12 +75,14 @@ class EquiposDataTable extends DataTable
 
             Column::make('valor_residual')
                 ->title('Valor residual')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('vida_util_meses')
                 ->title('Vida útil (meses)')
                 ->width(110)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('depreciacion_diaria')
                 ->title('Depreciación /día')
@@ -93,7 +91,8 @@ class EquiposDataTable extends DataTable
             Column::make('procesos')
                 ->title('Procesos')
                 ->width(90)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado')
@@ -105,7 +104,8 @@ class EquiposDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(120)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\Cliente;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class ClienteDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * Build the DataTable class.
      *
@@ -51,21 +53,14 @@ class ClienteDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('cliente-table')
             ->addTableClass([' table-hover','table-bordered'])
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(0)
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(0);
     }
 
     /**
@@ -78,10 +73,12 @@ class ClienteDataTable extends DataTable
                 ->title('Nombre'),
 
             Column::make('telefono')
-                ->title('Teléfono'),
+                ->title('Teléfono')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('direccion')
-                ->title('Dirección'),
+                ->title('Dirección')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('estado')
                 ->title('Estado')
@@ -92,7 +89,8 @@ class ClienteDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(100)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

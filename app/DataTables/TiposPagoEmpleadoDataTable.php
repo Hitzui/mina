@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
@@ -11,6 +12,8 @@ use Yajra\DataTables\Services\DataTable;
 
 class TiposPagoEmpleadoDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
         return new EloquentDataTable($query)
@@ -60,12 +63,13 @@ class TiposPagoEmpleadoDataTable extends DataTable
 
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('tipos-pago-empleado-table')
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(0, 'asc')
-            ->selectStyleSingle();
+            ->orderBy(0, 'asc');
     }
 
     public function getColumns(): array
@@ -75,7 +79,8 @@ class TiposPagoEmpleadoDataTable extends DataTable
                 ->title('Nombre'),
 
             Column::make('descripcion')
-                ->title('Descripción'),
+                ->title('Descripción')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado')
@@ -86,7 +91,8 @@ class TiposPagoEmpleadoDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(100)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

@@ -1,0 +1,138 @@
+/*
+ * DataTables: lo que la app necesita y el theme no trae cargado.
+ *
+ * Por que este archivo existe:
+ *
+ * El theme trae styles para la tabla (dt-global_style.scss,
+ * custom_dt_miscellaneous.scss, public/plugins/.../datatables.css) pero
+ * ningun layout los carga: se quedaron en elTheme original. Por eso los
+ * botones de exportar se verian como texto sin estilo.
+ *
+ * DataTables 2.x no distribuye CSS en los paquetes de npm, asi que el de
+ * la extension de botones hay que escreverlo a mano. Es poco: separacion
+ * de los botones y estado deshabilitado.
+ *
+ * En movil se apoya en las clases de Bootstrap que lleva cada columna
+ * (d-none d-lg-table-cell y las de los otros tramos). Ese reparto se
+ * define columna a columna en cada DataTable; aqui solo se ajusta que las
+ * tablas se comporten y que nada se desbord.
+ */
+
+$movil: 576px;
+
+/* La tabla nunca debe romper el ancho de la pantalla. Sin esto, una
+   columna con un dato largo (una observacion, un nombre) estira la tabla
+   y el scroll horizontal del contenedor deja de funcionar. */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  table {
+    margin-bottom: 0;
+  }
+}
+
+/* Las celdas de texto largo se parten para que la columna no crezca sin
+   limite. En escritorio se comporta igual que antes. */
+table.dataTable td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+table.dataTable td.columna-texto,
+table.dataTable th.columna-texto {
+  white-space: normal;
+  min-width: 180px;
+  max-width: 380px;
+}
+
+/* Grupo de botones de la cabecera */
+.dt-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.dt-buttons .dt-button {
+  color: #fff;
+  background-color: #4361ee;
+  border: 1px solid #4361ee;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.dt-buttons .dt-button:hover,
+.dt-buttons .dt-button:focus {
+  color: #fff;
+  background-color: #3a51d0;
+  border-color: #3a51d0;
+}
+
+.dt-buttons .dt-button:active {
+  color: #fff;
+  background-color: #2f43b3;
+  border-color: #2f43b3;
+}
+
+.dt-buttons .dt-button.dt-button-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* El buscador y el selector de filas que DataTables dibuja arriba */
+.dataTables_length label,
+.dataTables_filter label {
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+.dataTables_length select {
+  margin-left: 4px;
+}
+
+/* En un telefono los controles se apilan para que no queden en una linea
+   mas ancha que la pantalla. */
+@media (max-width: $movil - 1px) {
+  .dataTables_length,
+  .dataTables_filter {
+    flex: 1 1 100%;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+
+  .dt-buttons .dt-button {
+    flex: 1 1 auto;
+  }
+
+  /* Las acciones se mantienen a la vista: son el motivo de estar en la
+     tabla, y con el scroll de la fila se llega con un arrastre largo. */
+  table.dataTable td.columna-acciones,
+  table.dataTable th.columna-acciones {
+    position: sticky;
+    right: 0;
+    background-color: #fff;
+    box-shadow: -4px 0 6px -4px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+  }
+
+  table.dataTable tbody tr:hover td.columna-acciones {
+    background-color: #ebedf2;
+  }
+
+  /* Y se apila para que quepan los tres botones sin ocupar la fila. */
+  .columna-acciones .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .columna-acciones .btn-group .btn {
+    border-radius: 4px;
+  }
+}

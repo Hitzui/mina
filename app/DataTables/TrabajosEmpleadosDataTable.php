@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\TrabajosEmpleado;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class TrabajosEmpleadosDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     protected int $procesoOrdenId;
 
     protected ?int $ordenTrabajoId = null;
@@ -76,22 +78,13 @@ class TrabajosEmpleadosDataTable extends DataTable
             ]
         );
 
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('trabajos-empleados-table')
             ->columns($this->getColumns())
             ->minifiedAjax($url)
-            ->orderBy(1, 'desc')
-            ->responsive(true)
-            ->autoWidth(false)
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(1, 'desc');
     }
 
     public function getColumns(): array
@@ -106,28 +99,34 @@ class TrabajosEmpleadosDataTable extends DataTable
                 ->title('Empleado'),
 
             Column::make('tipo_pago')
-                ->title('Tipo de pago'),
+                ->title('Tipo de pago')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('descripcion')
-                ->title('Descripción'),
+                ->title('Descripción')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('cantidad')
                 ->title('Cantidad')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('unidad')
                 ->title('Unidad')
                 ->width(80)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('tarifa')
                 ->title('Tarifa')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('moneda')
                 ->title('Moneda')
                 ->width(80)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('total')
                 ->title('Total')
@@ -138,7 +137,8 @@ class TrabajosEmpleadosDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(90)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\OrdenesTrabajo;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class OrdenesTrabajoDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * Build the DataTable class.
      *
@@ -65,20 +67,13 @@ class OrdenesTrabajoDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('ordenes-trabajo-table')
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(2, 'desc')
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(2, 'desc');
     }
 
     /**
@@ -99,11 +94,13 @@ class OrdenesTrabajoDataTable extends DataTable
 
             Column::make('peso_mineral')
                 ->title('Peso mineral')
-                ->addClass('text-end'),
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('unidad_peso')
                 ->title('Unidad')
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('estado')
                 ->title('Estado')
@@ -114,7 +111,8 @@ class OrdenesTrabajoDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(100)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 

@@ -2,16 +2,18 @@
 
 namespace App\DataTables;
 
+use App\DataTables\Concerns\TablaResponsiva;
 use App\Models\Etapa;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Yajra\DataTables\EloquentDataTable;
 use Yajra\DataTables\Html\Builder as HtmlBuilder;
-use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
 class EtapaDataTable extends DataTable
 {
+    use TablaResponsiva;
+
     /**
      * Build the DataTable class.
      *
@@ -48,20 +50,13 @@ class EtapaDataTable extends DataTable
      */
     public function html(): HtmlBuilder
     {
-        return $this->builder()
+        $builder = $this->ajustesComunes($this->builder());
+
+        return $builder
             ->setTableId('etapa-table')
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(2, 'asc')
-            ->selectStyleSingle()
-            ->buttons([
-                Button::make('excel'),
-                Button::make('csv'),
-                Button::make('pdf'),
-                Button::make('print'),
-                Button::make('reset'),
-                Button::make('reload'),
-            ]);
+            ->orderBy(2, 'asc');
     }
 
     /**
@@ -72,18 +67,21 @@ class EtapaDataTable extends DataTable
         return [
             Column::make('id')
                 ->title('ID')
-                ->width(60),
+                ->width(60)
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('nombre')
                 ->title('Nombre'),
 
             Column::make('descripcion')
-                ->title('Descripción'),
+                ->title('Descripción')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('orden')
                 ->title('Orden')
                 ->width(80)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::make('estado')
                 ->title('Estado')
@@ -95,7 +93,8 @@ class EtapaDataTable extends DataTable
                 ->exportable(false)
                 ->printable(false)
                 ->width(100)
-                ->addClass('text-center'),
+                ->addClass('text-center')
+                ->addClass(self::COLUMNA_ACCIONES),
         ];
     }
 
