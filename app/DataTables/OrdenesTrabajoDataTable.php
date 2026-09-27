@@ -38,13 +38,7 @@ class OrdenesTrabajoDataTable extends DataTable
                 );
             })
             ->editColumn('estado', function (OrdenesTrabajo $ordenTrabajo) {
-                return match ($ordenTrabajo->estado) {
-                    1 => '<span class="badge bg-primary">Pendiente</span>',
-                    2 => '<span class="badge bg-warning">En proceso</span>',
-                    3 => '<span class="badge bg-success">Finalizada</span>',
-                    4 => '<span class="badge bg-danger">Cancelada</span>',
-                    default => '<span class="badge bg-secondary">Desconocido</span>',
-                };
+                return $ordenTrabajo->estadoEtiqueta();
             })
             ->setRowId('id')
             ->rawColumns(['estado', 'action']);

@@ -12,22 +12,14 @@
                         <div>
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <h4 class="mb-0">{{ $ordenTrabajo->codigo }}</h4>
-                                @switch($ordenTrabajo->estado)
-                                    @case(1)
-                                        <span class="badge bg-primary">Pendiente</span>
-                                        @break
-                                    @case(2)
-                                        <span class="badge bg-warning">En proceso</span>
-                                        @break
-                                    @case(3)
-                                        <span class="badge bg-success">Finalizada</span>
-                                        @break
-                                    @case(4)
-                                        <span class="badge bg-danger">Cancelada</span>
-                                        @break
-                                    @default
-                                        <span class="badge bg-secondary">Desconocido</span>
-                                @endswitch
+                                {{--
+                                    El estado sale del modelo y no de un
+                                    switch aqui: el catalogo esta en
+                                    OrdenesTrabajo y lo usan tambien el
+                                    listado y el calendario, para que no
+                                    se pinten de tres maneras distintas.
+                                --}}
+                                {!! $ordenTrabajo->estadoEtiqueta() !!}
                             </div>
                             <p class="text-muted mb-0">Información de la Orden de Trabajo</p>
                         </div>

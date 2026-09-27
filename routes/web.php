@@ -125,6 +125,16 @@ Route::get('procesos/ordenes-trabajo/calendario',
 Route::get('procesos/ordenes-trabajo/listado',
     [OrdenTrabajoController::class, 'index'])
     ->name('procesos.ordenes_trabajo.listado');
+/*
+| Los eventos del calendario, por tramo de fechas.
+|
+| Va antes del resource a proposito: la ruta del resource para ver una
+| orden es {ordenTrabajo}, y sin este orden se comeria la palabra
+| "eventos" como si fuera el codigo de una orden.
+*/
+Route::get('procesos/ordenes-trabajo/eventos',
+    [OrdenTrabajoController::class, 'eventos'])
+    ->name('procesos.ordenes_trabajo.eventos');
 Route::resource('procesos/ordenes-trabajo', OrdenTrabajoController::class)
     /*
      * El resource genera el placeholder {ordenes_trabajo} a partir del

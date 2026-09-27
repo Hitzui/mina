@@ -14,6 +14,7 @@ use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use RealRashid\SweetAlert\Facades\Alert;
 
 class OrdenTrabajoController extends Controller
@@ -29,7 +30,15 @@ class OrdenTrabajoController extends Controller
 
     public function __construct()
     {
-        $this->authorizeModule('ordenes_trabajo');
+        /*
+         * El calendario y sus eventos cuentan como "ver": sin esto,
+         * cualquier usuario autenticado los abria, porque el trait solo
+         * vigila los metodos que se le indican y estos no estaban.
+         */
+        $this->authorizeModule(
+            'ordenes_trabajo',
+            ['index', 'show', 'calendario', 'eventos']
+        );
     }
 
     /**
@@ -52,17 +61,96 @@ class OrdenTrabajoController extends Controller
 
     public function calendario()
     {
-        $title = "Órdenes de Trabajo";
+        $title = "Calendario de Órdenes de Trabajo";
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
-            ['label' => 'Órdenes de Trabajo'],
+            ['label' => 'Órdenes de Trabajo', 'url' => route('procesos.ordenes_trabajo.index')],
+            ['label' => 'Calendario'],
         ];
 
         return view(
             'procesos.ordenes_trabajo.calendario',
             compact('title', 'breadcrumbs')
         );
+    }
+
+    /**
+     * Las ordenes de un tramo de fechas, en el formato que FullCalendar
+     * espera.
+     *
+     * El calendario pide los eventos por fecha cada vez que se cambia de
+     * mes o de semana, en vez de llevar todas las ordenes en la pagina. Con
+     * las ordenes metidas en el HTML, al pulsar "mes siguiente" el
+     * calendario se veria vacio.
+     *
+     * El color lo pone el servidor, desde el catalogo de estados del
+     * modelo: el calendario no usa clases de Bootstrap, asi que necesita el
+     * color en hexadecimal y no el nombre de la clase.
+     */
+    public function eventos(Request $request)
+    {
+        $validado = $request->validate([
+            'start' => ['required', 'date'],
+            'end' => ['required', 'date', 'after_or_equal:start'],
+        ], [
+            'start.required' => 'El calendario debe indicar la fecha de inicio.',
+            'end.required' => 'El calendario debe indicar la fecha de fin.',
+        ]);
+
+        $inicio = Carbon::parse($validado['start'])->startOfDay();
+        $fin = Carbon::parse($validado['end'])->endOfDay();
+
+        $ordenes = OrdenesTrabajo::query()
+            ->with('cliente')
+            /*
+             * El numero de procesos va con withCount y no contando uno por
+             * uno: con las ordenes de un mes da igual, pero al pedir un
+             * trimestre salen tantas consultas como ordenes.
+             */
+            ->withCount('procesos_ordenes')
+            // Solo las del tramo pedido, por la fecha de la orden
+            ->whereBetween(OrdenesTrabajo::FECHA, [$inicio, $fin])
+            ->orderBy(OrdenesTrabajo::FECHA)
+            ->get();
+
+        $eventos = $ordenes->map(function (OrdenesTrabajo $orden) {
+            $color = $orden->estadoColor();
+
+            return [
+                'id' => $orden->id,
+                'title' => $orden->codigo,
+
+                // La orden tiene una sola fecha, no un intervalo
+                'start' => $orden->fecha?->format('Y-m-d'),
+                'allDay' => true,
+
+                'backgroundColor' => $color,
+                'borderColor' => $color,
+                'textColor' => '#ffffff',
+
+                /*
+                 * Lo que el modal necesita. Va en la respuesta y no se
+                 * arma en el javascript con una ruta, para que el boton
+                 * de "ir a ver" no dependa de que el js sepa construir
+                 * urls.
+                 */
+                'extendedProps' => [
+                    'codigo' => $orden->codigo,
+                    'cliente' => $orden->cliente?->nombre ?? '—',
+                    'estado' => $orden->estadoTexto(),
+                    'estado_color' => $color,
+                    'fecha' => $orden->fecha?->format('d/m/Y') ?? '—',
+                    'peso' => number_format($orden->peso_mineral, 2, '.', ',')
+                        . ' ' . $orden->unidad_peso,
+                    'descripcion' => $orden->descripcion ?: '',
+                    'procesos' => (int) $orden->procesos_ordenes_count,
+                    'url' => route('procesos.ordenes_trabajo.show', $orden),
+                ],
+            ];
+        })->all();
+
+        return response()->json($eventos);
     }
 
     /**
