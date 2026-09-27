@@ -8,6 +8,8 @@
         <div class="col-xl-12 col-lg-12 col-sm-12">
             <div class="card">
                 <div class="card-body">
+                    @include('procesos.ordenes_trabajo._aviso_orden_cerrada')
+
                     <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                         <div>
                             <div class="d-flex align-items-center gap-2 mb-2">
@@ -111,7 +113,10 @@
                             <h5 class="mb-1"><i class="bi bi-gear me-2"></i>Procesos</h5>
                             <p class="text-muted mb-0">Procesos asociados a esta orden de trabajo.</p>
                         </div>
-                        <a href="{{ route('procesos.ordenes_trabajo.procesos.create', $ordenTrabajo->id) }}" class="btn btn-primary">
+                        <a href="{{ route('procesos.ordenes_trabajo.procesos.create', $ordenTrabajo->id) }}"
+                           class="btn btn-primary"
+                           @disabled($ordenTrabajo->estaCerrada())
+                           title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se pueden agregar procesos' : '' }}">
                             <i class="bi bi-plus me-1"></i> Nuevo proceso
                         </a>
                     </div>
@@ -148,7 +153,11 @@
                             </p>
                         </div>
 
-                        <button type="button" class="btn btn-primary" id="btnNuevoCostoOrden">
+                        <button type="button"
+                                class="btn btn-primary"
+                                id="btnNuevoCostoOrden"
+                                @disabled($ordenTrabajo->estaCerrada())
+                                title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un costo' : '' }}">
                             <i class="bi bi-plus-lg me-1"></i>
                             Registrar costo
                         </button>

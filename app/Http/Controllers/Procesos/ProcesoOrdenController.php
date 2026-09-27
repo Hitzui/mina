@@ -9,6 +9,7 @@ use App\DataTables\ProcesoEquiposDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
+use App\Http\Controllers\Concerns\OrdenCerrada;
 use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\Equipo;
@@ -25,6 +26,7 @@ use RealRashid\SweetAlert\Facades\Alert;
 class ProcesoOrdenController extends Controller
 {
     use AuthorizesModule;
+    use OrdenCerrada;
 
     /*
      * Solo para los combos del modal de costos. El permiso sigue siendo
@@ -233,6 +235,10 @@ class ProcesoOrdenController extends Controller
         Request $request,
         OrdenesTrabajo $ordenTrabajo
     ) {
+        if ($bloqueo = $this->bloquearOrdenCerrada($ordenTrabajo, 'un proceso')) {
+            return $bloqueo;
+        }
+
         $validated = $request->validate([
             'etapa_id' => [
                 'required',

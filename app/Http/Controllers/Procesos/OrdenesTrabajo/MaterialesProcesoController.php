@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Procesos\OrdenesTrabajo;
 
 use App\DataTables\MaterialesProcesoDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
+use App\Http\Controllers\Concerns\OrdenCerrada;
 use App\Http\Controllers\Concerns\ValidaMovimientos;
 use App\Http\Controllers\Controller;
 use App\Models\MovimientosInventario;
@@ -27,6 +28,7 @@ use RealRashid\SweetAlert\Facades\Alert;
 class MaterialesProcesoController extends Controller
 {
     use AuthorizesModule;
+    use OrdenCerrada;
     use ValidaMovimientos;
 
     public function __construct()
@@ -67,6 +69,10 @@ class MaterialesProcesoController extends Controller
         ProcesosOrden $procesoOrden,
         InventarioService $inventario
     ) {
+        if ($bloqueo = $this->bloquearOrdenCerrada($ordenTrabajo, 'un consumo de material')) {
+            return $bloqueo;
+        }
+
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
         $validado = $this->validarMovimiento($request);

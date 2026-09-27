@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Procesos\OrdenesTrabajo;
 
 use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
+use App\Http\Controllers\Concerns\OrdenCerrada;
 use App\Http\Controllers\Controller;
 use App\Models\Empleado;
 use App\Models\EmpleadosPago;
@@ -28,6 +29,7 @@ use RealRashid\SweetAlert\Facades\Alert;
 class TrabajosEmpleadoController extends Controller
 {
     use AuthorizesModule;
+    use OrdenCerrada;
 
     public function __construct()
     {
@@ -62,6 +64,10 @@ class TrabajosEmpleadoController extends Controller
 
     public function store(Request $request, OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden)
     {
+        if ($bloqueo = $this->bloquearOrdenCerrada($ordenTrabajo, 'un trabajo de empleado')) {
+            return $bloqueo;
+        }
+
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
         $validated = $this->validarTrabajo($request);

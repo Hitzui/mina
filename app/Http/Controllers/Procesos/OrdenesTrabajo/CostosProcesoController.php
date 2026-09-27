@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Procesos\OrdenesTrabajo;
 
 use App\DataTables\CostosProcesoDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
+use App\Http\Controllers\Concerns\OrdenCerrada;
 use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\MovimientosCosto;
@@ -23,6 +24,7 @@ use RealRashid\SweetAlert\Facades\Alert;
 class CostosProcesoController extends Controller
 {
     use AuthorizesModule;
+    use OrdenCerrada;
     use ValidaCostos;
 
     public function __construct()
@@ -62,6 +64,10 @@ class CostosProcesoController extends Controller
         OrdenesTrabajo $ordenTrabajo,
         ProcesosOrden $procesoOrden
     ) {
+        if ($bloqueo = $this->bloquearOrdenCerrada($ordenTrabajo, 'un costo')) {
+            return $bloqueo;
+        }
+
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
         $validado = $this->validarCosto($request);

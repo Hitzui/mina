@@ -16,6 +16,8 @@
 
             <div class="widget-content widget-content-area br-8">
 
+                @include('procesos.ordenes_trabajo._aviso_orden_cerrada')
+
                 {{-- Datos del proceso y lo que se le paga --}}
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
@@ -135,7 +137,11 @@
                         Trabajos de los empleados
                     </h5>
 
-                    <button type="button" class="btn btn-primary" id="btnNuevoTrabajoEmpleado">
+                    <button type="button"
+                            class="btn btn-primary"
+                            id="btnNuevoTrabajoEmpleado"
+                            @disabled($ordenTrabajo->estaCerrada())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un trabajo' : '' }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Nuevo trabajo
                     </button>
@@ -156,7 +162,11 @@
                         Equipos del proceso
                     </h5>
 
-                    <button type="button" class="btn btn-primary" id="btnNuevoUsoEquipo">
+                    <button type="button"
+                            class="btn btn-primary"
+                            id="btnNuevoUsoEquipo"
+                            @disabled($ordenTrabajo->estaCerrada())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar el uso de un equipo' : '' }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Asignar equipo
                     </button>
@@ -191,7 +201,11 @@
                         Costos del proceso
                     </h5>
 
-                    <button type="button" class="btn btn-primary" id="btnNuevoCosto">
+                    <button type="button"
+                            class="btn btn-primary"
+                            id="btnNuevoCosto"
+                            @disabled($ordenTrabajo->estaCerrada())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un costo' : '' }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Registrar costo
                     </button>
@@ -228,7 +242,11 @@
                         Materia prima consumida
                     </h5>
 
-                    <button type="button" class="btn btn-primary" id="btnNuevoMaterial">
+                    <button type="button"
+                            class="btn btn-primary"
+                            id="btnNuevoMaterial"
+                            @disabled($ordenTrabajo->estaCerrada())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un consumo' : '' }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Registrar consumo
                     </button>
