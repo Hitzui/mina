@@ -267,11 +267,28 @@ class ProcesoOrdenController extends Controller
                 'nullable',
                 'string'
             ],
+
+            /*
+             * La marca de cancelado. No es un estado mas: el estado sale de
+             * las fechas, y esta es la unica cosa que no se puede deducir de
+             * ellas, porque un proceso abandonado tiene las mismas fechas que
+             * uno que se termino a tiempo.
+             */
+            'cancelado' => ['nullable', 'boolean'],
         ]);
 
         $validated['orden_trabajo_id'] = $ordenTrabajo->id;
         $validated['codigo'] = $this->generarCodigo($ordenTrabajo);
-        $validated['estado'] = 1;
+
+        /*
+         * El estado no se deduce aqui: se deduce cuando se lee. Lo unico que
+         * se guarda es si el proceso se marco como cancelado, con el 0. La
+         * casilla "cancelado" no es un campo de la tabla, asi que se quita
+         * antes de guardar.
+         */
+        $validated['estado'] = $this->estadoSegunLaMarca($validated);
+
+        unset($validated['cancelado']);
 
         ProcesosOrden::create($validated);
 
@@ -387,7 +404,18 @@ class ProcesoOrdenController extends Controller
                 'string',
             ],
 
+            /*
+             * La marca de cancelado. No es un estado mas: el estado sale de
+             * las fechas, y esta es la unica cosa que no se puede deducir de
+             * ellas, porque un proceso abandonado tiene las mismas fechas que
+             * uno que se termino a tiempo.
+             */
+            'cancelado' => ['nullable', 'boolean'],
         ]);
+
+        $validated['estado'] = $this->estadoSegunLaMarca($validated);
+
+        unset($validated['cancelado']);
 
         $procesoOrden->update($validated);
 
@@ -399,6 +427,26 @@ class ProcesoOrdenController extends Controller
             'procesos.ordenes_trabajo.show',
             $ordenTrabajo
         );
+    }
+
+    /**
+     * El numero de estado que se guarda, a partir de la marca de cancelado.
+     *
+     * Cancelado es 0, que es el unico valor que el modelo respeta. Cualquier
+     * otro caso se guarda como Pendiente, que es lo que el calculo ignora:
+     * mientras el proceso no este marcado como cancelado, el estado sale de
+     * las fechas y no de la columna.
+     *
+     * Se traduce la casilla a un numero y no al reves: el campo de la
+     * pantalla es una casilla de marcar y no un desplegable, y si se
+     * guardara el texto, alguien podria mandar un estado inventado que el
+     * calculo no reconoceria.
+     */
+    private function estadoSegunLaMarca(array $validado): int
+    {
+        return ! empty($validado['cancelado'])
+            ? ProcesosOrden::ESTADO_CANCELADO
+            : ProcesosOrden::ESTADO_PENDIENTE;
     }
 
     public function destroy(

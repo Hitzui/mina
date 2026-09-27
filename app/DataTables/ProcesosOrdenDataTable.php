@@ -58,32 +58,7 @@ class ProcesosOrdenDataTable extends DataTable
                     : '-';
             })
 
-            ->editColumn('estado', function (ProcesosOrden $proceso) {
-
-                return match ($proceso->estado) {
-
-                    1 => '<span class="badge bg-primary">
-                            Pendiente
-                          </span>',
-
-                    2 => '<span class="badge bg-warning">
-                            En proceso
-                          </span>',
-
-                    3 => '<span class="badge bg-success">
-                            Finalizado
-                          </span>',
-
-                    4 => '<span class="badge bg-danger">
-                            Cancelado
-                          </span>',
-
-                    default => '<span class="badge bg-secondary">
-                                    Desconocido
-                                </span>',
-                };
-            })
-
+            // La etiqueta sale del modelo, que deduce el estado de las            // fechas. Aqui habia un match con su propia copia del catalogo            // y la numeracion equivocada: la Cancelada estaba en el 4, y en            // la orden es el 0.            ->editColumn('estado', function (ProcesosOrden $proceso) {                return $proceso->estadoEtiqueta();            })
             /*
              * Lo que se le paga a los empleados por este proceso: la suma
              * de los trabajos registrados, calculada al momento. Se

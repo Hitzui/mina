@@ -88,43 +88,7 @@
         </div>
 
 
-        {{-- ========================================================
-             ESTADO
-        ========================================================= --}}
-
-        <div class="col-md-4">
-
-            <label class="form-label">
-                Estado
-            </label>
-
-            @php
-                $estado = $procesoOrden?->estado ?? 1;
-            @endphp
-
-            <input
-                type="text"
-                class="form-control"
-                value="@switch($estado)
-                    @case(1) Pendiente @break
-                    @case(2) En proceso @break
-                    @case(3) Finalizado @break
-                    @case(4) Cancelado @break
-                    @default Desconocido
-                @endswitch"
-                readonly
-            >
-
-            @if(!$esEdicion)
-                <div class="form-text">
-                    El proceso se registra inicialmente como pendiente.
-                </div>
-            @endif
-
-        </div>
-
-
-        {{-- ========================================================
+        {{-- ========================================================             ESTADO        ========================================================= --}}        {{--            El estado no se escribe: sale de las fechas del proceso, que es            lo que de verdad se teclea. Antes habia un switch aqui con los            cuatro estados a mano y de solo lectura, y con la Cancelada en            el 4 cuando en la orden es el 0.            La unica marca manual es la de cancelado, y es necesaria: un            proceso abandonado tiene las mismas fechas que uno que se termino            a tiempo, asi que no hay forma de deducirlo de las fechas. Se            guarda en la columna estado con el 0, que es la unica marca que            el calculo respeta.        --}}        @php            $procesoParaEstado = $procesoOrden ?? new \App\Models\ProcesosOrden();            $canceladoActual = $esEdicion && $procesoOrden->estaCancelado();        @endphp        <div class="col-md-4">            <label class="form-label">                Estado            </label>            <div class="form-control bg-light d-flex align-items-center">                @if($esEdicion)                    {!! $procesoParaEstado->estadoEtiqueta() !!}                @else                    <span class="badge bg-secondary">Pendiente</span>                @endif            </div>            <div class="form-text">                Se deduce de las fechas del proceso: sin fecha de inicio es                pendiente, con ella y sin fecha de fin alcanzada esta en                proceso, y cuando la fecha de fin ya paso, finalizado.            </div>            <input type="hidden" name="cancelado" value="0">            <div class="form-check form-switch mt-2">                <input                    type="checkbox"                    class="form-check-input"                    id="cancelado"                    name="cancelado"                    value="1"                    @checked(old('cancelado', $canceladoActual ? '1' : null))                >                <label class="form-check-label" for="cancelado">                    Marcar como cancelado                </label>            </div>            <div class="form-text">                Para un proceso que se abandono a medio hacer. Un proceso                cancelado ya no admite trabajos, costos ni consumos, porque su                costo no significa nada.            </div>        </div>        {{-- ========================================================
              ETAPA
         ========================================================= --}}
 

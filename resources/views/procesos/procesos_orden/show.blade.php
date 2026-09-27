@@ -35,14 +35,27 @@
                     <div class="col-md-4">
                         <label class="form-label text-muted">Estado</label>
                         <div class="pt-2">
-                            @if($procesoOrden->estado)
-                                <span class="badge bg-success fs-6">
-                                    <i class="bi bi-check-circle me-1"></i> Activo
-                                </span>
+                            {{--
+                                La etiqueta sale del modelo. Aqui hubo un
+                                if que miraba la columna estado como si fuera
+                                un booleano y decia "Activo" o "Inactivo",
+                                que no es lo mismo que el "Pendiente" que
+                                decia el listado para el mismo proceso. El
+                                estado ahora se deduce de las fechas.
+                            --}}
+                            {!! $procesoOrden->estadoEtiqueta() !!}
+                        </div>
+
+                        <div class="form-text">
+                            @if($procesoOrden->estadoCalculado() === \App\Models\ProcesosOrden::ESTADO_PENDIENTE)
+                                Se marca solo cuando tenga fecha de inicio.
+                            @elseif($procesoOrden->estaCancelado())
+                                Marcado como cancelado. Para volver atrás, quita
+                                la marca de cancelación en el formulario del proceso.
+                            @elseif($procesoOrden->estadoCalculado() === \App\Models\ProcesosOrden::ESTADO_FINALIZADO)
+                                Finalizado: su fecha de fin ya pasó.
                             @else
-                                <span class="badge bg-secondary fs-6">
-                                    <i class="bi bi-x-circle me-1"></i> Inactivo
-                                </span>
+                                En proceso: la fecha de fin aún no llega.
                             @endif
                         </div>
                     </div>

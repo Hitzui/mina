@@ -6,6 +6,136 @@ use App\Models\Base\ProcesosOrden as BaseProcesosOrden;
 
 class ProcesosOrden extends BaseProcesosOrden
 {
+	/*
+	 * Los estados del proceso, con su nombre y su color de una vez.
+	 *
+	 * Son los mismos cuatro que los de la orden y con la misma numeracion,
+	 * porque describen lo mismo: por donde va el trabajo. Lo que cambia son
+	 * las palabras, en masculino, porque el sustantivo es "el proceso".
+	 *
+	 * El estado ya no se escribe a mano. Sale de las fechas, que son lo que
+	 * de verdad se teclea, y eso es lo que hacia que antes mintiera: un
+	 * proceso que empezo y termino hace dias seguia diciendo "Pendiente"
+	 * porque el numero se puso en 1 al crear y no habia donde moverlo.
+	 *
+	 * La excepcion es Cancelado: un proceso abandonado no se deduce de las
+	 * fechas, porque tiene las mismas que uno que se termino a tiempo. Ese
+	 * si se marca a mano, y es el unico uso que queda de la columna.
+	 */
+	public const ESTADO_CANCELADO = 0;
+	public const ESTADO_PENDIENTE = 1;
+	public const ESTADO_EN_PROCESO = 2;
+	public const ESTADO_FINALIZADO = 3;
+
+	public const ESTADOS = [
+		self::ESTADO_CANCELADO => ['texto' => 'Cancelado', 'color' => 'bg-danger', 'hex' => '#e7515a'],
+		self::ESTADO_PENDIENTE => ['texto' => 'Pendiente', 'color' => 'bg-secondary', 'hex' => '#888ea8'],
+		self::ESTADO_EN_PROCESO => ['texto' => 'En proceso', 'color' => 'bg-warning', 'hex' => '#e2a03f'],
+		self::ESTADO_FINALIZADO => ['texto' => 'Finalizado', 'color' => 'bg-success', 'hex' => '#00ab55'],
+	];
+
+	/**
+	 * En que estados el proceso ya no admite datos nuevos.
+	 *
+	 * Finalizado y Cancelado cierran el proceso por el mismo motivo que
+	 * cierran la orden: el trabajo se acabo, o se tiro la toalla.
+	 */
+	public const ESTADOS_CERRADOS = [
+		self::ESTADO_FINALIZADO,
+		self::ESTADO_CANCELADO,
+	];
+
+	/**
+	 * El estado que le toca al proceso, deducido de las fechas.
+	 *
+	 * La regla, en orden:
+	 *
+	 *   - Cancelado: se marco a mano. Se mira primero porque es la unica
+	 *     marca que no se deduce de nada.
+	 *   - Sin fecha de inicio: no ha empezado. Pendiente.
+	 *   - Con fecha de inicio y sin fecha de fin, o con la fecha de fin
+	 *     todavia por delante: se empezo y no se acabo. En proceso.
+	 *   - Con la fecha de fin ya pasada: se termino. Finalizado.
+	 *
+	 * Que la fecha de fin se compare con hoy y no basta con que este
+	 * puesta importa: un proceso planificado para el dia 30 sigue siendo
+	 * "En proceso" el dia 27, no "Finalizado" por tener la fecha puesta.
+	 * Marcarlo como terminado antes de tiempo seria mentir otra vez, que
+	 * es justo lo que se vino a arreglar.
+	 */
+	public function estadoCalculado(): int
+	{
+		if ($this->estaCancelado()) {
+			return self::ESTADO_CANCELADO;
+		}
+
+		if ($this->fecha_inicio === null) {
+			return self::ESTADO_PENDIENTE;
+		}
+
+		if ($this->fecha_fin === null || $this->fecha_fin->isFuture()) {
+			return self::ESTADO_EN_PROCESO;
+		}
+
+		return self::ESTADO_FINALIZADO;
+	}
+
+	/**
+	 * Si el proceso se marco como cancelado.
+	 */
+	public function estaCancelado(): bool
+	{
+		return (int) $this->estado === self::ESTADO_CANCELADO;
+	}
+
+	/**
+	 * Nombre del estado, para textos.
+	 *
+	 * Un estado fuera del catalogo sale como "Pendiente" en vez de romper
+	 * la pantalla: el numero lo pone el calculo, y con esto no puede
+	 * quedar sin definir.
+	 */
+	public function estadoTexto(): string
+	{
+		return self::ESTADOS[$this->estadoCalculado()]['texto'] ?? 'Pendiente';
+	}
+
+	/**
+	 * Clase de Bootstrap del estado, para pintar una etiqueta.
+	 */
+	public function estadoClase(): string
+	{
+		return self::ESTADOS[$this->estadoCalculado()]['color'] ?? 'bg-secondary';
+	}
+
+	/**
+	 * Color en hexadecimal, para lo que no usa clases de Bootstrap.
+	 */
+	public function estadoColor(): string
+	{
+		return self::ESTADOS[$this->estadoCalculado()]['hex'] ?? '#888ea8';
+	}
+
+	/**
+	 * La etiqueta tal como se ve en el listado y en la ficha.
+	 */
+	public function estadoEtiqueta(): string
+	{
+		return sprintf(
+			'<span class="badge %s">%s</span>',
+			$this->estadoClase(),
+			e($this->estadoTexto())
+		);
+	}
+
+	/**
+	 * Si el proceso esta en un estado en el que ya no se admiten datos.
+	 */
+	public function estaCerrado(): bool
+	{
+		return in_array($this->estadoCalculado(), self::ESTADOS_CERRADOS, true);
+	}
+
 	/**
 	 * Como se muestra un proceso en los combos y en las pantallas.
 	 *
