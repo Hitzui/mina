@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Models\MovimientosInventario;
 use App\Models\Producto;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
 
 /**
@@ -56,12 +55,17 @@ class ProductoController extends Controller
 
     public function store(Request $request)
     {
-        Producto::create($this->validar($request));
+        $producto = Producto::crearConCodigo($this->validar($request));
 
-        $mensaje = 'Material creado correctamente.';
+        $mensaje = 'Material creado correctamente con el código '
+            . $producto->codigo . '.';
 
         if ($request->expectsJson()) {
-            return response()->json(['success' => true, 'message' => $mensaje]);
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'codigo' => $producto->codigo,
+            ]);
         }
 
         Alert::toast($mensaje)->success()->flash();
@@ -160,7 +164,7 @@ class ProductoController extends Controller
 
     public function update(Request $request, Producto $producto)
     {
-        $producto->update($this->validar($request, $producto));
+        $producto->update($this->validar($request));
 
         $mensaje = 'Material actualizado correctamente.';
 
@@ -217,19 +221,23 @@ class ProductoController extends Controller
     }
 
     /**
+     * Lo que llega del formulario.
+     *
+     * El codigo no se valida ni se pide: lo pone Producto::crearConCodigo.
+     * Si se aceptara desde aqui, bastaria con que alguien escribiera un
+     * codigo en la peticion para meter uno repetido o dejar un hueco en la
+     * serie, que es justo lo que la generacion automatica evita.
+     *
+     * En la edicion el codigo tampoco se toca, y por eso no se devuelve: un
+     * material cambia de nombre, de unidad o de minimo, no de identidad. Si
+     * alguna vez hiciera falta renumerar, eso es una migracion con su
+     * script, no un campo de un formulario.
+     *
      * @return array
      */
-    private function validar(Request $request, ?Producto $producto = null): array
+    private function validar(Request $request): array
     {
         return $request->validate([
-            'codigo' => [
-                'required',
-                'string',
-                'max:30',
-                Rule::unique('productos', 'codigo')
-                    ->whereNull('deleted_at')
-                    ->ignore($producto?->id),
-            ],
             'nombre' => ['required', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'unidad_medida' => ['required', 'string', 'max:15'],
@@ -237,14 +245,11 @@ class ProductoController extends Controller
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'estado' => ['nullable', 'boolean'],
         ], [
-            'codigo.required' => 'El material necesita un codigo.',
-            'codigo.unique' => 'Ya existe un material con ese codigo.',
-            'codigo.max' => 'El codigo es demasiado largo.',
             'nombre.required' => 'El material necesita un nombre.',
             'nombre.max' => 'El nombre es demasiado largo.',
-            'unidad_medida.required' => 'Indique en que se mide el material (kg, litro, tm...).',
+            'unidad_medida.required' => 'Indique en qué se mide el material (kg, litro, tm...).',
             'unidad_medida.max' => 'La unidad es demasiado larga.',
-            'stock_minimo.min' => 'El minimo no puede ser negativo.',
+            'stock_minimo.min' => 'El mínimo no puede ser negativo.',
         ]);
     }
 }

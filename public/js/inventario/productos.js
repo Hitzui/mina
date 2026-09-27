@@ -132,7 +132,8 @@
 
             modal?.show();
 
-            $('#codigo').trigger('focus');
+            // El foco va al nombre: el codigo ya no se escribe
+            $('#nombre').trigger('focus');
         });
 
         // ------------------------------------------------------------------
@@ -178,7 +179,9 @@
                         $formulario.data('update-url').replace('__ID__', datos.id)
                     );
 
-                    $('#codigo').val(datos.codigo ?? '');
+                    // El codigo no se manda: lo pone el servidor. El campo
+                    // del formulario es de solo lectura y solo sirve para
+                    // mostrarlo, asi que no se toca aqui.
                     $('#nombre').val(datos.nombre ?? '');
                     $('#unidad_medida').val(datos.unidad_medida ?? '');
                     $('#categoria').val(datos.categoria ?? '');

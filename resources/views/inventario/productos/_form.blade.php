@@ -4,22 +4,46 @@
 
 <div class="row g-3">
 
+    {{--
+        El codigo no se escribe. Al dar de alta lo pone el sistema con el
+        siguiente numero de la serie, y al editar se muestra solo para
+        saber cual es, porque no cambia nunca.
+
+        En el alta se enseña el formato en vez de un campo vacio: es mejor
+        que alguien se pregunte si tiene que escribirlo ahi.
+    --}}
     <div class="col-md-4">
-        <label for="codigo" class="form-label">
-            Código <span class="text-danger">*</span>
+        <label class="form-label text-muted" for="codigo">
+            Código
         </label>
-        <input
-            type="text"
-            id="codigo"
-            name="codigo"
-            class="form-control text-uppercase @error('codigo') is-invalid @enderror"
-            value="{{ old('codigo', $producto->codigo ?? '') }}"
-            required
-            maxlength="30"
-        >
-        @error('codigo')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
+
+        @if($editando)
+            <input
+                type="text"
+                id="codigo"
+                class="form-control font-monospace bg-light"
+                value="{{ $producto->codigo }}"
+                readonly
+                tabindex="-1"
+            >
+            <div class="form-text">
+                No se puede cambiar. Es la identidad del material en el
+                almacén.
+            </div>
+        @else
+            <input
+                type="text"
+                id="codigo"
+                class="form-control font-monospace bg-light"
+                value="Se asigna automáticamente"
+                readonly
+                tabindex="-1"
+            >
+            <div class="form-text">
+                Se asigna solo al guardar. Tendrá la forma
+                {{ \App\Models\Producto::PREFIJO_CODIGO }}000001.
+            </div>
+        @endif
     </div>
 
     <div class="col-md-5">

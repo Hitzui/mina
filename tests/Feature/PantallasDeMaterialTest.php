@@ -60,7 +60,13 @@ class PantallasDeMaterialTest extends TestCase
     private function crearProducto(string $nombre = 'Cimento de prueba'): Producto
     {
         return Producto::create([
-            Producto::CODIGO => 'MAT-' . strtoupper(substr(md5(uniqid('', true)), 0, 6)),
+            /*
+             * Un codigo que no sigue el patron de la serie, a proposito. La
+             * generacion automatica cuenta solo los MAT-########, y si aqui
+             * se usara un MAT- con numeros, estos tests moverian la cuenta y
+             * el numero de serie dependeria del orden en que corrieran.
+             */
+            Producto::CODIGO => 'PRUEBA-' . strtoupper(substr(md5(uniqid('', true)), 0, 6)),
             Producto::NOMBRE => $nombre,
             Producto::UNIDAD_MEDIDA => 'kg',
             Producto::STOCK_MINIMO => 10,
@@ -131,29 +137,212 @@ class PantallasDeMaterialTest extends TestCase
     public function test_se_puede_crear_un_material(): void
     {
         $this->post('/inventario/productos', [
-            'codigo' => 'CEM-001',
             'nombre' => 'Cemento',
             'unidad_medida' => 'kg',
             'stock_minimo' => 50,
             'estado' => 1,
         ])->assertRedirect(route('inventario.productos.index'));
 
-        $this->assertDatabaseHas('productos', ['codigo' => 'CEM-001']);
-    }
-
-    public function test_no_se_pueden_dos_materiales_con_el_mismo_codigo(): void
-    {
-        $this->post('/inventario/productos', [
-            'codigo' => $this->producto->codigo,
-            'nombre' => 'Otro',
+        $this->assertDatabaseHas('productos', [
+            'nombre' => 'Cemento',
             'unidad_medida' => 'kg',
-        ])->assertSessionHasErrors('codigo');
+        ]);
     }
 
-    public function test_el_material_necesita_codigo_nombre_y_unidad(): void
+    public function test_el_material_necesita_nombre_y_unidad(): void
     {
         $this->post('/inventario/productos', [])
-            ->assertSessionHasErrors(['codigo', 'nombre', 'unidad_medida']);
+            ->assertSessionHasErrors(['nombre', 'unidad_medida']);
+    }
+
+    // ==================================================================
+    // El codigo se genera solo
+    // ==================================================================
+
+    public function test_el_codigo_se_asigna_solo_al_crear(): void
+    {
+        $this->post('/inventario/productos', [
+            'nombre' => 'Cemento sin codigo',
+            'unidad_medida' => 'kg',
+            'estado' => 1,
+        ])->assertRedirect();
+
+        $producto = Producto::where('nombre', 'Cemento sin codigo')->firstOrFail();
+
+        $this->assertMatchesRegularExpression(
+            '/^' . Producto::PREFIJO_CODIGO . '\d{6}$/',
+            $producto->codigo,
+            'El código debe llevar el prefijo y seis dígitos'
+        );
+    }
+
+    public function test_el_codigo_va_incrementando(): void
+    {
+        /*
+         * No se comprueba que salga MAT-000001: la serie empieza donde toque,
+         * y en la base puede haber materiales de verdad. Lo que importa es
+         * que cada alta reciba el siguiente, no uno ya usado.
+         */
+        $primero = Producto::crearConCodigo(['nombre' => 'A', 'unidad_medida' => 'kg']);
+        $segundo = Producto::crearConCodigo(['nombre' => 'B', 'unidad_medida' => 'kg']);
+        $tercero = Producto::crearConCodigo(['nombre' => 'C', 'unidad_medida' => 'kg']);
+
+        $patron = '/^MAT-\d{6}$/';
+
+        $this->assertMatchesRegularExpression($patron, $primero->codigo);
+        $this->assertMatchesRegularExpression($patron, $segundo->codigo);
+        $this->assertMatchesRegularExpression($patron, $tercero->codigo);
+
+        $this->assertSame(
+            (int) substr($primero->codigo, 4) + 1,
+            (int) substr($segundo->codigo, 4),
+            'El segundo tiene que ser el siguiente al primero'
+        );
+
+        $this->assertSame(
+            (int) substr($segundo->codigo, 4) + 1,
+            (int) substr($tercero->codigo, 4),
+            'Y el tercero el siguiente al segundo'
+        );
+    }
+
+    public function test_un_codigo_borrado_no_vuelve_a_salir(): void
+    {
+        $primero = Producto::crearConCodigo(['nombre' => 'A', 'unidad_medida' => 'kg']);
+        $codigoBorrado = $primero->codigo;
+
+        Producto::crearConCodigo(['nombre' => 'B', 'unidad_medida' => 'kg']);
+        $primero->delete();
+
+        $siguiente = Producto::crearConCodigo(['nombre' => 'C', 'unidad_medida' => 'kg']);
+
+        /*
+         * Si el codigo de un material borrado volviera a salir, el indice
+         * unico de la base lo rechazaria; y ademas un material borrado sigue
+         * citado en los movimientos de los procesos donde se consumio, con
+         * un codigo repetido seria imposible saber de que material se hablo.
+         */
+        $this->assertNotSame(
+            $codigoBorrado,
+            $siguiente->codigo,
+            'Un código de un material borrado no se puede reutilizar'
+        );
+    }
+
+    public function test_un_codigo_que_no_sigue_el_patron_no_rompe_la_serie(): void
+    {
+        // Uno puesto a mano antes de que existiera la generación automática
+        DB::table('productos')->insert([
+            'codigo' => 'CEMENTO-GRUPO',
+            'nombre' => 'Codigo raro',
+            'unidad_medida' => 'kg',
+            'stock_minimo' => 0,
+            'estado' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $siguiente = Producto::crearConCodigo(['nombre' => 'Normal', 'unidad_medida' => 'kg']);
+
+        /*
+         * El codigo raro no participa en la cuenta. Si contara, el numero
+         * saldria disparado: un "MAT-12abc" convertido a entero contaria
+         * como 12 y dejaria doce numeros sin usar, sin que nadie supiera
+         * por que. Por eso solo se cuentan los MAT- de seis digitos.
+         */
+        $this->assertMatchesRegularExpression('/^MAT-\d{6}$/', $siguiente->codigo);
+
+        $cuantosHay = Producto::withTrashed()
+            ->where('codigo', 'like', Producto::PREFIJO_CODIGO . '%')
+            ->count();
+
+        $this->assertLessThanOrEqual(
+            $cuantosHay,
+            (int) substr($siguiente->codigo, 4),
+            'El número no puede saltar por un código que no sigue el patrón'
+        );
+    }
+
+    public function test_uno_que_manda_un_codigo_no_lo_impone(): void
+    {
+        /*
+         * Aunque alguien escriba un codigo en la peticion, el que se guarda
+         * es el del sistema. Si se aceptara, bastaria con mandar uno repetido
+         * o uno absurdo para tener dos filas con el mismo codigo o romper la
+         * serie.
+         */
+        $this->postJson('/inventario/productos', [
+            'codigo' => 'MAT-999999',
+            'nombre' => 'Material con codigo impuesto',
+            'unidad_medida' => 'kg',
+            'estado' => 1,
+        ])->assertOk();
+
+        $producto = Producto::where('nombre', 'Material con codigo impuesto')
+            ->firstOrFail();
+
+        $this->assertNotSame(
+            'MAT-999999',
+            $producto->codigo,
+            'Un código mandado en la petición no se puede imponer'
+        );
+
+        $this->assertMatchesRegularExpression('/^MAT-\d{6}$/', $producto->codigo);
+
+        $this->assertDatabaseMissing('productos', ['codigo' => 'MAT-999999']);
+    }
+
+    public function test_editar_no_cambia_el_codigo(): void
+    {
+        $codigoOriginal = Producto::generarCodigo();
+
+        $this->producto->update(['codigo' => $codigoOriginal]);
+
+        $this->putJson("/inventario/productos/{$this->producto->id}", [
+            // Un codigo distinto llega igualmente en la peticion
+            'codigo' => 'MAT-999999',
+            'nombre' => 'Cemento renombrado',
+            'unidad_medida' => 'kg',
+            'estado' => 1,
+        ])->assertOk();
+
+        $this->producto->refresh();
+
+        $this->assertSame(
+            $codigoOriginal,
+            $this->producto->codigo,
+            'El código es la identidad del material: no lo cambia una edición'
+        );
+
+        $this->assertSame('Cemento renombrado', $this->producto->nombre);
+    }
+
+    public function test_el_formulario_no_pide_el_codigo(): void
+    {
+        $formulario = file_get_contents(
+            resource_path('views/inventario/productos/_form.blade.php')
+        );
+
+        $this->assertStringNotContainsString(
+            'name="codigo"',
+            $formulario,
+            'El código no se escribe: lo pone el sistema'
+        );
+
+        $this->assertStringContainsString('readonly', $formulario);
+    }
+
+    public function test_el_alta_avisa_de_que_el_codigo_se_asigna_solo(): void
+    {
+        $formulario = file_get_contents(
+            resource_path('views/inventario/productos/_form.blade.php')
+        );
+
+        $this->assertStringContainsString(
+            'Se asigna automáticamente',
+            $formulario,
+            'En el alta hay que decir que el código se pone solo'
+        );
     }
 
     public function test_un_material_con_movimientos_se_desactiva_en_vez_de_borrarse(): void
@@ -237,19 +426,17 @@ class PantallasDeMaterialTest extends TestCase
          * fallara.
          */
         $this->post('/inventario/productos', [
-            'codigo' => 'CEM-002',
             'nombre' => 'Cemento sin modal',
             'unidad_medida' => 'kg',
             'estado' => 1,
         ])->assertRedirect(route('inventario.productos.index'));
 
-        $this->assertDatabaseHas('productos', ['codigo' => 'CEM-002']);
+        $this->assertDatabaseHas('productos', ['nombre' => 'Cemento sin modal']);
     }
 
     public function test_alta_y_edicion_responden_json_cuando_se_piden_por_ajax(): void
     {
         $r = $this->postJson('/inventario/productos', [
-            'codigo' => 'CEM-003',
             'nombre' => 'Cemento por ajax',
             'unidad_medida' => 'kg',
             'estado' => 1,
@@ -257,6 +444,7 @@ class PantallasDeMaterialTest extends TestCase
 
         $this->assertTrue($r->json('success'));
         $this->assertNotEmpty($r->json('message'));
+        $this->assertNotEmpty($r->json('codigo'), 'La respuesta debe traer el código asignado');
     }
 
     public function test_la_edicion_devuelve_los_datos_para_el_modal(): void
@@ -384,14 +572,13 @@ class PantallasDeMaterialTest extends TestCase
     public function test_el_alta_por_ajax_crea_el_material(): void
     {
         $this->postJson('/inventario/productos', [
-            'codigo' => 'CEM-AJAX',
             'nombre' => 'Cemento por ajax',
             'unidad_medida' => 'kg',
             'stock_minimo' => 20,
             'estado' => 1,
         ])->assertOk()->assertJson(['success' => true]);
 
-        $this->assertDatabaseHas('productos', ['codigo' => 'CEM-AJAX']);
+        $this->assertDatabaseHas('productos', ['nombre' => 'Cemento por ajax']);
     }
 
     // ==================================================================
