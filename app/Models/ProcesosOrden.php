@@ -90,13 +90,47 @@ class ProcesosOrden extends BaseProcesosOrden
 	}
 
 	/**
-	 * Costo total del proceso: mano de obra, depreciacion de equipos y los
-	 * demas costos registrados.
+	 * La materia prima que se consumio en este proceso: cemento, quimicos
+	 * y demas.
+	 *
+	 * Viene del kardex y no de la tabla de costos, porque es material que
+	 * sale fisicamente del almacen: se controla con existencias y su costo
+	 * unitario lo fija el promedio de lo que habia dentro.
+	 *
+	 * Se suma al momento, igual que los otros componentes, para que no
+	 * pueda quedar desfasado respecto a los consumos registrados.
+	 */
+	public function getCostoMateriaPrimaAttribute(): float
+	{
+		// Con la relacion ya cargada no hay que volver a consultar
+		if ($this->relationLoaded('movimientos_materia_prima')) {
+			return (float) $this->movimientos_materia_prima
+				->sum(fn ($movimiento) => (float) $movimiento->importe_nio);
+		}
+
+		return (float) MovimientosInventario::query()
+			->deProceso($this->id)
+			->where(MovimientosInventario::TIPO, MovimientosInventario::TIPO_SALIDA)
+			->sum(MovimientosInventario::COSTO_TOTAL_NIO);
+	}
+
+	/**
+	 * Los movimientos de material de este proceso.
+	 */
+	public function movimientos_materia_prima()
+	{
+		return $this->hasMany(MovimientosInventario::class, MovimientosInventario::PROCESO_ORDEN_ID);
+	}
+
+	/**
+	 * Costo total del proceso: mano de obra, depreciacion de equipos,
+	 * materia prima y los demas costos registrados.
 	 */
 	public function getCostoTotalAttribute(): float
 	{
 		return $this->costo_empleados
 			+ $this->costo_equipos
+			+ $this->costo_materia_prima
 			+ $this->costo_otros;
 	}
 
@@ -128,6 +162,13 @@ class ProcesosOrden extends BaseProcesosOrden
 				'nombre' => 'Depreciación de equipos',
 				'importe' => $this->costo_equipos,
 				'origen' => 'Equipos asignados al proceso, según los días de uso.',
+				'automatico' => true,
+			],
+			[
+				'nombre' => 'Materia prima',
+				'importe' => $this->costo_materia_prima,
+				'origen' => 'Material consumido del almacén en este proceso, '
+					. 'valorado al costo promedio del inventario.',
 				'automatico' => true,
 			],
 		];
