@@ -14,6 +14,15 @@
     <x-breadcrumb :items="$breadcrumbs"/>
 
     <x-slot:headerFiles>
+        {{--
+            Select2: los estilos.
+
+            Sin esto el material de cada linea era un <select> nativo, o sea
+            una lista desplegable del sistema sin buscador. Con el catalogo de
+            materiales encima, buscar uno a mano era recorrerla entera. El
+            select2 lo pone el javascript de abajo; aqui solo su cascara.
+        --}}
+        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
     </x-slot>
 
     <div class="row layout-top-spacing">
@@ -68,6 +77,19 @@
     @include('inventario.compras._modal_selector_proveedor')
 
     <x-slot:footerFiles>
+
+        {{--
+            Select2: el javascript, y antes que nada porque el script de la
+            rejilla lo busca en window.iniciarSelect2 para engancharle el
+            desplegable a cada fila que anade.
+
+            Va antes a proposito. El @vite carga un modulo, que el navegador
+            aplaza hasta despues de leer toda la pagina, mientras que el
+            script de la rejilla es de los clasicos y se ejecuta al leerlo.
+            Asi el modulo ya ha dejado window.iniciarSelect2 puesto cuando la
+            rejilla construye su primera fila.
+        --}}
+        @vite(['resources/assets/js/select2/select2-init.js'])
 
         {{-- El javascript de la rejilla de lineas va aqui: necesita el
              formulario ya pintado para clonar su fila de ejemplo. --}}

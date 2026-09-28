@@ -97,6 +97,58 @@ class ComprasTest extends TestCase
         return $this->post('/inventario/compras', $datos);
     }
 
+    /**
+     * Cuantas compras hay ahora mismo.
+     *
+     * Existe para no afirmar "cero compras". Un test que dice eso solo vale
+     * en una base de datos vacia, y en cuanto el usuario guarda su primera
+     * compra de verdad el test falla sin que nada de lo que comprueba haya
+     * cambiado. Lo que interesa es si ESTA compra se guardo, no si las hay.
+     */
+    private function cuantasComprasHay(): int
+    {
+        return Compra::withTrashed()->count();
+    }
+
+    /**
+     * La compra que creo este test, y solo este.
+     *
+     * Se busca por proveedor porque cada test se hace su propio proveedor. Es
+     * lo que evita que un test se lleve por delante, sin querer, la compra de
+     * depuracion que hay en la base: si dos pruebas comparten proveedor, una
+     * podria leer la compra de la otra y darse por buena sin haber comprobado
+     * nada.
+     */
+    private function compraDe(Proveedore $proveedor): Compra
+    {
+        return Compra::where('proveedor_id', $proveedor->id)->latest('id')->firstOrFail();
+    }
+
+    /**
+     * Comprueba que no se guardo ninguna compra, ni de este proveedor ni de
+     * nadie mas.
+     *
+     * Las dos mitades hacen falta. Que no haya compras nuevas lo dice el
+     * antes y el despues; que no se haya guardado una compra huerfana lo dice
+     * lo de que el proveedor no tenga ninguna, porque una compra sin proveedor
+     * —o con las lineas vacias— se rechaza antes de llegar a tener proveedor
+     * asignado, y con solo mirar el total pasaria desapercibida.
+     */
+    private function assertNoSeGuardoNingunaCompra(Proveedore $proveedor, int $antes, string $mensaje): void
+    {
+        $this->assertSame(
+            $antes,
+            $this->cuantasComprasHay(),
+            $mensaje . ' — se ha guardado alguna compra de mas'
+        );
+
+        $this->assertSame(
+            0,
+            Compra::withTrashed()->where('proveedor_id', $proveedor->id)->count(),
+            $mensaje . ' — este proveedor tiene compras, cuando no deberia tener ninguna'
+        );
+    }
+
     // ==================================================================
     // El codigo y los totales los pone el sistema
     // ==================================================================
@@ -178,6 +230,7 @@ class ComprasTest extends TestCase
     public function test_una_compra_sin_lineas_no_se_guarda(): void
     {
         $proveedor = $this->crearProveedor();
+        $antes = $this->cuantasComprasHay();
 
         $datos = $this->datosCompra($proveedor, $this->crearMaterial());
         $datos['productos'] = [];
@@ -187,13 +240,18 @@ class ComprasTest extends TestCase
             ->assertRedirect('/inventario/compras/create')
             ->assertSessionHasErrors('productos');
 
-        $this->assertSame(0, Compra::count());
+        $this->assertNoSeGuardoNingunaCompra(
+            $proveedor,
+            $antes,
+            'Una compra sin lineas no deberia guardarse'
+        );
     }
 
     public function test_una_linea_con_cantidad_cero_no_se_guarda(): void
     {
         $proveedor = $this->crearProveedor();
         $material = $this->crearMaterial();
+        $antes = $this->cuantasComprasHay();
 
         $datos = $this->datosCompra($proveedor, $material);
         $datos['productos'][0]['cantidad'] = 0;
@@ -202,12 +260,126 @@ class ComprasTest extends TestCase
             ->post('/inventario/compras', $datos)
             ->assertSessionHasErrors('productos.0.cantidad');
 
-        $this->assertSame(0, Compra::count());
+        $this->assertNoSeGuardoNingunaCompra(
+            $proveedor,
+            $antes,
+            'Una compra con una linea a cero no deberia guardarse'
+        );
     }
 
     // ==================================================================
-    // La regla del almacen: solo entra al finalizarse
+    // Las filas que el formulario lleva de mas
     // ==================================================================
+    /*
+     * El formulario lleva siempre una fila de ejemplo —la que esta oculta y
+     * solo sirve de molde para clonar— y el usuario puede anadir lineas y
+     * dejarlas a medias antes de guardar.
+     *
+     * Ninguna de las dos puede impedir guardar una compra que esta bien. Y
+     * ninguna puede hacerlo avisando de que falta el material cuando el
+     * material esta elegido: eso era lo que pasaba, y el mensaje senalaba a
+     * una fila que el usuario no tenia delante, que es la peor manera de
+     * fallar porque el usuario no tiene forma de saber que hacer con el.
+     */
+
+    public function test_la_fila_de_ejemplo_no_impide_guardar_la_compra(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+
+        $datos = $this->datosCompra($proveedor, $material);
+
+        // Lo que de verdad mandaba el navegador: la fila de ejemplo con sus
+        // nombres de ejemplo y sin material, y la linea buena con su indice.
+        $datos['productos'] = [
+            '__i__' => ['producto_id' => '', 'cantidad' => 1, 'costo_unitario' => 0.00],
+            0 => ['producto_id' => $material->id, 'cantidad' => 1000, 'costo_unitario' => 5.00],
+        ];
+
+        $this->crearCompra($datos)->assertRedirect();
+
+        $compra = Compra::where('proveedor_id', $proveedor->id)->firstOrFail();
+
+        $this->assertSame(1, $compra->detalles()->count());
+        $this->assertSame($material->id, $compra->detalles->first()->producto_id);
+    }
+
+    public function test_una_linea_que_se_ha_dejado_a_medias_no_impide_guardar(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+
+        $datos = $this->datosCompra($proveedor, $material);
+
+        // Una linea anadida y sin tocar, y otra a medio rellenar.
+        $datos['productos'] = [
+            ['producto_id' => $material->id, 'cantidad' => 1000, 'costo_unitario' => 5.00],
+            ['producto_id' => '', 'cantidad' => 1, 'costo_unitario' => 0.00],
+            ['producto_id' => '', 'cantidad' => 0, 'costo_unitario' => 0.00],
+        ];
+
+        $this->crearCompra($datos)->assertRedirect();
+
+        $compra = Compra::where('proveedor_id', $proveedor->id)->firstOrFail();
+
+        $this->assertSame(1, $compra->detalles()->count());
+    }
+
+    public function test_el_error_de_linea_apunta_a_la_linea_que_esta_mal(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+        $otro = $this->crearMaterial('Acido de la prueba');
+        $antes = $this->cuantasComprasHay();
+
+        $datos = $this->datosCompra($proveedor, $material);
+
+        $datos['productos'] = [
+            ['producto_id' => $material->id, 'cantidad' => 1000, 'costo_unitario' => 5.00],
+            // Con material pero sin cantidad: el error tiene que senalar la
+            // segunda linea, que es la que esta mal, no la primera.
+            ['producto_id' => $otro->id, 'cantidad' => '', 'costo_unitario' => 3.00],
+        ];
+
+        $respuesta = $this->from('/inventario/compras/create')
+            ->post('/inventario/compras', $datos);
+
+        $errores = session('errors')->getBag('default');
+
+        $this->assertTrue($errores->has('productos.1.cantidad'));
+        $this->assertFalse($errores->has('productos.0.cantidad'));
+        $this->assertFalse($errores->has('productos.0.producto_id'));
+
+        $respuesta->assertSessionHasErrors('productos.1.cantidad');
+
+        $this->assertNoSeGuardoNingunaCompra(
+            $proveedor,
+            $antes,
+            'Una compra con una linea a medias no deberia guardarse'
+        );
+    }
+
+    public function test_un_material_que_ya_no_esta_en_el_catalogo_se_avisa_sin_confundir(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+        $antes = $this->cuantasComprasHay();
+
+        $datos = $this->datosCompra($proveedor, $material);
+        $datos['productos'][0]['producto_id'] = $material->id + 9999;
+
+        $this->from('/inventario/compras/create')
+            ->post('/inventario/compras', $datos)
+            ->assertSessionHasErrors('productos.0.producto_id');
+
+        $this->assertNoSeGuardoNingunaCompra(
+            $proveedor,
+            $antes,
+            'Una compra con un material que ya no existe no deberia guardarse'
+        );
+    }
+
+
 
     public function test_una_compra_pendiente_no_mete_material_al_almacen(): void
     {
@@ -364,7 +536,7 @@ class ComprasTest extends TestCase
             ],
         ]))->assertRedirect();
 
-        $primera = Compra::orderBy('id')->firstOrFail();
+        $primera = Compra::where('proveedor_id', $proveedor->id)->orderBy('id')->firstOrFail();
 
         $this->crearCompra($this->datosCompra($proveedor, $cemento, [
             'fecha' => '2026-09-25',
@@ -376,7 +548,7 @@ class ComprasTest extends TestCase
         $cemento->refresh();
         $this->assertSame(6.0, round((float) $cemento->costo_promedio, 4));
 
-        $segunda = Compra::orderByDesc('id')->firstOrFail();
+        $segunda = Compra::where('proveedor_id', $proveedor->id)->orderByDesc('id')->firstOrFail();
 
         $this->put('/inventario/compras/' . $segunda->id, $this->datosCompra(
             $proveedor,
@@ -578,8 +750,8 @@ class ComprasTest extends TestCase
             'fecha' => '2026-09-26',
         ]))->assertRedirect();
 
-        $primera = Compra::orderBy('id')->firstOrFail();
-        $segunda = Compra::orderByDesc('id')->firstOrFail();
+        $primera = Compra::where('proveedor_id', $proveedor->id)->orderBy('id')->firstOrFail();
+        $segunda = Compra::where('proveedor_id', $proveedor->id)->orderByDesc('id')->firstOrFail();
 
         $this->delete('/inventario/compras/' . $primera->id);
 
@@ -710,13 +882,10 @@ class ComprasTest extends TestCase
          * Preguntar a la tabla es como la ve el usuario de verdad, y es lo
          * unico que comprueba el texto del boton.
          */
-        $json = $this->ajaxJson('/inventario/compras');
-
-        $filas = $json['data'];
-
-        $this->assertCount(1, $filas);
-
-        $acciones = $filas[0]['action'];
+        // Se mira la fila de esta compra y no la primera de la tabla: la
+        // tabla enseña todas, y la primera puede ser una compra de depuracion
+        // que hay en la base desde antes de la prueba.
+        $acciones = $this->filaDeLaTabla('/inventario/compras', $proveedor)['action'];
 
         $this->assertStringContainsString('data-confirm-delete', $acciones);
         $this->assertStringContainsString('el material saldrá del almacén', $acciones);
@@ -732,7 +901,7 @@ class ComprasTest extends TestCase
             'estado' => Compra::ESTADO_PENDIENTE,
         ]))->assertRedirect();
 
-        $acciones = $this->ajaxJson('/inventario/compras')['data'][0]['action'];
+        $acciones = $this->filaDeLaTabla('/inventario/compras', $proveedor)['action'];
 
         $this->assertStringNotContainsString('el material saldrá del almacén', $acciones);
         $this->assertStringContainsString('no ha entrado material al almacén', $acciones);
@@ -747,10 +916,10 @@ class ComprasTest extends TestCase
             'estado' => Compra::ESTADO_PENDIENTE,
         ]))->assertRedirect();
 
-        $fila = $this->ajaxJson('/inventario/compras')['data'][0];
+        $fila = $this->filaDeLaTabla('/inventario/compras', $proveedor);
 
         $this->assertSame('Pendiente', strip_tags($fila['estado']));
-        $this->assertSame(Compra::firstOrFail()->codigo, $fila['codigo']);
+        $this->assertSame($this->compraDe($proveedor)->codigo, $fila['codigo']);
     }
 
     /**
@@ -772,6 +941,34 @@ class ComprasTest extends TestCase
         $respuesta->assertOk();
 
         return json_decode($respuesta->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * La fila que la tabla dibuja para la compra de este test.
+     *
+     * Se busca por el codigo, y no se coge la primera fila, porque la tabla
+     * enseña todas las compras que hay y no solo las del test. Coger la
+     * primera seria comprobar el texto de una compra cualquiera: el texto
+     * estaria bien y el test pasaria, sin haberseEnterado de que estaba
+     * mirando la compra equivocada.
+     *
+     * @return array<string, mixed>
+     */
+    private function filaDeLaTabla(string $url, Proveedore $proveedor): array
+    {
+        $codigo = $this->compraDe($proveedor)->codigo;
+
+        foreach ($this->ajaxJson($url)['data'] as $fila) {
+            if (($fila['codigo'] ?? '') === $codigo) {
+                return $fila;
+            }
+        }
+
+        $this->fail(
+            'La compra ' . $codigo . ' deberia salir en la tabla de ' . $url
+            . ', y no sale. Si la lista esta paginada y esta compra cae en otra '
+            . 'pagina, el fallo es de la prueba, no de la aplicacion.'
+        );
     }
 
     public function test_el_js_de_la_rejilla_carga_en_alta_y_edicion(): void
@@ -809,6 +1006,123 @@ class ComprasTest extends TestCase
         $js = file_get_contents(public_path('js/inventario/compras.js'));
 
         $this->assertStringContainsString("replace('__i__', indice)", $js);
+    }
+
+    public function test_la_fila_de_ejemplo_no_se_manda_con_el_formulario(): void
+    {
+        /*
+         * La fila de ejemplo es un molde: esta oculta y solo existe para que
+         * el javascript la clone. Un campo con name se manda aunque la fila
+         * este escondida —display:none no lo impide, solo lo impide disabled—
+         * y con los nombres puestos el formulario llevaba una linea de mas
+         * que el servidor validaba como si fuera de verdad: se quejaba de que
+         * faltaba el material con el material de verdad elegido en otra fila.
+         *
+         * Por eso el molde lleva data-nombre y no name. El nombre se lo pone
+         * el javascript a la fila nueva, ya con su indice.
+         */
+        $html = $this->get('/inventario/compras/create')->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<tr class="linea-plantilla.*?<\/tr>/s',
+            $html,
+            'La fila de ejemplo deberia seguir en la vista: es el molde'
+        );
+
+        preg_match('/<tr class="linea-plantilla.*?<\/tr>/s', $html, $molde);
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/<(select|input)[^>]*\sname=/',
+            $molde[0],
+            'La fila de ejemplo no debe llevar atributo name: un campo con '
+            . 'name se manda aunque la fila este oculta, y el servidor la '
+            . 'validaba como una linea mas de la compra'
+        );
+
+        $this->assertStringContainsString(
+            'data-nombre="productos[__i__][producto_id]"',
+            $molde[0],
+            'El molde tiene que decir en data-nombre como se llama el campo, '
+            . 'porque el nombre de la fila nueva sale de ahi'
+        );
+
+        // Y el nombre tiene que estar en la vista, no inventado en el js: si
+        // el javascript no llegara a cargar, el formulario se mandaria sin
+        // lineas y el error seria el de verdad, no el de una fila que no se
+        // ve.
+        foreach (['cantidad', 'costo_unitario'] as $campo) {
+            $this->assertStringContainsString(
+                'data-nombre="productos[__i__][' . $campo . ']"',
+                $molde[0],
+                'El molde deberia decir tambien el nombre de ' . $campo
+            );
+        }
+
+        $js = file_get_contents(public_path('js/inventario/compras.js'));
+
+        $this->assertStringContainsString(
+            "getAttribute('data-nombre')",
+            $js,
+            'La fila nueva tiene que tomar su nombre del data-nombre del molde, '
+            . 'porque el molde ya no lleva name'
+        );
+    }
+
+    public function test_el_material_se_puede_buscar_con_select2_en_alta_y_edicion(): void
+    {
+        /*
+         * Select2 no se carga solo: es una entrada de vite aparte y cada
+         * pantalla que lo quiere tiene que pedir su modulo y sus estilos. Sin
+         * esas dos lineas el material de cada linea es un <select> nativo, o
+         * sea una lista desplegable sin buscador, y con el catalogo entero
+         * encima buscar un material es recorrerlo todo.
+         *
+         * Se comparan los nombres de los archivos ya construidos y no las
+         * rutas de origen, porque es lo que sale en el html: vite les pone
+         * un hash que cambia con cada build y ponerlo aqui obliga a tocar el
+         * test cada vez que se compila.
+         */
+        $compra = Compra::create([
+            'codigo' => 'TMP-SELECT2',
+            'proveedor_id' => $this->crearProveedor()->id,
+            'fecha' => now()->toDateString(),
+            'moneda_id' => $this->moneda()->id,
+            'estado' => Compra::ESTADO_PENDIENTE,
+            'subtotal' => 0,
+            'impuesto' => 0,
+            'total' => 0,
+        ]);
+
+        $manifest = json_decode(
+            file_get_contents(public_path('build/manifest.json')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        $estilos = basename($manifest['resources/scss/light/plugins/select2/custom-select2.scss']['file']);
+        $modulo = basename($manifest['resources/assets/js/select2/select2-init.js']['file']);
+
+        foreach (['/inventario/compras/create', "/inventario/compras/{$compra->id}/edit"] as $url) {
+            $html = $this->get($url)->getContent();
+
+            $this->assertStringContainsString($estilos, $html, 'Falta el estilo de select2 en ' . $url);
+            $this->assertStringContainsString($modulo, $html, 'Falta el modulo de select2 en ' . $url);
+        }
+    }
+
+    public function test_el_material_dice_que_se_puede_buscar(): void
+    {
+        /*
+         * El buscador de select2 aparece siempre, porque el modulo pone
+         * minimumResultsForSearch en 0. Lo que tiene que decir el campo es
+         * que se puede escribir, porque un desplegable con buscador no se
+         * distingue de uno sin el mirandolo de lejos.
+         */
+        $html = $this->get('/inventario/compras/create')->getContent();
+
+        $this->assertStringContainsString('data-select2-opciones', $html);
+        $this->assertStringContainsString('Escriba para buscar el material', $html);
     }
 
     public function test_el_js_avisa_del_material_antes_de_dejar_guardar_sin_lineas(): void
@@ -1047,7 +1361,7 @@ class ComprasTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $compra = Compra::firstOrFail();
+        $compra = $this->compraDe($proveedor);
 
         $this->assertSame($proveedor->id, $compra->proveedor_id);
     }
@@ -1055,15 +1369,21 @@ class ComprasTest extends TestCase
     public function test_una_compra_sin_proveedor_no_se_guarda(): void
     {
         $material = $this->crearMaterial();
+        $proveedor = $this->crearProveedor();
+        $antes = $this->cuantasComprasHay();
 
-        $datos = $this->datosCompra($this->crearProveedor(), $material);
+        $datos = $this->datosCompra($proveedor, $material);
         $datos['proveedor_id'] = '';
 
         $this->from('/inventario/compras/create')
             ->post('/inventario/compras', $datos)
             ->assertSessionHasErrors('proveedor_id');
 
-        $this->assertSame(0, Compra::count());
+        $this->assertNoSeGuardoNingunaCompra(
+            $proveedor,
+            $antes,
+            'Una compra sin proveedor no deberia guardarse'
+        );
     }
 
     public function test_el_nombre_del_proveedor_no_puede_apuntar_a_otro_proveedor(): void
@@ -1087,7 +1407,7 @@ class ComprasTest extends TestCase
             ['proveedor_nombre' => $segundo->nombre . ' (' . $segundo->codigo . ')']
         ))->assertRedirect();
 
-        $compra = Compra::firstOrFail();
+        $compra = $this->compraDe($primero);
 
         $this->assertSame(
             $primero->id,

@@ -19,6 +19,12 @@
     <x-breadcrumb :items="$breadcrumbs"/>
 
     <x-slot:headerFiles>
+        {{--
+            Select2: los estilos. El motivo esta en la pantalla de alta, que
+            lo cuenta entero: sin esto el material de cada linea era un
+            <select> nativo, sin buscador, y con el catalogo entero encima.
+        --}}
+        @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
     </x-slot>
 
     <div class="row layout-top-spacing">
@@ -94,6 +100,17 @@
     @include('inventario.compras._modal_selector_proveedor')
 
     <x-slot:footerFiles>
+
+        {{--
+            Select2: el javascript, y antes que nada porque el script de la
+            rejilla lo busca en window.iniciarSelect2 para engancharle el
+            desplegable a cada fila que anade. El @vite carga un modulo, que
+            el navegador aplaza hasta despues de leer la pagina; el script de
+            la rejilla es de los clasicos y corre al leerlo. Asi el modulo ya
+            ha dejado window.iniciarSelect2 puesto cuando la rejilla monta su
+            primera fila.
+        --}}
+        @vite(['resources/assets/js/select2/select2-init.js'])
 
         <script src="{{ asset('js/inventario/compras.js') }}"></script>
 

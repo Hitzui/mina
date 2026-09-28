@@ -99,12 +99,17 @@
          * La fila de ejemplo no es una linea real: solo esta para que haya
          * algo que clonar. Si se le deja el desplegable puesto, Select2 lo
          * engancha al abrir la pagina y dentro de la fila aparece un segundo
-         // desplegable fantasma, invisible porque la fila esta oculta pero
+         * desplegable fantasma, invisible porque la fila esta oculta pero
          * vivo, y al clonarla cada fila nueva hereda ese trasto.
          *
          * Se quitan la clase y el enganche, en ese orden, porque no se sabe
          * si el Select2 de la pagina ya habra pasado por aqui o pasara
          * despues. Asi el final es el mismo en los dos casos.
+         *
+         * Lo del name no se toca aqui porque ya no hay nada que tocar: la
+         * vista lo escribe en data-nombre y no en name, para que el molde no
+         * se mande nunca con el formulario. Se explica entero en la propia
+         * vista, que es donde se lee.
          */
         function dejarPlantillaLimpia() {
             $plantilla.find('select').removeClass('select2');
@@ -153,8 +158,9 @@
         /**
          * Agrega una linea al final de la rejilla.
          *
-         * La fila se clona de la plantilla, que lleva los indices de ejemplo
-         * "__i__". Esos se cambian por el numero de fila: el servidor espera
+         * La fila se clona de la plantilla y cada campo toma su nombre de
+         * data-nombre, que lleva el indice de ejemplo "__i__". Ese se
+         * cambia por el numero de fila, porque el servidor espera
          * productos[0], productos[1], y si el indice se quedara como
          * "__i__" las dos lineas se pisarian entre si.
          */
@@ -170,8 +176,16 @@
             $fila.find('select').removeAttr('id');
             $fila.find('input').removeAttr('id');
 
+            /*
+             * El nombre sale de data-nombre y no de name, porque el molde no
+             * lleva name: es un molde, no una linea, y un campo con name se
+             * manda aunque la fila este escondida. El "__i__" se cambia por el
+             * numero de fila porque el servidor espera productos[0],
+             * productos[1], y si el indice se quedara como "__i__" las dos
+             * lineas se pisarian entre si.
+             */
             $fila.find('select, input').each(function () {
-                this.name = this.name.replace('__i__', indice);
+                this.name = (this.getAttribute('data-nombre') || '').replace('__i__', indice);
             });
 
             const $material = $fila.find('.producto-linea');

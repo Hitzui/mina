@@ -13,6 +13,8 @@ use App\Models\Producto;
 use App\Services\ComprasInventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use RealRashid\SweetAlert\Facades\Alert;
 
 /**
@@ -262,11 +264,24 @@ class CompraController extends Controller
     }
 
     /**
-     * Las lineas de material.
+     * Lee las lineas de la compra del formulario y devuelve solo las que
+     * llevan material.
      *
-     * El nombre viene como productos[] con los indices de los inputs. Se
-     * limpian los vacios, que son las filas que el usuario borro y todavia
-     *estan en el DOM.
+     * El nombre viene como productos[] con los indices de los inputs.
+     *
+     * Lo importante es que se valida lo que se devuelve, no el dato entero.
+     * Antes se Filtraban las filas vacias y despues se validaba el dato
+     * completo con $request->validate(), que es validar justamente lo que se
+     * acaba de tirar. Con lo cual la fila de ejemplo —la que esta oculta y
+     * solo sirve de molde— y cualquier fila anadida y dejada en blanco se
+     * quejaban de que faltaba el material, con el material de verdad elegido
+     * en otra fila. El mensaje senalaba a la fila equivocada, que es la
+     * peor manera de fallar.
+     *
+     * Se conservan las claves de origen de cada fila, en vez de
+     * renumerarlas, para que el error siga hablando del indice que el
+     * usuario tiene delante en la pantalla y no de un numero que ya no
+     * existe.
      */
     private function validarLineas(Request $request): array
     {
@@ -278,21 +293,21 @@ class CompraController extends Controller
 
         $limpias = [];
 
-        foreach ($crudo as $fila) {
+        foreach ($crudo as $clave => $fila) {
             if (! is_array($fila) || ($fila['producto_id'] ?? '') === '') {
                 continue;
             }
 
-            $limpias[] = $fila;
+            $limpias[$clave] = $fila;
         }
 
         if (empty($limpias)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'productos' => 'La compra tiene que llevar al menos una línea de material.',
             ]);
         }
 
-        return $request->validate([
+        $validador = Validator::make(['productos' => $limpias], [
             'productos' => ['required', 'array', 'min:1'],
             'productos.*.producto_id' => ['required', 'exists:productos,id'],
             'productos.*.cantidad' => ['required', 'numeric', 'gt:0'],
@@ -300,9 +315,17 @@ class CompraController extends Controller
         ], [
             'productos.required' => 'La compra tiene que llevar al menos una línea de material.',
             'productos.*.producto_id.required' => 'Elija el material de la línea.',
+            'productos.*.producto_id.exists' => 'Ese material ya no está en el catálogo. Vuelva a elegirlo.',
+            'productos.*.cantidad.required' => 'Indique la cantidad de la línea.',
             'productos.*.cantidad.gt' => 'La cantidad tiene que ser mayor que cero.',
             'productos.*.costo_unitario.required' => 'Indique el costo unitario de la línea.',
-        ])['productos'];
+        ]);
+
+        if ($validador->fails()) {
+            throw new ValidationException($validador);
+        }
+
+        return $validador->validated()['productos'];
     }
 
     /**

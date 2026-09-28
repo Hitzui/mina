@@ -208,7 +208,44 @@
                                 --}}
                                 <tr class="linea-plantilla d-none" id="lineaPlantilla">
                                     <td>
-                                        <select class="form-select select2 producto-linea" name="productos[__i__][producto_id]">
+                                        {{--
+                                            El nombre va en data-nombre y no en
+                                            name a proposito.
+
+                                            Esta fila es un molde: esta oculta y
+                                            solo existe para que el javascript la
+                                            clone. Un campo con name se manda
+                                            aunque este escondido —display:none
+                                            no lo impide, solo lo impide
+                                            disabled—, asi que con name aqui el
+                                            formulario llevaba una linea de mas:
+
+                                                productos[__i__][producto_id]=""
+
+                                            y el servidor la validaba como si
+                                            fuera de verdad: se quejaba de que
+                                            faltaba el material con el material
+                                            de verdad elegido tres lineas mas
+                                            abajo. El mensaje senalaba a la fila
+                                            equivocada, que es la peor manera de
+                                            fallar.
+
+                                            Con data-nombre el molde no se
+                                            manda nunca, y el nombre se lo pone
+                                            el javascript a la fila nueva, ya
+                                            con su indice. Y si el javascript no
+                                            llegara a cargar, el formulario se
+                                            mandaria sin lineas y el error
+                                            seria el de verdad —"la compra
+                                            tiene que llevar al menos una linea
+                                            de material"—, no el de una fila
+                                            que no se ve.
+                                        --}}
+                                        <select
+                                            class="form-select select2 producto-linea"
+                                            data-nombre="productos[__i__][producto_id]"
+                                            data-select2-opciones='{"placeholder":"Escriba para buscar el material","allowClear":true}'
+                                        >
                                             <option value="">Seleccione el material</option>
                                             @foreach($productos as $producto)
                                                 <option
@@ -226,7 +263,7 @@
                                         <input
                                             type="number"
                                             class="form-control cantidad-linea"
-                                            name="productos[__i__][cantidad]"
+                                            data-nombre="productos[__i__][cantidad]"
                                             step="0.001"
                                             min="0.001"
                                             value="1"
@@ -236,7 +273,7 @@
                                         <input
                                             type="number"
                                             class="form-control costo-linea"
-                                            name="productos[__i__][costo_unitario]"
+                                            data-nombre="productos[__i__][costo_unitario]"
                                             step="0.01"
                                             min="0"
                                             value="0.00"
