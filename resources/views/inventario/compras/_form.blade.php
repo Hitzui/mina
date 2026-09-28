@@ -109,7 +109,7 @@
                                 id="porcentaje_impuesto"
                                 name="porcentaje_impuesto"
                                 class="form-control @error('porcentaje_impuesto') is-invalid @enderror"
-                                value="{{ old('porcentaje_impuesto') }}"
+                                value="{{ $compra->impuesto }}"
                                 step="0.01"
                                 min="0"
                                 max="100"

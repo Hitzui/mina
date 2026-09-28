@@ -25,7 +25,7 @@
 
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
 
-        <div class="modal-content">
+        <div class="modal-content bg-white">
 
             <div class="modal-header">
                 <h5 class="modal-title" id="modalSeleccionarProveedorLabel">

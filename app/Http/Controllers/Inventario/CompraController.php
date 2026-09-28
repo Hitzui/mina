@@ -58,6 +58,7 @@ class CompraController extends Controller
         $compra = new Compra([
             Compra::FECHA => today(),
             Compra::ESTADO => Compra::ESTADO_PENDIENTE,
+            Compra::IMPUESTO => 15
         ]);
 
         return view(

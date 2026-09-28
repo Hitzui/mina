@@ -80,6 +80,18 @@
             window.iniciarSelect2($contenedor);
         }
 
+        if (typeof flatpickr !== 'undefined') {
+
+            flatpickr('#fecha', {
+                dateFormat: 'Y-m-d',
+                altInput: true,
+                altFormat: 'd/m/Y',
+                locale: 'es',
+                allowInput: true
+            });
+
+        }
+
         function destruirSelect2De($contenedor) {
             $contenedor.find('select.select2').each(function () {
                 const $select = $(this);
