@@ -18,6 +18,32 @@
 (function ($) {
     'use strict';
 
+    /*
+     * El jQuery se pasa desde fuera, al final del archivo, con
+     * (function ($) { ... })(window.jQuery). Si se cierra con los parentesis
+     * vacios, aunque el jQuery este cargado, $ vale undefined dentro y el
+     * primer $ que se use revienta con un "$ is not a function". Es un fallo
+     * facil de volver a introducir, porque escribirlo asi parece correcto.
+     *
+     * Sin jQuery no se puede hacer nada de lo que hay en este archivo.
+     *
+     * Antes de que el jQuery se cargara del proyecto venia de una CDN, y sin
+     * internet no llegaba. Entonces salia un "$ is not a function" con un
+     * numero de linea que no decia nada: no decia que faltaba el jQuery, ni
+     * que la pagina no iba a funcionar, ni que habia que recargar. Con este
+     * aviso se dice en voz alta, que es la diferencia entre un fallo que se
+     * busca solo y uno que se tiene que adivinar.
+     */
+    if (typeof window.jQuery === 'undefined') {
+        console.error(
+            'No se encontro jQuery, asi que este script no puede funcionar. '
+            + 'Compruebe que el archivo public/plugins/jquery/jquery.min.js '
+            + 'este ahi y que la pagina se haya recargado sin la cache.'
+        );
+
+        return;
+    }
+
     $(function () {
         const $botonBuscar = $('#btnBuscarProveedor');
         const $modal = $('#modalSeleccionarProveedor');
@@ -114,4 +140,4 @@
             $('#proveedorError').addClass('d-none').empty();
         }
     });
-})();
+})(window.jQuery);

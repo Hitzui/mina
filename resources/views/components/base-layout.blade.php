@@ -165,7 +165,22 @@
         !Request::routeIs('login')
     )
     <!-- BEGIN GLOBAL MANDATORY STYLES -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{--
+        El jQuery sale del proyecto, no de una CDN.
+
+        Antes venía de code.jquery.com, y sin internet no llegaba: entonces el $
+        no existía en ninguna pantalla y todo lo que lo usa se caía, que es la
+        aplicación entera. El fallo se veía como un críptico
+        "$ is not a function" en la consola de una pantalla concreta, sin
+        relación aparente con la conexión.
+
+        El archivo de public/plugins/jquery es el mismo jquery 3.7.1 que se
+        usaba, byte a byte, y estaba ya en node_modules sin usarse. Con el
+        aquí, además de no depender de internet, se carga en el mismo momento
+        que los demás scripts normales, antes que los del pie de cada
+        pantalla, que es donde viven los que usan el $.
+    --}}
+    <script src="{{ asset('plugins/jquery/jquery.min.js') }}"></script>
     <script src="{{asset('plugins/bootstrap/bootstrap.bundle.min.js')}}"></script>
     <script src="{{ asset('plugins/table/datatable/dataTables.js') }}"></script>
     <script src="{{ asset('plugins/table/datatable/dataTables.bootstrap5.js') }}"></script>

@@ -157,21 +157,6 @@
                             @enderror
                         </div>
 
-                        <div class="col-md-6">
-                            <label for="observaciones" class="form-label">
-                                Observaciones
-                            </label>
-                            <textarea
-                                id="observaciones"
-                                name="observaciones"
-                                class="form-control @error('observaciones') is-invalid @enderror"
-                                rows="2"
-                                maxlength="1000"
-                            >{{ old('observaciones', $compra->observaciones) }}</textarea>
-                            @error('observaciones')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
 
                     </div>
                 </div>
@@ -305,8 +290,41 @@
 
                 </div>
             </div>
-        </div>
 
+                    {{--
+                        Las observaciones van debajo de la lista, y no en la
+                        cabecera con el proveedor y la fecha. Hablan de las
+                        lineas que se compran ("llego 8 de las 10 bolsas"),
+                        asi que se leen a la vez que la lista. Arriba habia
+                        que bajar hasta el final, escribirlas y volver a
+                        subir a confirmar.
+                    --}}
+                    <div class="col-xl-12">
+                        <label for="observaciones" class="form-label">
+                            Observaciones
+                        </label>
+                        <textarea
+                            id="observaciones"
+                            name="observaciones"
+                            class="form-control @error('observaciones') is-invalid @enderror"
+                            rows="2"
+                            maxlength="1000"
+                            placeholder="Algo que convenga recordar de esta compra"
+                        >{{ old('observaciones', $compra->observaciones) }}</textarea>
+
+                        <div class="form-text">
+                            Sirve para lo que no cabe en una línea, como qué
+                            llegó de lo pedido o qué falta.
+                        </div>
+
+                        @error('observaciones')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                </div>
+            </div>
+        </div>
         {{-- ============================ los botones ============================ --}}
 
         <div class="col-xl-12">
