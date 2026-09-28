@@ -54,6 +54,7 @@
         }
 
         const $tabla = $('#proveedor-selector-table');
+        const $sinSesion = $('#avisoSinSesion');
 
         let modal = null;
         let tabla = null;
@@ -98,11 +99,59 @@
         });
 
         /*
+         * Se escucha el fallo de la peticion de la tabla en el elemento que la
+         * contiene, con delegacion, y no en el boton: las filas las dibuja
+         * DataTables despues de que esta pagina este cargada, y en el momento
+         * de registrar el manejador todavia no existen.
+         */
+        $modal.on('error.dt', 'table', function (evento, settings, techNote, message) {
+            const xhr = techNote?.jqXHR;
+
+            if (xhr && xhr.status === 401) {
+                avisarDeSesionCerrada();
+
+                return;
+            }
+
+            $sinSesion
+                .removeClass('d-none')
+                .text(
+                    'No se pudo cargar la lista de proveedores. Cierra esta '
+                    + 'ventana y vuelve a abrirla.'
+                );
+        });
+
+        // En cuanto la peticion va bien, el aviso sobra
+        $modal.on('xhr.dt', 'table', function () {
+            quitarElAvisoDeSesion();
+        });
+
+        /*
          * Se construye en shown, que es cuando el modal ya se ve: hacerlo al
          * abrir (showing) calcula el ancho de las columnas con la ventana
          * todavia en transicion, y la tabla sale con las columnas todas
          * iguales de largas.
          */
+        /**
+         * Lo que se enseña cuando la peticion vuelve sin sesion.
+         *
+         * Sin esto, una sesion cerrada deja el catalogo en blanco y el
+         * usuario ve una lista de proveedores vacia, que en este programa no
+         * es verdad. Con esto ve que tiene que entrar otra vez.
+         */
+        function avisarDeSesionCerrada() {
+            $sinSesion
+                .removeClass('d-none')
+                .text(
+                    'Se acabó la sesión. Vuelve a entrar en el programa y abre '
+                    + 'otra vez esta ventana para buscar el proveedor.'
+                );
+        }
+
+        function quitarElAvisoDeSesion() {
+            $sinSesion.addClass('d-none').text('');
+        }
+
         $modal.on('shown.bs.modal', function () {
             construirTabla();
 

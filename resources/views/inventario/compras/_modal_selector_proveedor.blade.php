@@ -48,6 +48,20 @@
                     </div>
                 </div>
 
+                {{--
+                    El aviso de que se acabo la sesion.
+
+                    Va antes de la tabla porque la tabla es justo lo que no
+                    llega: sin sesion, el buscador no trae ninguna fila y el
+                    usuario ve un catalogo de proveedores vacio, que en este
+                    programa no es verdad, siempre hay alguno. Con el aviso ve
+                    que lo que falta es la sesion y que tiene remedyo.
+
+                    Sale con d-none: en el caso normal, que es el que la
+                    peticion va bien, no se ve nunca.
+                --}}
+                <div class="alert alert-warning d-none" id="avisoSinSesion" role="alert"></div>
+
                 {!! $selectorProveedor->html()->table([
                     'class' => 'table table-hover table-bordered w-100 d-none',
                 ]) !!}
