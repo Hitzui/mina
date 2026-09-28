@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Configuracion\CategoriaCostoController;
+use App\Http\Controllers\Configuracion\MonedaController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
@@ -344,6 +345,24 @@ Route::resource(
         'tipos-cambio' => 'tipoCambio',
     ])
     ->names('configuracion.tipos_cambio');
+
+/*
+| El catalogo de monedas.
+|
+| Sin parametros: la ruta es "configuracion/monedas" y el resource ya sabe que
+| el singular es "moneda". Ponerlo a mano, como en el tipo de cambio, hace
+| falta solo cuando la ruta lleva guion.
+|
+| Se declara despues del tipo de cambio y no por capricho: el resource genera
+| siete rutas, y declararlas en este orden deja el tipo de cambio primero, que
+| es el que se usa todos los dias. El catalogo de monedas se abre una vez al
+| anadir algo nuevo y luego no se vuelve a abrir.
+*/
+Route::resource(
+    'configuracion/monedas',
+    MonedaController::class
+    )
+    ->names('configuracion.monedas');
 
 
 /*

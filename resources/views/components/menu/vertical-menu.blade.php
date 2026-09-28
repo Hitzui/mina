@@ -314,6 +314,24 @@
                         </a>
                     </li>
 
+                    {{--
+                        Las monedas van al lado del tipo de cambio y no antes,
+                        porque el tipo de cambio es lo que se mira a diario y el
+                        catalogo de monedas se abre una vez, cuando hace falta
+                        una moneda nueva. Aunque el orden de los dos parece al
+                        reves: el tipo de cambio necesita una moneda para
+                        existir, y la lista de monedas es lo que se configura
+                        primero.
+                    --}}
+                    <li class="{{ Request::routeIs('configuracion.monedas.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.monedas.index') }}">
+                            <div>
+                                <i class="bi bi-currency-exchange"></i>
+                                <span>Monedas</span>
+                            </div>
+                        </a>
+                    </li>
+
                 </ul>
             </li>
 

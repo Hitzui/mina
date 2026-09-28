@@ -31,6 +31,7 @@ class RolesYPermisosSeeder extends Seeder
         'compras',
         'trabajos_empleado',
         'tipos_cambio',
+        'configuracion.monedas',
         'configuracion.categorias_costos',
         'configuracion.tipos_pago_empleado',
         'usuarios',
@@ -78,6 +79,14 @@ class RolesYPermisosSeeder extends Seeder
             ['name' => 'supervisor', 'guard_name' => 'web']
         );
 
+        /*
+         * El catalogo de monedas no lo lleva el supervisor, ni siquiera para
+         * mirar. No es una lista de consulta como las de clientes o
+         * empleados: es el dato que decide en que moneda esta el taller y con
+         * que se convierte todo. Cambiar la moneda base es de las pocas cosas
+         * que alteran el valor de documentos ya escritos, asi que queda en
+         * manos de administracion y de nadie mas.
+         */
         $supervisor->syncPermissions([
             'clientes.view', 'clientes.create', 'clientes.edit',
             'empleados.view', 'empleados.create', 'empleados.edit',
@@ -98,6 +107,7 @@ class RolesYPermisosSeeder extends Seeder
             'compras.view', 'compras.create', 'compras.edit', 'compras.delete',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
+            'configuracion.monedas.view',
             'configuracion.categorias_costos.view',
             'configuracion.tipos_pago_empleado.view',
         ]);

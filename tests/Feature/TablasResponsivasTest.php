@@ -44,6 +44,7 @@ class TablasResponsivasTest extends TestCase
         'EquiposDataTable',
         'EtapaDataTable',
         'MaterialesProcesoDataTable',
+        'MonedasDataTable',
         'MovimientosInventarioDataTable',
         'OrdenesTrabajoDataTable',
         'ProductosDataTable',
@@ -52,7 +53,7 @@ class TablasResponsivasTest extends TestCase
         'ProcesoEquiposDataTable',
         'ProcesosOrdenDataTable',
         'TiposCambioDataTable',
-    'TiposPagoEmpleadoDataTable',
+        'TiposPagoEmpleadoDataTable',
         'TrabajosEmpleadosDataTable',
     ];
 

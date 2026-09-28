@@ -145,7 +145,7 @@
         });
 
         /**
-         * El mensaje del servidor, 그대로.
+* El mensaje del servidor, tal cual.
          *
          * Un rechazo por falta de existencias es lo normal aqui, no una
          * falta: se muestra tal cual para que se entienda que hay que
