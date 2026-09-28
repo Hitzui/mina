@@ -1,28 +1,28 @@
 3. Etapas -> ok
-4. Órdenes de trabajo -> ya está ingresar y editar, y el show
-5. Procesos de la orden -> CRUD, faltaría validaciones, luego
-6. Categorías de costos ->Crud listo
-7. Tipos de pago de empleado -> Crud listo
-8. Pagos/tarifas de empleados -> Crud listo
-9. Trabajos de empleados -> Crud listo
-10. Productos
-11. Proveedores
-12. Compras
-13. Inventario
-14. Tipos de producción
-15. Producciones
-16. Recuperaciones
-17. Monedas
-18. Tipos de cambio
-19. Precios de oro
-20. Valoraciones de oro
-21. Tipos de participación
-22. Acuerdos
-23. Liquidaciones
-24. Tipos de ingreso
-25. Ingresos
-26. Cajas
-27. Métodos de pago
-28. Cobros
-29. Detalle de cobros
-30. Cierres
+4. Órdenes de trabajo -> ok. Lista, alta, edición, ficha y calendario.
+5. Procesos de la orden -> CRUD, faltan las validaciones
+6. Categorías de costos -> ok
+7. Tipos de pago de empleado -> ok
+8. Pagos/tarifas de empleados -> ok
+9. Trabajos de empleados -> ok
+10. Productos -> ok
+11. Proveedores -> ok
+12. Compras -> ok
+13. Inventario -> ok
+14. Tipos de producción -> falta la pantalla
+15. Producciones -> falta la pantalla
+16. Recuperaciones -> falta la pantalla
+17. Monedas -> faltan las pantallas: se usan, pero no hay forma de añadir una moneda
+18. Tipos de cambio -> ok. CRUD en modal y carga del mes desde Excel, en Configuración
+19. Precios de oro -> falta la pantalla. La tabla existe y nada la lee
+20. Valoraciones de oro -> falta la pantalla
+21. Tipos de participación -> falta la pantalla
+22. Acuerdos -> falta la pantalla
+23. Liquidaciones -> falta la pantalla
+24. Tipos de ingreso -> faltan las pantallas: hay 4 tipos puestos a mano y no se pueden manejar
+25. Ingresos -> falta la pantalla
+26. Cajas -> falta la pantalla
+27. Métodos de pago -> falta la pantalla
+28. Cobros -> falta la pantalla
+29. Detalle de cobros -> falta la pantalla
+30. Cierres -> falta la pantalla
