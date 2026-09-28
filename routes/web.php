@@ -11,6 +11,7 @@ use App\Http\Controllers\Inventario\CompraController;
 use App\Http\Controllers\Inventario\MaterialesController;
 use App\Http\Controllers\Inventario\ProductoController;
 use App\Http\Controllers\Inventario\ProveedorController;
+use App\Http\Controllers\Configuracion\TipoCambioController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
@@ -302,6 +303,47 @@ Route::resource(
         'compras' => 'compra',
     ])
     ->names('inventario.compras');
+
+/*
+| El tipo de cambio va despues de las compras, que es quien lo lee para
+| passar los totales a cordoba. Sin el, una compra en dolares no tiene
+| equivalente en NIO.
+|
+| La importacion va antes que el resource y con su propia ruta, y no como un
+| metodo mas: es lo unico de aqui que no cabe en un formulario de una sola
+| fila —son treinta dias de golpe— y por eso lleva su propia pantalla y su
+| propio permiso. Si fuera un metodo del resource, el trait de permisos la
+| colgaria de "create" sin que nadie lo decidiera, y una importacion que
+| toca treinta dias no es lo mismo que dar de alta un dia.
+*/
+Route::post(
+    'configuracion/tipos-cambio/importar',
+    [TipoCambioController::class, 'importar']
+)
+    ->name('configuracion.tipos_cambio.importar');
+
+/*
+| La plantilla del ejemplo va con metodo GET porque es una descarga, y ponerla
+| a mano es lo que evita que route() genere un nombre distinto del que espera
+| el javascript.
+|
+| Comparte el permiso de la importacion, que es la razon por la que se pide:
+| descargar el ejemplo es el primer paso de importar, no una accion aparte.
+*/
+Route::get(
+    'configuracion/tipos-cambio/plantilla',
+    [TipoCambioController::class, 'plantilla']
+)
+    ->name('configuracion.tipos_cambio.plantilla');
+
+Route::resource(
+    'configuracion/tipos-cambio',
+    TipoCambioController::class
+)
+    ->parameters([
+        'tipos-cambio' => 'tipoCambio',
+    ])
+    ->names('configuracion.tipos_cambio');
 
 
 /*

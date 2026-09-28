@@ -293,6 +293,27 @@
                         </a>
                     </li>
 
+                    {{--
+                        El tipo de cambio va aqui y no en Inventario, y no es solo
+                        una cuestion de donde queda mas comodo: el tipo de
+                        cambio no es ni una compra ni un material. Es el dato
+                        maestro que define como se mide todo lo demas, y va con
+                        las demas listas maestras del bloque.
+
+                        Aun asi, lo consume el almacen y las compras, que estan
+                        en Inventario. Por eso la pantalla avisa de que el
+                        material entra con el valor de ese dia, para que se sepa
+                        que el almacen no se tasa solo.
+                    --}}
+                    <li class="{{ Request::routeIs('configuracion.tipos_cambio.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.tipos_cambio.index') }}">
+                            <div>
+                                <i class="bi bi-cash-coin"></i>
+                                <span>Tipo de Cambio</span>
+                            </div>
+                        </a>
+                    </li>
+
                 </ul>
             </li>
 

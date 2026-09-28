@@ -20,3 +20,14 @@ yarn-error.log
 /.npm-cache
 /opencode.exe
 /.opencode
+
+# Los archivos del tipo de cambio que se descargan del Banco Central.
+#
+# No son codigo: son los archivos de un mes concreto, que el usuario baja del
+# banco y convierte para subirlos. Se guardan en la carpeta del proyecto
+# mientras los usa, pero no se commitean: un archivo del banco de un mes no
+# ayuda a quien clone el proyecto y, cuando se regenere para el mes que
+# viene, el del mes anterior se queda ahi ocupando sitio para siempre.
+tipo_cambio_*.xls
+tipo_cambio_*_archivos/
+tipo-de-cambio-*.xlsx
