@@ -47,7 +47,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *
  *  - No adivina la moneda. La pone el usuario, en la pantalla, porque el
  *    archivo no dice de que moneda es y equivocarse aqui equivale a tener
- *    thirty dias de dolares guardados como colones.
+ *    thirty dias de dolares guardados como cordobes.
  */
 class TipoCambioImportador
 {
@@ -502,7 +502,7 @@ class TipoCambioImportador
          * Si la celda es de verdad un numero, se usa el valor interno y no el
          * texto. Excel guarda un numero con muchos decimales en notacion
          * cientifica cuando en la celda no cabe, y "3,66E+1" al normalizarlo
-         * dari�� 3.66 en vez de 36.6: un tipo de cambio partido por diez. Con
+         * daria 3.66 en vez de 36.6: un tipo de cambio partido por diez. Con
          * el valor interno eso no pasa, porque el numero es el numero.
          */
         if (is_numeric(str_replace(',', '.', $texto)) && ! is_numeric($texto)) {

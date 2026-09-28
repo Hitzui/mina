@@ -121,17 +121,31 @@ class TipoCambioController extends Controller
          * un mensaje que si dice algo: que ese dia ya esta puesto y que lo
          * que se quiere es cambiarlo.
          */
-        $yaExiste = TiposCambio::where(TiposCambio::FECHA, $datos[TiposCambio::FECHA])
-            ->where(TiposCambio::MONEDA_ID, $datos[TiposCambio::MONEDA_ID])
-            ->exists();
+        [$yaExiste, $estaBorrada] = TiposCambio::existeClave([
+            TiposCambio::FECHA => $datos[TiposCambio::FECHA],
+            TiposCambio::MONEDA_ID => $datos[TiposCambio::MONEDA_ID],
+        ]);
 
-        if ($yaExiste) {
+        if ($yaExiste && ! $estaBorrada) {
             throw ValidationException::withMessages([
                 TiposCambio::FECHA => 'Ese día ya tiene un tipo de cambio para esa moneda. Edítalo en vez de añadir otro.',
             ]);
         }
 
-        $tipoCambio = TiposCambio::create($datos);
+        /*
+         * Si lo que hay esta borrado, la fila se revive en vez de crear otra.
+         *
+         * El indice unico prohibe tener dos filas del mismo dia y moneda, y
+         * la borrada sigue contando para el, aunque Eloquent no la vea. Asi
+         * que un create() a pelo aqui revienta con un "Duplicate entry" de
+         * MySQL: un fallo de pagina entera por volver a poner un dia que se
+         * habia borrado, que es justo lo que se hace al corregir una
+         * equivocacion.
+         */
+        $tipoCambio = TiposCambio::crearORestaurar([
+            TiposCambio::FECHA => $datos[TiposCambio::FECHA],
+            TiposCambio::MONEDA_ID => $datos[TiposCambio::MONEDA_ID],
+        ], $datos);
 
         $this->limpiarCache();
 
@@ -180,15 +194,23 @@ class TipoCambioController extends Controller
          * el otro tipo de cambio se queda como estaba, sin pisarse.
          */
         if ($cambiaDiaOMoneda) {
-            $ocupado = TiposCambio::where(TiposCambio::FECHA, $datos[TiposCambio::FECHA])
-                ->where(TiposCambio::MONEDA_ID, $datos[TiposCambio::MONEDA_ID])
-                ->where(TiposCambio::ID, '!=', $tipoCambio->id)
-                ->exists();
+            /*
+             * La busqueda mira tambien entre las filas borradas, y el
+             * mensaje distingue las dos cosas, porque la respuesta es otra:
+             * una fila viva se corrige en su sitio, y una borrada hay que
+             * quitarla del medio o poner este dia en otro sitio.
+             */
+            [$ocupado, $estaBorrada] = TiposCambio::existeClave([
+                TiposCambio::FECHA => $datos[TiposCambio::FECHA],
+                TiposCambio::MONEDA_ID => $datos[TiposCambio::MONEDA_ID],
+            ], $tipoCambio->id);
 
             if ($ocupado) {
                 throw ValidationException::withMessages([
-                    TiposCambio::FECHA => 'Ese día ya tiene un tipo de cambio para esa moneda, '
-                        . 'y no se pueden tener dos. Corrige el que ya hay, o cambia de día este.',
+                    TiposCambio::FECHA => $estaBorrada
+                        ? 'Ese día tuvo un tipo de cambio, pero está borrado. Un día no puede tener dos: vuelve a poner el borrado desde la lista, o guarda este en otro día.'
+                        : 'Ese día ya tiene un tipo de cambio para esa moneda, '
+                            . 'y no se pueden tener dos. Corrige el que ya hay, o cambia de día este.',
                 ]);
             }
         }
@@ -293,25 +315,54 @@ class TipoCambioController extends Controller
 
         $descartadas = $importador->descartadas();
 
-        // Que hay ya de esos dias, para poder decir cuantos se van a cambiar
-        $existentes = TiposCambio::whereIn(TiposCambio::FECHA, array_column($filas, 'fecha'))
+        /*
+         * Que hay ya de esos dias, para poder decir cuantos se van a cambiar.
+         *
+         * Se buscan tambien entre los borrados, y no por curiosidad. Si el
+         * mes se importo, se borro y se vuelve a subir el mismo archivo —que
+         * es lo que pasa cuando el archivo del banco venia mal— esos dias no
+         * son nuevos: se van a recuperar. Contarlos como nuevos haria que la
+         * vista previa dijera "30 dias nuevos" y lo que ocurre es que
+         * vuelven treinta filas que estaban borradas, que no es lo mismo y
+         * cambia lo que el usuario cree que va a pasar.
+         *
+         * El keyBy() es con una funcion y no con el nombre de la columna a
+         * proposito. Al traer la fila como modelo, la fecha viene ya
+         * convertida en un objeto Carbon, y keyBy() la guardaria como
+         * "2090-06-01 00:00:00": al buscar luego el dia del archivo, que es
+         * "2090-06-01", no se encontraria, y todos los dias saldrian como
+         * nuevos aunque estuvieran ahi. Con toDateString() la clave es la
+         * fecha tal cual la trae el archivo.
+         */
+        $existentes = TiposCambio::withTrashed()
+            ->whereIn(TiposCambio::FECHA, array_column($filas, 'fecha'))
             ->where(TiposCambio::MONEDA_ID, $monedaId)
-            ->pluck(TiposCambio::VALOR, TiposCambio::FECHA);
+            ->get([TiposCambio::FECHA, TiposCambio::VALOR, 'deleted_at'])
+            ->keyBy(fn (TiposCambio $una) => $una->fecha->toDateString());
+
+        $recuperados = 0;
+
+        foreach ($existentes as $dia => $fila) {
+            if ($fila->deleted_at !== null) {
+                $recuperados++;
+            }
+        }
 
         $cambian = [];
 
         foreach ($filas as $fila) {
             $anterior = $existentes[$fila['fecha']] ?? null;
 
-            if ($anterior !== null && abs((float) $anterior - (float) $fila['valor']) < 0.000001) {
+            if ($anterior !== null && abs((float) $anterior->valor - (float) $fila['valor']) < 0.000001) {
                 continue;
             }
 
             if ($anterior !== null) {
                 $cambian[] = [
                     'fecha' => $fila['fecha'],
-                    'antes' => (float) $anterior,
+                    'antes' => (float) $anterior->valor,
                     'despues' => (float) $fila['valor'],
+                    'borrado' => $anterior->deleted_at !== null,
                 ];
             }
         }
@@ -333,6 +384,7 @@ class TipoCambioController extends Controller
                 'total' => count($filas),
                 'nuevos' => max(0, $nuevos),
                 'ya_existentes' => count($existentes),
+                'recuperados' => $recuperados,
                 'sin_cambiar' => count($filas) - count($existentes) - count($cambian),
                 'cambian' => $cambian,
                 'descartadas' => $descartadas,
@@ -350,6 +402,7 @@ class TipoCambioController extends Controller
             'guardados' => $guardados,
             'nuevos' => max(0, $nuevos),
             'cambiados' => count($cambian),
+            'recuperados' => $recuperados,
             'descartadas' => $descartadas,
         ]);
     }
@@ -369,33 +422,35 @@ class TipoCambioController extends Controller
             $guardados = 0;
 
             foreach ($filas as $fila) {
-                $existente = TiposCambio::where(TiposCambio::FECHA, $fila['fecha'])
-                    ->where(TiposCambio::MONEDA_ID, $monedaId)
-                    ->first();
+                /*
+                 * La clave del dia y la moneda. Se pasa como array y no como
+                 * un where() suelto porque crearORestaurar() la necesita
+                 * completa para buscar tambien entre las filas borradas.
+                 */
+                $clave = [
+                    TiposCambio::FECHA => $fila['fecha'],
+                    TiposCambio::MONEDA_ID => $monedaId,
+                ];
 
-                if ($existente) {
-                    /*
-                     * El valor SI se cambia: el archivo del banco es la fuente
-                     * oficial del mes y manda sobre lo que habia.
-                     *
-                     * La fuente NO se cambia nunca. Si el usuario corrigio un
-                     * dia a mano y apunto de donde lo saco —"correccion del 15
-                     * de septiembre"—, dejar el nombre del banco encima haria
-                     * que dentro de un mes nadie supiera de donde salio ese
-                     * numero, y el archivo no puede saber eso. Se cambia el
-                     * numero y se deja la nota de quien lo escribio.
-                     */
-                    $existente->update([
-                        TiposCambio::VALOR => $fila['valor'],
-                    ]);
-                } else {
-                    TiposCambio::create([
-                        TiposCambio::FECHA => $fila['fecha'],
-                        TiposCambio::MONEDA_ID => $monedaId,
-                        TiposCambio::VALOR => $fila['valor'],
-                        TiposCambio::FUENTE => $fuente,
-                    ]);
-                }
+                /*
+                 * Si el dia ya esta, cambia el valor. Si estaba borrado, se
+                 * revive y con el valor del archivo.
+                 *
+                 * La fuente NO se cambia nunca, y por eso va en
+                 * $soloAlCrear. Si el usuario corrigio un dia a mano y apunto
+                 * de donde lo saco —"correccion del 15 de septiembre"—,
+                 * dejar el nombre del banco encima haria que dentro de un
+                 * mes nadie supiera de donde salio ese numero, y el archivo no
+                 * puede saber eso. Se cambia el numero y se deja la nota de
+                 * quien lo escribio.
+                 */
+                TiposCambio::crearORestaurar($clave, [
+                    TiposCambio::FECHA => $fila['fecha'],
+                    TiposCambio::MONEDA_ID => $monedaId,
+                    TiposCambio::VALOR => $fila['valor'],
+                ], [
+                    TiposCambio::FUENTE => $fuente,
+                ]);
 
                 $guardados++;
             }

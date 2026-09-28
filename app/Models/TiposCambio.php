@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Models\Base\TiposCambio as BaseTiposCambio;
+use App\Models\Concerns\ClaveUnica;
 
 class TiposCambio extends BaseTiposCambio
 {
+	use ClaveUnica;
+
 	protected $fillable = [
 		self::FECHA,
 		self::MONEDA_ID,

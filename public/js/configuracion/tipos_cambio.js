@@ -392,7 +392,10 @@
                     title: 'Mes importado',
                     html: 'Se han guardado <strong>' + respuesta.guardados + '</strong> día(s).'
                         + '<br>'
-                        + respuesta.nuevos + ' nuevos y ' + respuesta.cambiados + ' corregidos.',
+                        + respuesta.nuevos + ' nuevos y ' + respuesta.cambiados + ' corregidos.'
+                        + (respuesta.recuperados > 0
+                            ? '<br>' + respuesta.recuperados + ' recuperados de días que estaban borrados.'
+                            : ''),
                     icon: 'success',
                     confirmButtonText: 'Entendido',
                 }).then(function () {
@@ -483,6 +486,20 @@
                 );
             }
 
+            /*
+             * Los dias que estaban borrados y vuelven. Se dicen aparte porque
+             * no es lo mismo que un dia nuevo: la fila ya estaba escrita y lo
+             * que hace la importacion es revivirla, y quien lo borro quizas
+             * lo borro porque no queria ese valor en la serie.
+             */
+            if (datos.recuperados > 0) {
+                partes.push(
+                    '<span class="text-warning-emphasis">'
+                    + datos.recuperados
+                    + ' estaban borrados y se recuperan.</span>'
+                );
+            }
+
             if (datos.descartadas.length > 0) {
                 partes.push(
                     '<span class="text-warning-emphasis">'
@@ -507,6 +524,9 @@
                     $fila.append(
                         '<td class="font-monospace">'
                         + cambio.fecha.split('-').reverse().join('/')
+                        + (cambio.borrado
+                            ? ' <span class="badge text-bg-warning">borrado</span>'
+                            : '')
                         + '</td>'
                     );
 
