@@ -62,8 +62,16 @@
                 --}}
                 <div class="alert alert-warning d-none" id="avisoSinSesion" role="alert"></div>
 
+                {{--
+                    Sin d-none a proposito. Yajra construye esta tabla al
+                    cargar la pagina, y una tabla con display:none se mide a
+                    cero de ancho: las columnas salen todas iguales de largas
+                    y despues no hay manera de arreglarlo sin quitarsela. El
+                    modal ya la esconde mientras esta cerrado, asi que la
+                    vista no tiene nada que hacer ahi.
+                --}}
                 {!! $selectorProveedor->html()->table([
-                    'class' => 'table table-hover table-bordered w-100 d-none',
+                    'class' => 'table table-hover table-bordered w-100',
                 ]) !!}
 
             </div>

@@ -10,9 +10,14 @@
  * quien le esta comprando. Si se guardara el nombre, cambiar el nombre de un
  * proveedor dejaria las compras viejas apuntando a un nombre que ya no es.
  *
- * La tabla del catalogo se construye la primera vez que se abre el modal, y
- * no al cargar la pagina: mientras el modal esta cerrado, una tabla con datos
- * que nadie ve solo hace que la pantalla tarde mas. La segunda vez que se
+ * La tabla del catalogo no se construye aqui. Yajra la construye al cargar la
+ * pagina, con su propio script, y este archivo solo se ocupa de dos cosas:
+ * enseñarla cuando el modal ya se ve, y reaccionar a lo que le pase.
+ *
+ * Esa distincion es la que se perdio al principio, cuando este archivo
+ * montaba la tabla por su cuenta. Al abrir el modal se encontraba con que la
+ * tabla ya existia, volvia sin hacer nada, y el girador se quedaba girando
+ * para siempre con la lista sin aparecer y sin un error en la consola. La segunda vez que se
  * abre ya esta construida y se reutiliza, con su buscador.
  */
 (function ($) {
@@ -57,7 +62,6 @@
         const $sinSesion = $('#avisoSinSesion');
 
         let modal = null;
-        let tabla = null;
 
         /**
          * La ventana del modal, de bootstrap.
@@ -75,23 +79,38 @@
         }
 
         /**
-         * Monta la tabla de proveedores la primera vez.
+         * La tabla de proveedores, o null si todavia no esta.
          *
-         * Se mira si ya esta construida con la funcion de DataTables, y no
-         * con una variable nuestra, porque esa variable se pierde si la
-         * pagina se vuelve a pedir desde cero y la comprobacion diria que no
-         * lo esta cuando si lo esta.
+         * No se construye aqui. Yajra mete en la pagina un script que, al
+         * terminar de cargar el documento, ya la ha montado:
+         *
+         *     $("#proveedor-selector-table").DataTable({...});
+         *
+         * Esa es la via de este proyecto para todas las tablas, y montarla
+         * otra vez a mano no hacia nada: la segunda vez se encuentra con que
+         * ya es una tabla de DataTables y se sale, dejando el girador
+         * puesto y la lista sin aparecer. Eso fue lo que paso.
+         *
+         * Lo que si hace es coger la instancia que Yajra deja publicada, para
+         * poder reajustar las columnas cuando el modal ya se ve. Y si de
+         * verdad no esta, la construye, por si en el futuro se quita lo que
+         * escribe Yajra.
          */
-        function construirTabla() {
-            if ($.fn.DataTable.isDataTable($tabla)) {
-                return;
+        function tablaDeProveedores() {
+            const publicada = window.LaravelDataTables?.['proveedor-selector-table'];
+
+            if (publicada) {
+                return publicada;
             }
 
-            tabla = $tabla.DataTable();
-
-            $tabla.removeClass('d-none');
-
-            $cargador.addClass('d-none');
+            /*
+             * Solo se llega aqui si en el futuro se quita lo que escribe
+             * Yajra. Con DataTables 2, llamar a DataTable() dos veces sobre el
+             * mismo nodo deja la tabla a medias, asi que antes se comprobaba
+             * con isDataTable, pero los dos caminos llamaban igual y la
+             * comprobacion no hacia nada. Ahora solo hay un camino.
+             */
+            return $tabla.DataTable();
         }
 
         $botonBuscar.on('click', function () {
@@ -153,9 +172,17 @@
         }
 
         $modal.on('shown.bs.modal', function () {
-            construirTabla();
+            /*
+             * El girador se quita siempre, se haya construido la tabla o no.
+             * Antes solo se quitaba en el camino que nunca se tomaba, y por
+             * eso se quedaba girando para siempre con la lista sin salir y
+             * sin un solo error en la consola.
+             */
+            $cargador.addClass('d-none').empty();
 
-            if (tabla) {
+            const tabla = tablaDeProveedores();
+
+            if (tabla && tabla.columns) {
                 tabla.columns.adjust();
             }
         });

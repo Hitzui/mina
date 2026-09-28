@@ -102,6 +102,84 @@ class SelectorDeProveedoresTest extends TestCase
         );
     }
 
+    public function test_el_js_no_monta_la_tabla_a_mano(): void
+    {
+        /*
+         * Yajra ya monta la tabla al cargar la pagina. Si el script del modal
+         * la monta otra vez, al abrir el modal se encuentra con que ya existe,
+         * sale sin hacer nada, y el girador se queda girando con la lista sin
+         * aparecer y sin un solo error en la consola.
+         *
+         * Eso fue lo que paso, y es un fallo que no se ve leyendo el codigo
+         * del script: el DataTable() si esta ahi, y solo falla en el momento
+         * en que se comprueba si hace algo.
+         */
+        $js = file_get_contents(public_path('js/inventario/selector_proveedor.js'));
+
+        // Coge la instancia que Yajra publica, en vez de construir la suya
+        $this->assertStringContainsString(
+            "window.LaravelDataTables?.['proveedor-selector-table']",
+            $js,
+            'El script deberia coger la tabla que Yajra ya construyo'
+        );
+
+        // Y la llamada a construir solo queda en el camino de emergencia, que
+        // se puede ver contando cuantas veces aparece
+        $this->assertSame(
+            1,
+            preg_match_all('/\$tabla\.DataTable\(\)/', $js),
+            'La tabla no deberia construirse mas que en el camino de emergencia, '
+            . 'cuando Yajra no la ha construido'
+        );
+    }
+
+    public function test_la_tabla_del_modal_no_lleva_la_clase_que_la_esconde(): void
+    {
+        /*
+         * Con display:none, una tabla se mide a cero de ancho y las columnas
+         * salen todas iguales de largas, y despues no hay manera de
+         * arreglarlo sin quitarsela. Como el modal ya la esconde mientras esta
+         * cerrado, la vista no tiene nada que esconder ahi.
+         */
+        $html = $this->get('/inventario/compras/create')->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<table[^>]*id="proveedor-selector-table"/',
+            $html,
+            'Deberia estar la tabla del selector en la pantalla'
+        );
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/<table[^>]*class="[^"]*d-none[^"]*"[^>]*id="proveedor-selector-table"/',
+            $html,
+            'La tabla del selector no deberia llevar d-none: se mediria a cero '
+            . 'de ancho y las columnas saldrian todas iguales de largas'
+        );
+    }
+
+    public function test_el_girador_se_quita_al_abrir_el_modal(): void
+    {
+        /*
+         * El sintoma era el girador parandose con la lista sin salir. Se
+         * quita siempre al abrir el modal, se haya construido la tabla o no;
+         * antes solo se quitaba en el camino que nunca se tomaba.
+         */
+        $js = file_get_contents(public_path('js/inventario/selector_proveedor.js'));
+
+        $posicionDelEvento = strpos($js, "shown.bs.modal");
+        $posicionDelGirador = strpos($js, '$cargador.addClass(\'d-none\')');
+
+        $this->assertIsInt($posicionDelEvento);
+        $this->assertIsInt($posicionDelGirador);
+
+        $this->assertGreaterThan(
+            $posicionDelEvento,
+            $posicionDelGirador,
+            'El girador deberia quitarse dentro del manejador que abre el modal, '
+            . 'o se queda girando con la lista sin salir'
+        );
+    }
+
     public function test_el_js_distingue_el_401_del_resto_de_fallos(): void
     {
         $js = file_get_contents(public_path('js/inventario/selector_proveedor.js'));
