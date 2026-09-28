@@ -68,9 +68,9 @@ class TipoDeCambioBorradoYRepuestoTest extends TestCase
 
     private function dolar(): Moneda
     {
-        return Moneda::where('codigo', '002')->first()
+        return Moneda::where('codigo', 'USD')->first()
             ?? Moneda::create([
-                'codigo' => '002',
+                'codigo' => 'USD',
                 'nombre' => 'Dolares de la prueba',
                 'simbolo' => 'U$',
                 'es_moneda_base' => false,

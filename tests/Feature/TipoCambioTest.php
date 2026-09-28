@@ -101,12 +101,17 @@ class TipoCambioTest extends TestCase
      * Una moneda extranjera. La base es el cordoba, que no lleva tipo de
      * cambio consigo mismo: un tipo de cambio del cordoba contra el cordoba
      * seria siempre uno y no diria nada.
+     *
+     * Se busca por el codigo ISO y no por id, igual que la migracion que
+     * cambio los codigos. El id lo asigno el generador cuando se creo la
+     * base y no significa nada: la moneda de la aplicacion tiene el id 1 y
+     * la de la prueba el 4, sin que haya ningun orden detrás.
      */
     private function dolar(): Moneda
     {
-        return Moneda::where('codigo', '002')->first()
+        return Moneda::where('codigo', 'USD')->first()
             ?? Moneda::create([
-                'codigo' => '002',
+                'codigo' => 'USD',
                 'nombre' => 'Dolares de la prueba',
                 'simbolo' => 'U$',
                 'es_moneda_base' => false,
@@ -460,7 +465,7 @@ class TipoCambioTest extends TestCase
         $dolar = $this->dolar();
 
         $otra = Moneda::create([
-            'codigo' => '003',
+            'codigo' => 'EUR',
             'nombre' => 'Euros de la prueba',
             'simbolo' => 'E',
             'es_moneda_base' => false,
@@ -604,7 +609,7 @@ class TipoCambioTest extends TestCase
         $dolar = $this->dolar();
 
         $otra = Moneda::create([
-            'codigo' => '003',
+            'codigo' => 'EUR',
             'nombre' => 'Euros de la prueba',
             'simbolo' => 'E',
             'es_moneda_base' => false,
@@ -1067,7 +1072,7 @@ class TipoCambioTest extends TestCase
             'El valor deberia salir tal como se guardo'
         );
 
-        $this->assertStringContainsString('Dolares', $primera['moneda']);
+        $this->assertStringContainsString('Dólares', $primera['moneda']);
         $this->assertStringContainsString('bi-pencil', $primera['action']);
     }
 
