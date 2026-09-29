@@ -47,6 +47,7 @@ class TablasResponsivasTest extends TestCase
         'MonedasDataTable',
         'MovimientosInventarioDataTable',
         'OrdenesTrabajoDataTable',
+        'PreciosOroDataTable',
         'ProductosDataTable',
         'ProveedoresDataTable',
         'ProveedorSelectorDataTable',

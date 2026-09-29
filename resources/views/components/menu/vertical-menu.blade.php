@@ -332,6 +332,32 @@
                         </a>
                     </li>
 
+                    {{--
+                        El precio del oro va con el tipo de cambio y no en
+                        Inventario, por el mismo motivo: los dos son series por
+                        dias que se cargan desde Excel y los dos son datos
+                        maestros de como se mide todo lo demas.
+
+                        Y van juntos pero en pantallas distintas, y no juntos en
+                        la misma tabla. El tipo de cambio es la equivalencia
+                        entre dos monedas; el precio del oro es lo que vale un
+                        gramo, que es otra cosa. Con el cero tambien se
+                        distinguen: en el tipo de cambio el cero no se admite
+                        porque dejaria las compras convertidas a cero, y aqui el
+                        cero si se admite y quiere decir "de este dia no se sabe
+                        el precio". Meter las dos series en la misma tabla
+                        obligaria a decidir que significa el cero, y solo hay
+                        una respuesta correcta para cada una.
+                    --}}
+                    <li class="{{ Request::routeIs('configuracion.precios_oro.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.precios_oro.index') }}">
+                            <div>
+                                <i class="bi bi-gem"></i>
+                                <span>Precios del Oro</span>
+                            </div>
+                        </a>
+                    </li>
+
                 </ul>
             </li>
 

@@ -3,6 +3,7 @@
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Configuracion\CategoriaCostoController;
 use App\Http\Controllers\Configuracion\MonedaController;
+use App\Http\Controllers\Configuracion\PrecioOroController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
@@ -363,6 +364,37 @@ Route::resource(
     MonedaController::class
     )
     ->names('configuracion.monedas');
+
+/*
+| El precio del oro.
+|
+| Las dos rutas sueltas —importar y plantilla— van antes del resource y con su
+| propia ruta, y no como metodos mas, por el mismo motivo que las del tipo de
+| cambio: la importacion no cabe en un formulario de una sola fila —son treinta
+| dias de golpe— y por eso lleva su propia pantalla y su propio permiso. Si
+| fuera un metodo del resource, el trait de permisos la colgaria de "create" sin
+| que nadie lo decidiera.
+*/
+Route::post(
+    'configuracion/precios-oro/importar',
+    [PrecioOroController::class, 'importar']
+)
+    ->name('configuracion.precios_oro.importar');
+
+Route::get(
+    'configuracion/precios-oro/plantilla',
+    [PrecioOroController::class, 'plantilla']
+)
+    ->name('configuracion.precios_oro.plantilla');
+
+Route::resource(
+    'configuracion/precios-oro',
+    PrecioOroController::class
+    )
+    ->parameters([
+        'precios-oro' => 'precioOro',
+    ])
+    ->names('configuracion.precios_oro');
 
 
 /*

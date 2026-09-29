@@ -32,6 +32,7 @@ class RolesYPermisosSeeder extends Seeder
         'trabajos_empleado',
         'tipos_cambio',
         'configuracion.monedas',
+        'configuracion.precios_oro',
         'configuracion.categorias_costos',
         'configuracion.tipos_pago_empleado',
         'usuarios',
@@ -86,6 +87,12 @@ class RolesYPermisosSeeder extends Seeder
          * que se convierte todo. Cambiar la moneda base es de las pocas cosas
          * que alteran el valor de documentos ya escritos, asi que queda en
          * manos de administracion y de nadie mas.
+         *
+         * Lo mismo con el precio del oro, y por el mismo motivo de fondo: es
+         * la serie con la que se valora lo que sale del taller, asi que un
+         * precio mal puesto a mano cambia el valor de las liquidaciones sin
+         * que nada avise de nada. Se mira, que es lo que hace falta para
+         * saber a cuanto se esta vendiendo el oro; se escribe, no.
          */
         $supervisor->syncPermissions([
             'clientes.view', 'clientes.create', 'clientes.edit',
@@ -108,6 +115,7 @@ class RolesYPermisosSeeder extends Seeder
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
             'configuracion.monedas.view',
+            'configuracion.precios_oro.view',
             'configuracion.categorias_costos.view',
             'configuracion.tipos_pago_empleado.view',
         ]);
