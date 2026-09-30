@@ -482,13 +482,35 @@ class RecuperacionTest extends TestCase
 
         $orden = $this->orden();
 
+        /*
+         * Se cuenta lo que hay antes y se compara, y no se comprueba que la
+         * tabla este vacia. La base de datos es la de verdad y puede tener
+         * recuperaciones de verdad: este taller ya ha registrado alguna, y un
+         * "assertSame(0, ...)" aqui no estaria comprobando que el permiso
+         * funciona, estaria comprobando que el taller no ha trabajado nunca.
+         *
+         * Y fallaria el dia que alguien registre su primera recuperacion, que
+         * es justo el dia en el que este test empezaria a dar problemas.
+         */
+        $antes = Recuperaciones::count();
+
         $this->post('/procesos/recuperaciones', [
             'orden_trabajo_id' => $orden->id,
             'fecha' => '2090-05-10',
             'gramos' => 100,
         ], self::CABECERAS)->assertForbidden();
 
-        $this->assertSame(0, Recuperaciones::count());
+        $this->assertSame(
+            $antes,
+            Recuperaciones::count(),
+            'Quien solo puede mirar no deberia poder registrar una recuperacion'
+        );
+
+        $this->assertSame(
+            0,
+            Recuperaciones::where('orden_trabajo_id', $orden->id)->count(),
+            'La orden de la prueba no deberia tener ninguna recuperacion'
+        );
     }
 
     public function test_quien_puede_crear_tambien_puede_editar_y_borrar(): void
