@@ -25,6 +25,7 @@ class RolesYPermisosSeeder extends Seeder
         'procesos_orden',
         'proceso_equipo',
         'recuperaciones',
+        'valoraciones_oro',
         'movimientos_costo',
         'movimientos_inventario',
         'productos',
@@ -116,6 +117,18 @@ class RolesYPermisosSeeder extends Seeder
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
             'recuperaciones.view', 'recuperaciones.create', 'recuperaciones.edit',
+            /*
+             * Valorar el oro va con el supervisor, como las recuperaciones y
+             * a diferencia de cargar el precio.
+             *
+             * La distincion esta en quien decide el numero. El precio lo pone
+             * el banco y por eso va con administracion: cargarlo a mano cambia
+             * lo que vale el oro. La valoracion no: sale de la cuenta, con el
+             * precio que ya hay y los gramos de la recuperacion. Es trabajo de
+             * taller —"esto salio el dia 12 y por lo tanto vale esto"— y quien
+             * esta en el taller es quien lo sabe hacer.
+             */
+            'valoraciones_oro.view', 'valoraciones_oro.create', 'valoraciones_oro.edit',
             'configuracion.monedas.view',
             'configuracion.precios_oro.view',
             'configuracion.categorias_costos.view',

@@ -15,6 +15,48 @@ class Recuperaciones extends BaseRecuperaciones
 	];
 
 	/**
+	 * La valoracion de esta recuperacion, si la tiene.
+	 *
+	 * Va declarada aqui y no se pide con una consulta aparte porque la
+	 * necesitan dos sitios que miran la lista de recuperaciones de golpe: el
+	 * desplegable de la pantalla de valoraciones, para marcar las que ya estan
+	 * valoradas, y el saber si al borrar una recuperacion se lleva un valor
+	 * consigo.
+	 *
+	 * Es una sola, y no una coleccion, porque hay un indice unico en la base
+	 * que lo garantiza. Esa es justo la razon de que sea hasOne y no
+	 * hasMany: si la relacion admitiera varias, el codigo que recorre la lista
+	 * tendria que decidir cual enseña, y con el indice no hay esa decision que
+	 * tomar.
+	 */
+	public function valoracion()
+	{
+		return $this->hasOne(ValoracionesOro::class, ValoracionesOro::RECUPERACION_ID);
+	}
+
+	/**
+	 * Si esta recuperacion ya tiene un valor puesto.
+	 */
+	public function estaValorada(): bool
+	{
+		return $this->valoracion !== null;
+	}
+
+	/**
+	 * Si la orden de la que salio estos gramos esta cancelada.
+	 *
+	 * Se pregunta y no se deduce del estado de la recuperacion, que no lo
+	 * guarda: lo que se guarda es el estado de la ORDEN, que es lo unico que
+	 * se cancela. Una recuperacion de una orden cancelada se puede borrar y
+	 * corregir como cualquier otra —el registro es real, paso—; lo que no se
+	 * puede es valorarla, porque no se hizo el trabajo.
+	 */
+	public function ordenEstaCancelada(): bool
+	{
+		return (int) $this->orden_trabajo?->estado === OrdenesTrabajo::ESTADO_CANCELADA;
+	}
+
+	/**
 	 * Cuantos gramos se recuperaron, ya con la pureza puesta si la hay.
 	 *
 	 * Devuelve los gramos tal cual y no "los gramos del oro fino". Es

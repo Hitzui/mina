@@ -24,12 +24,15 @@ use Tests\TestCase;
 class TablasResponsivasTest extends TestCase
 {
     /**
-     * Las 21 tablas de la app.
+     * Las 26 tablas de la app.
      *
      * Se escribe la lista a mano y no se recorre la carpeta a proposito:
      * si alguien anade una tabla nueva y no la apunta aqui, este test
      * falla y le obliga a decidir que se ve en un telefono. Recorrer la
      * carpeta dejaria pasar la tabla nueva sin revisar.
+     *
+     * El numero no se cuenta a mano: hay que actualizarlo cuando se anade una,
+     * y ese es justo el trabajo que se pide en la linea de arriba.
      */
     private const TABLAS = [
         'CategoriasCostoDataTable',
@@ -57,6 +60,7 @@ class TablasResponsivasTest extends TestCase
         'TiposCambioDataTable',
         'TiposPagoEmpleadoDataTable',
         'TrabajosEmpleadosDataTable',
+        'ValoracionesOroDataTable',
     ];
 
     private function ruta(string $tabla): string

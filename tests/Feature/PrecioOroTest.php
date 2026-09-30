@@ -476,7 +476,7 @@ class PrecioOroTest extends TestCase
             ->assertOk()
             ->json();
 
-        $this->assertSame('0', $datos['precio'], 'La ficha deberia ensenar el cero tal como se guardo');
+        $this->assertSame('0', $datos['precio'], 'La ficha deberia enseñar el cero tal como se guardo');
 
         $this->assertNotNull($datos['vigente'], 'Deberia decir de que dia se sacaria el precio de verdad');
         $this->assertSame('2090-07-10', $datos['vigente']['de_que_dia']);

@@ -42,7 +42,7 @@ use RealRashid\SweetAlert\Facades\Alert;
  *     puede registrar una recuperación" en vez de "no se puede hacer esto".
  *
  *  2. La pureza es una fracción: 0,915 es el 91,5 %. Es lo que dice la
- *     documentacion y es lo que evita guardar 91 believing que es el 91 %,
+ *     documentacion y es lo que evita guardar un 91 creyendo que es el 91 %,
  *     que seria el 9100 %. La regla parece rara hasta que alguien teclea 91, y
  *     entonces se ve: el campo va con un texto al lado que lo dice, y el
  *     servidor no admite un numero mayor que uno.
@@ -80,7 +80,7 @@ class RecuperacionController extends Controller
                  * hara falta tocar el codigo: el desplegable se leera
                  * entero mientras que quepa, y se buscara cuando ya no quepa.
                  *
-                 * Se bringing todas, abiertas y cerradas: las cerradas hacen
+                 * Se traen todas, abiertas y cerradas: las cerradas hacen
                  * falta para corregir una recuperacion que ya esta escrita
                  * en una orden cerrada, que se puede, y para que el usuario
                  * vea por que no puede anadir mas.
@@ -219,7 +219,7 @@ class RecuperacionController extends Controller
              * La orden se busca entre las que no estan borradas. Con la regla
              * de "exists" a secas, una orden dada de baja seguira contando y
              * se podria colgar una recuperacion de algo que ya no esta: el
-             * desplegable no la enseia, asi que solo se podria hacer a mano,
+             * desplegable no la enseña, asi que solo se podria hacer a mano,
              * pero "a mano" incluye un formulario antiguo que se dejo abierto.
              */
             Recuperaciones::ORDEN_TRABAJO_ID => [

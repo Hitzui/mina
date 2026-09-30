@@ -451,6 +451,7 @@
 
             @php
                 $produccionActiva = Request::routeIs('procesos.recuperaciones.*')
+                    || Request::routeIs('procesos.valoraciones_oro.*')
                     || Request::is('produccion/*');
             @endphp
 
@@ -460,7 +461,10 @@
                 pantalla. Lo primero que ha entrado en el son las
                 recuperaciones de oro, que es la parte de produccion que
                 primero se necesita, porque sin saber cuantos gramos salieron
-                de una orden no hay nada que valorar ni que liquidar.
+                de una orden no hay nada que valorar ni que liquidar. Y detras
+                de ellas las valoraciones, que son el paso siguiente: los
+                gramos por un lado, el precio del gramo por otro, y el valor
+                de la partida es donde se juntan los dos.
 
                 El prefijo de la url de la pantalla es procesos/ y no
                 produccion/, y el motivo es el mismo que en el resto del
@@ -497,6 +501,15 @@
                             <div>
                                 <i class="bi bi-gem"></i>
                                 <span>Recuperaciones de Oro</span>
+                            </div>
+                        </a>
+                    </li>
+
+                    <li class="{{ Request::routeIs('procesos.valoraciones_oro.*') ? 'active' : '' }}">
+                        <a href="{{ route('procesos.valoraciones_oro.index') }}">
+                            <div>
+                                <i class="bi bi-calculator"></i>
+                                <span>Valoraciones de Oro</span>
                             </div>
                         </a>
                     </li>

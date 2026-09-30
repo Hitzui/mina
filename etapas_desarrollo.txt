@@ -15,7 +15,7 @@
 17. Monedas -> ok. CRUD en modal con ficha, en Configuración. Códigos ISO de tres letras
 18. Tipos de cambio -> ok. CRUD en modal y carga del mes desde Excel, en Configuración
 19. Precios de oro -> ok. CRUD en modal, carga del mes desde Excel, y el 0 quiere decir "de ese día no se sabe"
-20. Valoraciones de oro -> falta la pantalla
+20. Valoraciones de oro -> ok. CRUD en modal, en Producción. El valor no se escribe: lo calcula el servidor. Una valoración por recuperación
 21. Tipos de participación -> falta la pantalla
 22. Acuerdos -> falta la pantalla
 23. Liquidaciones -> falta la pantalla

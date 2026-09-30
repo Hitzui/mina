@@ -22,6 +22,7 @@ use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
 use App\Http\Controllers\Procesos\ProcesoOrdenController;
 use App\Http\Controllers\Procesos\RecuperacionController;
+use App\Http\Controllers\Procesos\ValoracionOroController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -426,6 +427,38 @@ Route::resource(
         'recuperaciones' => 'recuperacion',
     ])
     ->names('procesos.recuperaciones');
+
+
+/*
+| Las valoraciones de oro van al lado de las recuperaciones, y por el mismo
+| motivo: el valor no es un dato de la orden, es un hecho economico. Ademas una
+| valoracion cuelga de una RECUPERACION y no de una orden, que es lo que hace
+| que la suma de lo valorado de una partida cuadre con lo que salio de ella.
+|
+| La ruta del calculo va antes que el resource a proposito. Es una peticion de
+| lectura —el modal pregunta cuanto sale esto antes de dejar guardarlo— y si
+| colgara despues, el resource la interpretaria como una valoracion de mas: el
+| {valoracion} de la ruta se comeria la palabra "calcular" y la pantalla
+| devolveria un error de "no encontrado" en vez de la cuenta.
+|
+| El nombre lleva el punto de una palabra porque el metodo se llama calcular y
+| el resource pone el nombre del metodo tal cual: sin el punto, el nombre seria
+| procesos.valoraciones_oro.calcular, que se confunde con uno de los del
+| resource. Con el punto se lee que es una ruta propia.
+*/
+Route::post(
+    'procesos/valoraciones-oro/calcular',
+    [ValoracionOroController::class, 'calcular']
+    )->name('procesos.valoraciones_oro.calcular');
+
+Route::resource(
+    'procesos/valoraciones-oro',
+    ValoracionOroController::class
+    )
+    ->parameters([
+        'valoraciones-oro' => 'valoracion',
+    ])
+    ->names('procesos.valoraciones_oro');
 
 
 /*

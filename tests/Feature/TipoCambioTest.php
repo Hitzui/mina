@@ -1177,7 +1177,7 @@ class TipoCambioTest extends TestCase
         $this->assertSame(
             36.5900,
             (float) strip_tags($corregido['valor']),
-            'La tabla deberia ensenar el valor corregido, no el que tenia antes'
+            'La tabla deberia enseñar el valor corregido, no el que tenia antes'
         );
     }
 

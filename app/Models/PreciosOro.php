@@ -113,7 +113,13 @@ class PreciosOro extends BasePreciosOro
 	 * es donde importa: el sistema guarda el oro en gramos, y si el precio que
 	 * se cargo es de onza troy hay que convertirlo antes de multiplicar.
 	 *
-	 * @return array{precio: float, de_que_dia: string, unidad: string, gramo: float}|null
+	 * Vuelve tambien el id de la fila de donde salio, y no solo el numero, y
+	 * es a proposito: la valoracion guarda que fila de precio uso, para que
+	 * dentro de un mes se pueda saber de donde salio cada cifra sin tener que
+	 * volver a buscarla. Y con el id se puede volver a esa fila si el precio
+	 * se corrigio.
+	 * 
+	 * @return array{id: int, precio: float, de_que_dia: string, unidad: string, gramo: float}|null
 	 */
 	public static function precioDelGramo(string $fecha, int $monedaId): ?array
 	{
@@ -137,6 +143,7 @@ class PreciosOro extends BasePreciosOro
 			$gramosPorUnidad = self::GRAMOS_POR_UNIDAD[$unidad];
 
 			return [
+				'id' => (int) $registro->id,
 				'precio' => $precio,
 				'de_que_dia' => $registro->fecha->toDateString(),
 				'unidad' => $unidad,
