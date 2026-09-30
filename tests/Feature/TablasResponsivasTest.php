@@ -53,6 +53,7 @@ class TablasResponsivasTest extends TestCase
         'ProveedorSelectorDataTable',
         'ProcesoEquiposDataTable',
         'ProcesosOrdenDataTable',
+        'RecuperacionesDataTable',
         'TiposCambioDataTable',
         'TiposPagoEmpleadoDataTable',
         'TrabajosEmpleadosDataTable',

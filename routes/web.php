@@ -21,6 +21,7 @@ use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
 use App\Http\Controllers\Procesos\ProcesoOrdenController;
+use App\Http\Controllers\Procesos\RecuperacionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -395,6 +396,36 @@ Route::resource(
         'precios-oro' => 'precioOro',
     ])
     ->names('configuracion.precios_oro');
+
+/*
+| Las recuperaciones de oro van en produccion y no colgando de la orden.
+|
+| Se podria hacer al reves —una pantalla dentro de la ficha de cada orden— y es
+| lo que se hace con los trabajos de empleado, que cuelgan del proceso. Aqui
+| no: una recuperacion no es un dato del taller, es un hecho economico. Los
+| gramos de una orden se pueden mirar todos juntos, que es como se mira una
+| produccion, y ademas una orden puede tener varias —una por partida de
+| mineral— que en una pantalla global se ven todas y en una ficha habria que
+| ir una por una.
+|
+| El prefijo de la url es procesos/ y no produccion/ aunque la pantalla salga
+| en el menu de Produccion. Es el mismo acuerdo que hay en el resto: el menu
+| se llama por el area, y el prefijo de la url por la parte del codigo que la
+| atiende. Configuracion vive en configuracion/, Inventario en inventario/, y
+| Produccion, que son las pantallas de los procesos, en procesos/.
+|
+| Lo que si comparte con las que cuelgan de la orden es la regla de la orden
+| cerrada, y esa sale del trait OrdenCerrada, que ya la aplica en seis
+| pantallas mas.
+*/
+Route::resource(
+    'procesos/recuperaciones',
+    RecuperacionController::class
+    )
+    ->parameters([
+        'recuperaciones' => 'recuperacion',
+    ])
+    ->names('procesos.recuperaciones');
 
 
 /*

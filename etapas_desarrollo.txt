@@ -11,7 +11,7 @@
 13. Inventario -> ok
 14. Tipos de producción -> falta la pantalla
 15. Producciones -> falta la pantalla
-16. Recuperaciones -> falta la pantalla
+16. Recuperaciones -> ok. CRUD en modal, en Producción. La pureza va como fracción y acotada a 1
 17. Monedas -> ok. CRUD en modal con ficha, en Configuración. Códigos ISO de tres letras
 18. Tipos de cambio -> ok. CRUD en modal y carga del mes desde Excel, en Configuración
 19. Precios de oro -> ok. CRUD en modal, carga del mes desde Excel, y el 0 quiere decir "de ese día no se sabe"

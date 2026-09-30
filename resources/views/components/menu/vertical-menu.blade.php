@@ -449,13 +449,59 @@
                 </div>
             </li>
 
-            <li class="menu">
-                <a href="javascript:void(0);" aria-expanded="false" class="dropdown-toggle disabled">
+            @php
+                $produccionActiva = Request::routeIs('procesos.recuperaciones.*')
+                    || Request::is('produccion/*');
+            @endphp
+
+            {{--
+                Este bloque estaba puesto como un menu apagado, sin nada
+                detras: era un sitio reservado que todavia no tenia ninguna
+                pantalla. Lo primero que ha entrado en el son las
+                recuperaciones de oro, que es la parte de produccion que
+                primero se necesita, porque sin saber cuantos gramos salieron
+                de una orden no hay nada que valorar ni que liquidar.
+
+                El prefijo de la url de la pantalla es procesos/ y no
+                produccion/, y el motivo es el mismo que en el resto del
+                menu: el menu se llama por el area y la url por la parte del
+                codigo que la atiende. Aqui los dos coinciden, porque las
+                pantallas de produccion las lleva el codigo de procesos.
+            --}}
+            <li class="menu {{ $produccionActiva ? 'active' : '' }}">
+
+                <a
+                    href="#produccion"
+                    data-bs-toggle="collapse"
+                    aria-expanded="{{ $produccionActiva ? 'true' : 'false' }}"
+                    class="dropdown-toggle"
+                >
                     <div>
                         <i class="bi bi-gear"></i>
                         <span>Producción</span>
                     </div>
+
+                    <div>
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
                 </a>
+
+                <ul
+                    class="collapse submenu list-unstyled {{ $produccionActiva ? 'show' : '' }}"
+                    id="produccion"
+                    data-bs-parent="#accordionExample"
+                >
+
+                    <li class="{{ Request::routeIs('procesos.recuperaciones.*') ? 'active' : '' }}">
+                        <a href="{{ route('procesos.recuperaciones.index') }}">
+                            <div>
+                                <i class="bi bi-gem"></i>
+                                <span>Recuperaciones de Oro</span>
+                            </div>
+                        </a>
+                    </li>
+
+                </ul>
             </li>
 
             {{-- =====================================================
