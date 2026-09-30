@@ -97,7 +97,20 @@
                 return '—';
             }
 
-            return new Intl.NumberFormat('es', {
+            /*
+            * El separador de miles es la coma y el de decimales el punto —1,546.00—
+            * porque el taller es de Nicaragua y porque es como lo escribe php con
+            * number_format(), que es como lo escriben todas las tablas de la
+            * aplicacion. Con el locale "es", que es el de Espana, salia 1.546,00 y
+            * el modal decia una cosa y la tabla de debajo otra, para el mismo
+            * numero.
+            *
+            * Y el locale va con el codigo del pais a proposito: "es" a secas quiere
+            * decir "espanol, y por defecto el de Espana", con el punto en los miles.
+            * Los seis formateadores de la aplicacion usan "es-NI" por eso, y si uno
+            * se queda en "es" el descuadre vuelve sin que nada avise.
+            */
+            return new Intl.NumberFormat('es-NI', {
                 minimumFractionDigits: decimales,
                 maximumFractionDigits: decimales,
             }).format(n);
