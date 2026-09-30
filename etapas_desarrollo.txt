@@ -19,7 +19,7 @@
 21. Tipos de participación -> falta la pantalla
 22. Acuerdos -> falta la pantalla
 23. Liquidaciones -> falta la pantalla
-24. Tipos de ingreso -> faltan las pantallas: hay 4 tipos puestos a mano y no se pueden manejar
+24. Tipos de ingreso -> ok. CRUD en modal con ficha, en Configuración. Un tipo en uso no se borra: se desactiva
 25. Ingresos -> falta la pantalla
 26. Cajas -> falta la pantalla
 27. Métodos de pago -> falta la pantalla

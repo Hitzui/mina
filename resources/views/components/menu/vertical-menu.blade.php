@@ -294,6 +294,30 @@
                     </li>
 
                     {{--
+                        Los tipos de ingreso van aqui y no en la pantalla de
+                        ingresos, y no es una cuestion de donde queda mas comodo:
+                        ingresos es una pantalla de la orden, con su cabecera y su
+                        detalle, y un catalogo de cuatro nombres no cabe ahi
+                        dentro. Ademas el catalogo es dato maestro —lo mismo que
+                        las categorias de costo y los tipos de pago— y los datos
+                        maestros van todos juntos, que es donde uno va a buscarlos.
+
+                        Y va despues de los tipos de pago de empleado y no junto a
+                        las categorias de costo, por el orden en que el taller
+                        los va necesitando: primero lo que se usa en cada orden
+                        y despues lo que se consulta una vez al registrar el
+                        cobro.
+                    --}}
+                    <li class="{{ Request::routeIs('configuracion.tipos_ingreso.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.tipos_ingreso.index') }}">
+                            <div>
+                                <i class="bi bi-cash-coin"></i>
+                                <span>Tipos de Ingreso</span>
+                            </div>
+                        </a>
+                    </li>
+
+                    {{--
                         El tipo de cambio va aqui y no en Inventario, y no es solo
                         una cuestion de donde queda mas comodo: el tipo de
                         cambio no es ni una compra ni un material. Es el dato

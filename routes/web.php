@@ -5,6 +5,7 @@ use App\Http\Controllers\Configuracion\CategoriaCostoController;
 use App\Http\Controllers\Configuracion\MonedaController;
 use App\Http\Controllers\Configuracion\PrecioOroController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
+use App\Http\Controllers\Configuracion\TipoIngresoController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\empleados\EmpleadoPagoController;
 use App\Http\Controllers\EquipoController;
@@ -214,6 +215,41 @@ Route::resource(
     'configuracion/categorias-costos',
     CategoriaCostoController::class
 )->names('configuracion.categorias_costos');
+
+
+/*
+| Los tipos de ingreso, que es el catalogo de por que entro dinero en una orden.
+|
+| Los puso el taller a mano en la base de datos, que se puede hacer pero es lo
+| unico del sistema que se hace asi. Esta pantalla es para que se puedan
+| corregir, desactivar y dar de baja sin salir de la aplicacion. No decide que
+| tipos hay ni los anade: eso es del taller.
+|
+| Va en configuracion/ y no colgando de los ingresos, y por lo mismo que las
+| categorias de costo: es una lista de consulta, y una pantalla para cambiar
+| tres campos seria mas sitio en blanco que otra cosa.
+|
+| La ruta de activar y desactivar va ANTES que el resource, y por la misma
+| razon que la del calculo de las valoraciones: si colgara despues, el
+| {tipoIngreso} de la ruta se comeria la palabra "cambiar-estado" y devolveria
+| un "no encontrado" en vez de cambiar el estado. Ademas el method va en POST y
+| no en un PUT, porque no es una edicion del recurso entero sino un cambio de
+| una sola cosa, que es lo que hace que el boton de la fila no tenga que
+| mandar el formulario entero.
+*/
+Route::post(
+    'configuracion/tipos-ingreso/{tipoIngreso}/cambiar-estado',
+    [TipoIngresoController::class, 'cambiarEstado']
+    )->name('configuracion.tipos_ingreso.cambiar-estado');
+
+Route::resource(
+    'configuracion/tipos-ingreso',
+    TipoIngresoController::class
+    )
+    ->parameters([
+        'tipos-ingreso' => 'tipoIngreso',
+    ])
+    ->names('configuracion.tipos_ingreso');
 
 
 Route::resource(

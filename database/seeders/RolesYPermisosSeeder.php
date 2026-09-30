@@ -37,6 +37,7 @@ class RolesYPermisosSeeder extends Seeder
         'configuracion.precios_oro',
         'configuracion.categorias_costos',
         'configuracion.tipos_pago_empleado',
+        'configuracion.tipos_ingreso',
         'usuarios',
     ];
 
@@ -117,6 +118,20 @@ class RolesYPermisosSeeder extends Seeder
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
             'recuperaciones.view', 'recuperaciones.create', 'recuperaciones.edit',
+            /*
+             * El catalogo de tipos de ingreso NO lo lleva el supervisor, por el
+             * mismo motivo que las monedas y el precio del oro: es el dato
+             * maestro que decide en que categorias se reparte el dinero de
+             * cada orden, y cambiarlo altera como se reparten documentos ya
+             * escritos. Se mira, que es lo que hace falta para saber por que
+             * una orden dio lo que dio; se escribe, no.
+             *
+             * Y no lleva ni el de tipos de pago de empleado ni el de categorias
+             * de costo tampoco, que ya estaban asi. Los tres son la misma
+             * clase de dato y lo raro seria que uno de ellos lo pudiera tocar
+             * el supervisor y los otros dos no.
+             */
+            'configuracion.tipos_ingreso.view',
             /*
              * Valorar el oro va con el supervisor, como las recuperaciones y
              * a diferencia de cargar el precio.

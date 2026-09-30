@@ -130,6 +130,27 @@ class ValoracionOroTest extends TestCase
     /**
      * Un precio del gramo en una moneda.
      */
+        /**
+     * La valoracion de una recuperacion, y solo la suya.
+     *
+     * Va en vez de un ValoracionesOro::first() porque la tabla no esta vacia: el
+     * taller probo la pantalla y dejo una valoracion de las suyas. Con un
+     * first() a secas los tests se llevaban esa, y los numeros no cuadraban con
+     * numeros, no con el taller: uno esperaba 9.400 y le salia 7.050, que era la
+     * valoracion del taller.
+     *
+     * Y el nombre lo dice: la valoracion DE la recuperacion. Un first() a secas
+     * es correcta solo mientras la tabla este vacia, y en cuanto el taller mete
+     * algo deja de serlo sin que nadie avise.
+     *
+     * @return ValoracionesOro
+     */
+    private function valoracionDe(Recuperaciones $recuperacion): ValoracionesOro
+    {
+        return ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)
+            ->firstOrFail();
+    }
+
     private function precio(string $fecha, float $precio, int $monedaId, string $unidad = 'gramo'): PreciosOro
     {
         return PreciosOro::create([
@@ -261,7 +282,7 @@ class ValoracionOroTest extends TestCase
             'moneda_id' => $base->id,
         ]), self::CABECERAS)->assertOk();
 
-        $valoracion = ValoracionesOro::first();
+        $valoracion = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail();
 
         $this->assertNotNull($valoracion, 'Deberia haberse guardado la valoracion.');
         $this->assertEqualsWithDelta(
@@ -289,7 +310,7 @@ class ValoracionOroTest extends TestCase
 
         $this->assertEqualsWithDelta(
             9400.00,
-            (float) ValoracionesOro::first()->valor,
+            (float) ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail()->valor,
             0.001,
             'Sin pureza se valoran los 2 gramos enteros, que son 2 x 4.700.'
         );
@@ -322,7 +343,7 @@ class ValoracionOroTest extends TestCase
 
         $this->assertEqualsWithDelta(
             7050.00,
-            (float) ValoracionesOro::first()->valor,
+            (float) ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail()->valor,
             0.01,
             'El precio de la onza tiene que convertirse a gramo antes de multiplicar.'
         );
@@ -352,7 +373,7 @@ class ValoracionOroTest extends TestCase
             'moneda_id' => $base->id,
         ]), self::CABECERAS)->assertOk();
 
-        $valoracion = ValoracionesOro::first();
+        $valoracion = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail();
 
         $this->assertEqualsWithDelta(
             5493.65,
@@ -396,7 +417,7 @@ class ValoracionOroTest extends TestCase
             'moneda_id' => $base->id,
         ]), self::CABECERAS)->assertOk();
 
-        $valoracion = ValoracionesOro::first();
+        $valoracion = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail();
 
         $this->assertEqualsWithDelta(
             6000.00,
@@ -496,7 +517,7 @@ class ValoracionOroTest extends TestCase
 
         $this->assertSame(
             0,
-            ValoracionesOro::count(),
+            ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->count(),
             'Un cero en la serie no puede acabar en una valoración de cero.'
         );
     }
@@ -524,7 +545,10 @@ class ValoracionOroTest extends TestCase
             'moneda_id' => $base->id,
         ]), self::CABECERAS)->assertStatus(422);
 
-        $this->assertSame(0, ValoracionesOro::count());
+        $this->assertSame(
+            0,
+            ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->count()
+        );
     }
 
     // ==================================================================
@@ -640,7 +664,7 @@ class ValoracionOroTest extends TestCase
 
         $this->postJson('/procesos/valoraciones-oro', $datos, self::CABECERAS)->assertOk();
 
-        $valoracion = ValoracionesOro::first();
+        $valoracion = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail();
         $idOriginal = $valoracion->id;
 
         $this->deleteJson(
@@ -651,9 +675,9 @@ class ValoracionOroTest extends TestCase
 
         $this->postJson('/procesos/valoraciones-oro', $datos, self::CABECERAS)->assertOk();
 
-        $vivas = ValoracionesOro::all();
+        $vivas = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->get();
 
-        $this->assertCount(1, $vivas, 'No debe quedar mas de una valoracion viva.');
+        $this->assertCount(1, $vivas, 'No debe quedar mas de una valoracion viva de esa recuperacion.');
         $this->assertSame(
             $idOriginal,
             $vivas->first()->id,
@@ -758,7 +782,7 @@ class ValoracionOroTest extends TestCase
             'moneda_id' => $base->id,
         ]), self::CABECERAS)->assertOk();
 
-        $valoracion = ValoracionesOro::first();
+        $valoracion = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail();
 
         // Y ahora se cancela la orden, que es lo que pasa en la vida real
         $orden->update(['estado' => OrdenesTrabajo::ESTADO_CANCELADA]);
@@ -810,7 +834,7 @@ class ValoracionOroTest extends TestCase
             'moneda_id' => $base->id,
         ]), self::CABECERAS)->assertOk();
 
-        $valoracion = ValoracionesOro::first();
+        $valoracion = ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail();
 
         $this->assertEqualsWithDelta(7050.00, (float) $valoracion->valor, 0.001);
 
@@ -857,7 +881,7 @@ class ValoracionOroTest extends TestCase
         ]), self::CABECERAS)->assertOk();
 
         $ficha = $this->getJson(
-            '/procesos/valoraciones-oro/' . ValoracionesOro::first()->id . '/edit',
+            '/procesos/valoraciones-oro/' . ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail()->id . '/edit',
             self::CABECERAS
         )->assertOk()->json();
 
@@ -884,7 +908,7 @@ class ValoracionOroTest extends TestCase
         ]), self::CABECERAS)->assertOk();
 
         $this->deleteJson(
-            '/procesos/valoraciones-oro/' . ValoracionesOro::first()->id,
+            '/procesos/valoraciones-oro/' . ValoracionesOro::where(ValoracionesOro::RECUPERACION_ID, $recuperacion->id)->firstOrFail()->id,
             [],
             self::CABECERAS
         )->assertOk();
@@ -992,9 +1016,9 @@ class ValoracionOroTest extends TestCase
         );
 
         $this->assertSame(
-            1,
-            DB::table('valoraciones_oro')->whereNull('deleted_at')->count() - $antes + 1,
-            'La tabla tiene que seguir como estaba.'
+            $antes,
+            ValoracionesOro::count(),
+            'La tabla tiene que seguir como estaba: preguntar el valor no puede dejar una fila.'
         );
     }
 
