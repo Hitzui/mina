@@ -47,6 +47,7 @@
                             <input
                                 type="date"
                                 id="fecha"
+            data-calendario="propio"
                                 name="fecha"
                                 class="form-control @error('fecha') is-invalid @enderror"
                                 value="{{ old('fecha', $compra->fecha?->format('Y-m-d') ?? today()->format('Y-m-d')) }}"

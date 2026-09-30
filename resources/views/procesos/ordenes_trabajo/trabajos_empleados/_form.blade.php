@@ -26,7 +26,7 @@
 
     <div class="col-md-6">
         <label for="trabajoFecha" class="form-label">Fecha <span class="text-danger">*</span></label>
-        <input type="date" name="fecha" id="trabajoFecha" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
+        <input type="date" name="fecha" id="trabajoFecha" data-calendario="propio" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
     </div>
 
     <div class="col-md-3">

@@ -224,6 +224,26 @@
 @endif
 
 {{$footerFiles}}
+{{--
+    El calendario de los campos de fecha, y va despues de lo de arriba a
+    proposito.
+
+    Este archivo engancha los campos type="date" y type="datetime-local" de
+    toda la pagina sin preguntar, asi que si se cargara antes, una pantalla
+    que ya tenga su propio calendario lo montaria encima y el campo acabaria
+    con dos campos de texto delante: uno en el que se ve la fecha y otro,
+    detras, en el que se guarda. El usuario escribiria en el de detras y no
+    veria nada cambiar al guardar.
+
+    Cargandolo el ultimo, los scripts de la pagina ya han montado los suyos
+    antes, y para este quedan solo los campos que no tienen calendario propio.
+
+    Y los que si lo tienen llevan data-calendario="propio", que es lo que
+    evita que se monte dos veces. Esta explicacion esta tambien en el archivo,
+    que es donde se lee cuando algo va mal.
+--}}
+<script src="{{ asset('js/fechas.js') }}"></script>
+
 
 </body>
 </html>

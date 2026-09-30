@@ -69,7 +69,7 @@
 
         <div class="col-md-6">
             <label for="fecha_inicio" class="form-label">Fecha de inicio <span class="text-danger">*</span></label>
-            <input type="text" id="fecha_inicio" name="fecha_inicio"
+            <input type="text" id="fecha_inicio" name="fecha_inicio" data-calendario="propio"
                    class="form-control @error('fecha_inicio') is-invalid @enderror"
                    value="{{ old('fecha_inicio', isset($empleadoPago) && $empleadoPago->fecha_inicio ? $empleadoPago->fecha_inicio->format('Y-m-d') : '') }}"
                    placeholder="Seleccione la fecha" autocomplete="off" required>
@@ -79,7 +79,7 @@
 
         <div class="col-md-6">
             <label for="fecha_fin" class="form-label">Fecha de finalización</label>
-            <input type="text" id="fecha_fin" name="fecha_fin"
+            <input type="text" id="fecha_fin" name="fecha_fin" data-calendario="propio"
                    class="form-control @error('fecha_fin') is-invalid @enderror"
                    value="{{ old('fecha_fin', isset($empleadoPago) && $empleadoPago->fecha_fin ? $empleadoPago->fecha_fin->format('Y-m-d') : '') }}"
                    placeholder="Sin fecha de finalización" autocomplete="off">

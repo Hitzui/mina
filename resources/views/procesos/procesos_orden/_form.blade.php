@@ -151,6 +151,7 @@
             <input
                 type="text"
                 id="fecha_inicio"
+                data-calendario="propio"
                 name="fecha_inicio"
                 class="form-control @error('fecha_inicio') is-invalid @enderror"
                 value="{{ old(
@@ -183,6 +184,7 @@
             <input
                 type="text"
                 id="fecha_fin"
+                data-calendario="propio"
                 name="fecha_fin"
                 class="form-control @error('fecha_fin') is-invalid @enderror"
                 value="{{ old(

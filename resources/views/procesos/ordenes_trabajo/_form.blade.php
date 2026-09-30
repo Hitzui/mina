@@ -81,7 +81,7 @@
             </label>
 
             <input
-                type="text"
+                type="date"
                 class="form-control"
                 id="fecha"
                 name="fecha"
