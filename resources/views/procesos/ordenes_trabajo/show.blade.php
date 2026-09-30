@@ -130,6 +130,138 @@
     </div>
 
     {{--
+        Ingresos de la orden: el dinero que entra.
+
+        VA ENCIMA DE LOS COSTOS, Y PORQUE.
+
+        En una ficha de orden, lo primero que se pregunta es cuanto se le cobró al
+        cliente, y lo segundo es cuanto costó. Aqui va al reves que en la base, que
+        es donde esta lo que sale, porque el orden de la base no dice nada —es el
+        orden en que se crearon las tablas— y el de la ficha lo dice todo: primero
+        lo que entra, despues lo que sale.
+
+        Y NO HAY UN TOTAL QUE DIGA LO QUE SOBRA. El pie de la tabla dice lo
+        facturado en córdobas y nada mas. Restarlo de los costos daria un margen, y
+        un margen aqui seria un numero sin sentido: en un taller de joyeria la mano
+        de obra no se le cobra al cliente como un porcentaje del oro, y la cuenta
+        que importa no sale de restar estas dos tablas. El que quiera ver el margen
+        lo saca, y con las dos sumas a la vista puede hacerlo sin que el sistema le
+        de un numero que luego hay que explicar.
+
+        EL TOTAL SE CALCULA EN EL SERVIDOR, JUNTO CON LA PAGINA, y no en el pie
+        de la tabla a mano. La tabla se pide por ajax y su pie se pinta en el
+        navegador, que es donde no se puede sumar: los ingresos de una orden
+        pueden estar en dólares y en córdobas, y para sumarlos haria falta el
+        tipo de cambio de cada fila. Si se traen ya se ha hecho la cuenta
+        entera. Con la cuenta hecha en el servidor, la suma sale con las mismas
+        cifras que hay guardadas en las filas.
+
+        Y CUENTA CUANTOS INGRESOS QUEDARON SIN EQUIVALENTE, que son los que no
+        entran en la suma. Sin ese numero, un ingreso sin tipo de cambio parece
+        no existir y la suma se lee como completa cuando no lo esta.
+    --}}
+    <div class="row">
+        <div class="col-12 mt-4">
+            <div class="card">
+                <div class="card-body">
+
+                    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="bi bi-cash-coin me-2"></i>
+                                Ingresos de la orden
+                            </h5>
+                            <p class="text-muted mb-0">
+                                Lo que se le ha cobrado al cliente por esta orden.
+                            </p>
+                        </div>
+
+                        <button type="button"
+                                class="btn btn-primary"
+                                id="btnNuevoIngreso"
+                                @disabled($ordenTrabajo->estaCerrada())
+                                title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un ingreso' : '' }}">
+                            <i class="bi bi-plus-lg me-1"></i>
+                            Registrar ingreso
+                        </button>
+                    </div>
+
+                    <div class="alert alert-light border d-flex align-items-start gap-2">
+                        <i class="bi bi-info-circle fs-5"></i>
+                        <div>
+                            Aquí va el servicio de procesamiento, la participación en
+                            oro, la venta de oro: todo lo que entra por la orden. Los
+                            gastos van en su propia tabla de abajo, y no se restan de
+                            estos.
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        {{ $ingresosDataTable->html()->table() }}
+                    </div>
+
+                    {{--
+                        El total, que lo calcula el servidor y llega con la pagina.
+
+                        Va a la derecha y no en el pie de la tabla porque la tabla
+                        se pide por ajax y el pie se pinta en el navegador, que
+                        es donde no se puede sumar: los ingresos de una orden
+                        pueden estar en dolares y en cordoba, y para sumarlos
+                        haria falta el tipo de cambio de cada fila. Sumando aqui,
+                        con la cuenta ya hecha, sale con las mismas cifras que
+                        hay guardadas en las filas de arriba.
+                    --}}
+                    <div class="d-flex justify-content-end mt-3">
+                        <div class="text-end">
+                            <div class="text-muted small">
+                                Total facturado en córdobas
+                            </div>
+
+                            <div class="fs-4 fw-bold font-monospace">
+                                {{-- Un guion si no hay ingresos. El cero se
+                                     reserva para una orden a la que se le ha
+                                    cobrado y le ha costado cero, que son dos
+                                 cosas distintas. --}}
+                                {{ $ingresosCantidad === 0
+                                    ? '—'
+                                    : number_format($ingresosTotalNio, 2, '.', ',') }}
+                            </div>
+
+                            <div class="text-muted small">
+                                @if ($ingresosCantidad === 0)
+                                    Sin ingresos registrados.
+                                @else
+                                    {{ $ingresosCantidad }}
+                                    {{ $ingresosCantidad === 1 ? 'ingreso' : 'ingresos' }}.
+
+                                    {{--
+                                        Y los que se quedaron fuera de la suma.
+                                        Va con aviso y no en gris: si hay alguno,
+                                        el total de arriba esta mas bajo de lo
+                                        que se ha facturado, y eso hay que verlo
+                                        entrando al ingreso uno por uno.
+                                    --}}
+                                    @if ($ingresosSinEquivalente > 0)
+                                        <span class="text-warning-emphasis">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                            {{ $ingresosSinEquivalente }}
+                                            {{ $ingresosSinEquivalente === 1 ? 'se quedó' : 'se quedaron' }}
+                                            sin equivalente en córdobas y no
+                                            {{ $ingresosSinEquivalente === 1 ? 'cuenta' : 'cuentan' }}
+                                            en el total.
+                                        </span>
+                                    @endif
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{--
         Los trabajos de los empleados ya no se listan aqui: cuelgan de
         cada proceso, asi que se ven entrando al proceso. La tabla de
         procesos de arriba muestra cuanto cuesta cada uno.
@@ -202,9 +334,21 @@
     <x-slot:footerFiles>
         {{ $dataTable->html()->scripts() }}
         {{ $costosDataTable->html()->scripts() }}
+        {{ $ingresosDataTable->html()->scripts() }}
         @vite(['resources/assets/js/select2/select2-init.js'])
+        {{--
+            El de los ingresos va antes que el de los costos: los dos montan
+            modales sobre la misma pagina y el orden en que se cargan es el
+            orden en que se enganchan. Cada uno busca sus propias clases, asi
+            que no se pisan, pero cargarlos al reves obligaria a comprobar que
+            el otro ya esta, y esa dependencia no existe.
+            --}}
+        <script src="{{ asset('js/ordenes_trabajo/ingresos.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/costos.js') }}"></script>
     </x-slot>
+
+    @include('procesos.ingresos._modal_form')
+    @include('procesos.ingresos._modal_show')
 
     @include('procesos.ordenes_trabajo.costos._modal_form')
     @include('procesos.ordenes_trabajo.costos._modal_show')

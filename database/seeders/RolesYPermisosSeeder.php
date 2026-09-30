@@ -32,6 +32,7 @@ class RolesYPermisosSeeder extends Seeder
         'proveedores',
         'compras',
         'trabajos_empleado',
+        'ingresos',
         'tipos_cambio',
         'configuracion.monedas',
         'configuracion.precios_oro',
@@ -107,6 +108,19 @@ class RolesYPermisosSeeder extends Seeder
             'procesos_orden.view', 'procesos_orden.create', 'procesos_orden.edit',
             'proceso_equipo.view', 'proceso_equipo.create', 'proceso_equipo.edit',
             'movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit',
+            /*
+             * Los ingresos van con el supervisor, y por el mismo motivo que los
+             * costos: son la otra cara de la misma orden. Quien opera el taller
+             * es quien sabe que se le cobro al cliente y cuanto, asi que cargar
+             * el ingreso es suyo. Sin borrar, como los costos: borrar un ingreso
+             * es borrar un documento que se le emitio a alguien, y esa decision
+             * es de administracion.
+             *
+             * Y NO LLEVA EL CATALOGO DE TIPOS DE INGRESO, que va mas abajo con
+             * las monedas y el precio del oro: el catalogo reparte el dinero en
+             * categorias y cambiarlo despues ya no reordena lo que esta escrito.
+             */
+            'ingresos.view', 'ingresos.create', 'ingresos.edit',
             // El almacen lo lleva administracion: el material entra por ahi y
             // el catalogo es un dato maestro, no trabajo de campo
             'movimientos_inventario.view', 'movimientos_inventario.create',
@@ -180,6 +194,18 @@ class RolesYPermisosSeeder extends Seeder
             'movimientos_inventario.view', 'movimientos_inventario.create',
             'productos.view',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
+            /*
+             * El operador VE los ingresos de la orden y no los toca. Solo ver,
+             * porque la tabla esta en la ficha de la orden, que el operador ya
+             * puede abrir: sin este permiso la veria rota —la peticion por ajax
+             * sale con un 403 y lo que se ve es una tabla vacia sin explicación
+             *—, y eso es peor que no enseñarle nada.
+             *
+             * Verlos es ademas lo lógico: es el mismo trabajo del que esta
+             * llevando. Cargar lo que entra, no: eso lo hace quien sabe que se
+             * pactó con el cliente, que no es el que esta en la etapa de Pilas.
+             */
+            'ingresos.view',
         ]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();

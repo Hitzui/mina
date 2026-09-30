@@ -16,6 +16,7 @@ use App\Http\Controllers\Inventario\ProductoController;
 use App\Http\Controllers\Inventario\ProveedorController;
 use App\Http\Controllers\Configuracion\TipoCambioController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
+use App\Http\Controllers\Procesos\IngresoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
@@ -559,6 +560,36 @@ Route::resource(
         'costos' => 'costo',
     ])
     ->names('procesos.ordenes_trabajo.costos');
+
+
+/*
+| Los ingresos de una orden: el dinero que entra por ella.
+|
+| Van con la orden en la url y no cuelgan de un proceso: un ingreso es de la
+| orden entera, porque el taller le cobra al cliente por la orden, no por cada
+| etapa. Es al reves que los costos generales, que si admiten el proceso.
+|
+| Van en la ficha de la orden y no en una pantalla global, y al reves que las
+| recuperaciones y las valoraciones. Aqui la razon es la contraria: un ingreso no
+| significa nada fuera de su orden. Los recuperadores de oro se pueden mirar todos
+| juntos porque el oro del taller es el mismo para todas las ordenes; lo que
+| entro por una orden es de esa orden, y entrar en una pantalla global para ver
+| cuanto se facturo en la OT-2026-0003 es un rodeo.
+|
+| Y NO HAY RUTA DE TOTALES. El total se calcula en el show de la orden, que es
+| donde se pinta. Con una ruta aparte habria que pedirla por ajax, y lo unico
+| que haria falta es volver a pedirla cada vez que se guardara o borrara un
+| ingreso, que es justo cuando la pagina se recarga entera. Menos piezas para
+| lo mismo.
+*/
+Route::resource(
+    'procesos/ordenes-trabajo/{ordenTrabajo}/ingresos',
+    IngresoController::class
+    )
+    ->parameters([
+        'ingresos' => 'ingreso',
+    ])
+    ->names('procesos.ordenes_trabajo.ingresos');
 
 
 /*

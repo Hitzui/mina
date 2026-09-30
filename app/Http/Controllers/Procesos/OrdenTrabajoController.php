@@ -4,14 +4,17 @@ namespace App\Http\Controllers\Procesos;
 
 use App\DataTables\CostosOrdenDataTable;
 use App\DataTables\EmpleadosSelectorDataTable;
+use App\DataTables\IngresosDataTable;
 use App\DataTables\OrdenesTrabajoDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
+use App\Models\Ingreso;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
+use App\Models\TiposIngreso;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -232,7 +235,8 @@ class OrdenTrabajoController extends Controller
     public function show(
         string                     $id,
         ProcesosOrdenDataTable     $dataTable,
-        CostosOrdenDataTable       $costosDataTable
+        CostosOrdenDataTable       $costosDataTable,
+        IngresosDataTable          $ingresosDataTable
     )
     {
         $title = "Información de Orden de Trabajo";
@@ -249,6 +253,7 @@ class OrdenTrabajoController extends Controller
         if ($ordenTrabajo) {
             $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $costosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+            $ingresosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
 
             // Los combos del modal de costos generales
             $combos = $this->datosDeCombos();
@@ -256,7 +261,40 @@ class OrdenTrabajoController extends Controller
             $categorias = $combos['categorias'];
             $monedas = $combos['monedas'];
 
-            // Un costo se fecha el dia en que se registra, no un dia antes
+            /*
+             * El catalogo de tipos de ingreso para el modal. Sale de
+             * paraRegistrar(), que es el mismo filtro que usa el propio
+             * catalogo en Configuracion: un tipo desactivado no se
+             * ofrece para registrar, y el nombre de la lista no esta
+             * escrito en ningun sitio para que no se quede viejo.
+             *
+             * Las monedas ya vienen en $monedas, que las del modal de
+             * costos: son las mismas, y pedirlas otra vez seria una
+             * consulta mas por cada vez que se entra a una orden.
+             */
+            $tiposIngreso = TiposIngreso::paraRegistrar()->get();
+
+            /*
+             * El total de lo facturado en córdobas. Se calcula aqui y no en el
+             * javascript por una razon concreta: la suma de filas que están en
+             * dólares y en córdobas no se puede hacer en el navegador sin traer
+             * el tipo de cambio de cada una, y si se traen ya se ha hecho la
+             * cuenta entera. Con la cuenta hecha en el servidor, la suma sale
+             * con las mismas cifras que hay guardadas en las filas y no puede
+             * salir una suma que no cuadre con lo que se ve debajo.
+             *
+             * Y se cuentan los que se quedaron sin equivalente, que son los que
+             * no entran en la suma. Sin ese numero, un ingreso sin tipo de
+             * cambio parece no existir y la suma se lee como completa cuando no
+             * lo esta.
+             */
+            $ingresos = Ingreso::deOrden($ordenTrabajo->id)->get();
+
+            $ingresosTotalNio = round((float) $ingresos->sum('total_nio'), 2);
+            $ingresosCantidad = $ingresos->count();
+            $ingresosSinEquivalente = $ingresos->whereNull('total_nio')->count();
+
+            // Un ingreso se fecha el dia en que se registra, no un dia antes
             $fechaPorDefecto = now()->format('Y-m-d');
 
             return view(
@@ -267,6 +305,11 @@ class OrdenTrabajoController extends Controller
                     'ordenTrabajo',
                     'dataTable',
                     'costosDataTable',
+                    'ingresosDataTable',
+                    'tiposIngreso',
+                    'ingresosTotalNio',
+                    'ingresosCantidad',
+                    'ingresosSinEquivalente',
                     'categorias',
                     'monedas',
                     'fechaPorDefecto'

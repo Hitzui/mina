@@ -20,7 +20,7 @@
 22. Acuerdos -> falta la pantalla
 23. Liquidaciones -> falta la pantalla
 24. Tipos de ingreso -> ok. CRUD en modal con ficha, en Configuración. Un tipo en uso no se borra: se desactiva
-25. Ingresos -> falta la pantalla
+25. Ingresos -> ok. En la ficha de la orden, encima de los costos. El total no se escribe: lo calcula el servidor. Con la moneda base el tipo de cambio es uno y el equivalente en cordoba tambien se escribe
 26. Cajas -> falta la pantalla
 27. Métodos de pago -> falta la pantalla
 28. Cobros -> falta la pantalla
