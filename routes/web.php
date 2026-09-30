@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Configuracion\CategoriaCostoController;
+use App\Http\Controllers\Configuracion\CajaController;
 use App\Http\Controllers\Configuracion\MonedaController;
 use App\Http\Controllers\Configuracion\PrecioOroController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
@@ -251,6 +252,37 @@ Route::resource(
         'tipos-ingreso' => 'tipoIngreso',
     ])
     ->names('configuracion.tipos_ingreso');
+
+
+/*
+| Las cajas van al FINAL de Configuracion, y no al lado de los tipos de ingreso.
+|
+| El orden del bloque no es alfabetico: es el orden en que el taller las va
+| necesitando. Primero lo que se usa en cada orden —categorias de costo, tipos
+| de pago, tipos de ingreso— y despues lo que se consulta una vez al registrar
+| un cobro, que es exactamente lo que es una caja. Meterla entre los tipos de
+| ingreso y el tipo de cambio diria que la caja se elige al registrar un
+| ingreso, y no es: la elige quien registra el cobro, que es el ultimo paso de
+| una orden.
+|
+| La ruta de activar y desactivar va ANTES que el resource, y por la misma
+| razon que en los tipos de ingreso: si colgara despues, el {caja} de la ruta se
+| comeria la palabra "cambiar-estado" y devolveria un "no encontrado" en vez de
+| cambiar el estado.
+*/
+Route::post(
+    'configuracion/cajas/{caja}/cambiar-estado',
+    [CajaController::class, 'cambiarEstado']
+    )->name('configuracion.cajas.cambiar-estado');
+
+Route::resource(
+    'configuracion/cajas',
+    CajaController::class
+    )
+    ->parameters([
+        'cajas' => 'caja',
+    ])
+    ->names('configuracion.cajas');
 
 
 Route::resource(

@@ -382,6 +382,26 @@
                         </a>
                     </li>
 
+    {{--
+        Las cajas van las ULTIMAS de Configuracion, y el icono es el de una
+        caja fuerte porque es una cuenta donde se guarda dinero.
+
+        Van las ultimas por el mismo orden que todo el bloque: el taller va
+        necesitando las pantallas en el orden en que las usa, y una caja solo
+        aparece cuando llega un cobro, que es el ultimo paso de una orden. Si
+        la metiera junto a los tipos de ingreso, que estan al lado de las
+        categorias de costo, diria que la caja se elige al registrar un
+        ingreso, y no es.
+    --}}
+    <li class="{{ Request::routeIs('configuracion.cajas.*') ? 'active' : '' }}">
+        <a href="{{ route('configuracion.cajas.index') }}">
+            <div>
+                <i class="bi bi-safe2"></i>
+                <span>Cajas</span>
+            </div>
+        </a>
+    </li>
+
                 </ul>
             </li>
 

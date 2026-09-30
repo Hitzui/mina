@@ -39,6 +39,7 @@ class RolesYPermisosSeeder extends Seeder
         'configuracion.categorias_costos',
         'configuracion.tipos_pago_empleado',
         'configuracion.tipos_ingreso',
+        'configuracion.cajas',
         'usuarios',
     ];
 
@@ -146,6 +147,18 @@ class RolesYPermisosSeeder extends Seeder
              * el supervisor y los otros dos no.
              */
             'configuracion.tipos_ingreso.view',
+            /*
+             * Las cajas las ve el supervisor y no las toca, como las
+             * demas pantallas de Configuracion. Verlas si hace falta,
+             * porque la caja sale en el desplegable del cobro y quien
+             * registra cobros es el supervisor: sin este permiso el
+             * desplegable saldria vacio.
+             *
+             * Crearlas es de administracion, como las otras. Un fondo con
+             * que se trabaja lo da de alta quien lleva la caja, y esa
+             * persona no es el supervisor del taller.
+             */
+            'configuracion.cajas.view',
             /*
              * Valorar el oro va con el supervisor, como las recuperaciones y
              * a diferencia de cargar el precio.

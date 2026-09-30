@@ -35,6 +35,7 @@ class TablasResponsivasTest extends TestCase
      * y ese es justo el trabajo que se pide en la linea de arriba.
      */
     private const TABLAS = [
+        'CajasDataTable',
         'CategoriasCostoDataTable',
         'ClienteDataTable',
         'ClienteSelectorDataTable',

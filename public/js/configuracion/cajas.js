@@ -1,5 +1,5 @@
 /**
- * Tipos de ingreso: alta, edicion, ficha, activar y desactivar, y borrado.
+ * Tipos de cobro: alta, edicion, ficha, activar y desactivar, y borrado.
  *
  * Sigue el camino de las monedas: modales sobre la lista, con los datos pedidos
  * al servidor y puestos en el modal. No se copia nada del html de la fila a
@@ -24,9 +24,9 @@
  *    acaba guardando el nombre con una tilde quitada mientras venia a cambiar el
  *    estado—.
  *
- *  - El boton de borrar no se esconde cuando el tipo esta en uso, y el aviso
- *    dice cuantos ingresos son. Con el boton ahi, el que tiene que desactivar
- *    un tipo en vez de borrarlo ve la razon exacta y el numero de ingresos que
+ *  - El boton de borrar no se esconde cuando la caja esta en uso, y el aviso
+ *    dice cuantos cobros son. Con el boton ahi, el que tiene que desactivar
+ *    una caja en vez de borrarlo ve la razon exacta y el numero de cobros que
  *    seVERN afectada. Es informacion que le sirve igual aunque no quisiera
  *    borrar.
  *
@@ -40,21 +40,21 @@
     'use strict';
 
     $(function () {
-        const $formulario = $('#formTipoIngreso');
+        const $formulario = $('#formCaja');
 
         if (!$formulario.length) {
             return;
         }
 
-        const modalFormElement = document.getElementById('modalTipoIngreso');
+        const modalFormElement = document.getElementById('modalCaja');
         const modalForm = modalFormElement ? new bootstrap.Modal(modalFormElement) : null;
 
-        const modalVerElement = document.getElementById('modalVerTipoIngreso');
+        const modalVerElement = document.getElementById('modalVerCaja');
         const modalVer = modalVerElement ? new bootstrap.Modal(modalVerElement) : null;
 
-        const $error = $('#tipoIngresoError');
+        const $error = $('#cajaError');
 
-        // El tipo que se esta viendo en la ficha, para el boton de editar
+        // La caja que se esta viendo en la ficha, para el boton de editar
         let tipoEnLaFicha = null;
 
         // ------------------------------------------------------------------
@@ -111,7 +111,7 @@
          * campo, y no se suelta la lista en un bloque aparte, para que se vea
          * cual es sin tener que ir a buscarlo.
          *
-         * El caso importante aqui es el del tipo en uso: el servidor lo manda
+         * El caso importante aqui es el de la caja en uso: el servidor lo manda
          * contra el campo del nombre, que es donde el usuario lo ha elegido, y
          * el texto es largo y dice por que y que se puede hacer. Si ese texto
          * se soltara en un bloque arriba, con el separador de lineas, seria el
@@ -124,7 +124,7 @@
             if (!respuesta.errors) {
                 $error
                     .removeClass('d-none')
-                    .html(respuesta.message || 'No se pudo guardar el tipo de ingreso.');
+                    .html(respuesta.message || 'No se pudo guardar el caja.');
 
                 return;
             }
@@ -166,12 +166,12 @@
         // Alta
         // ------------------------------------------------------------------
 
-        $(document).on('click', '#btnNuevoTipoIngreso', function () {
+        $(document).on('click', '#btnNuevaCaja', function () {
             limpiarError();
             limpiarFormulario();
 
-            $('#modalTipoIngresoLabel').text('Nuevo tipo de ingreso');
-            $('#textoGuardarTipoIngreso').text('Guardar tipo');
+            $('#modalCajaLabel').text('Nuevo caja');
+            $('#textoGuardarCaja').text('Guardar tipo');
 
             $formulario.attr('action', $formulario.data('store-url'));
 
@@ -182,7 +182,7 @@
         // Edicion
         // ------------------------------------------------------------------
 
-        $(document).on('click', '.btn-edit-tipo-ingreso', function (evento) {
+        $(document).on('click', '.btn-edit-caja', function (evento) {
             evento.preventDefault();
 
             abrirEdicion($(this).data('url'));
@@ -200,8 +200,8 @@
                     limpiarError();
                     limpiarFormulario();
 
-                    $('#modalTipoIngresoLabel').text('Editar el tipo de ingreso');
-                    $('#textoGuardarTipoIngreso').text('Guardar cambios');
+                    $('#modalCajaLabel').text('Editar el caja');
+                    $('#textoGuardarCaja').text('Guardar cambios');
 
                     /*
                      * El method de mentira es lo que hace que un formulario
@@ -242,7 +242,7 @@
         // Ficha
         // ------------------------------------------------------------------
 
-        $(document).on('click', '.btn-ver-tipo-ingreso', function (evento) {
+        $(document).on('click', '.btn-ver-caja', function (evento) {
             evento.preventDefault();
 
             const url = $(this).data('url');
@@ -257,10 +257,10 @@
                 success: function (datos) {
                     tipoEnLaFicha = datos;
 
-                    $('#verTipoIngresoNombre').text(datos.nombre || '—');
-                    $('#verTipoIngresoDescripcion').text(datos.descripcion || '—');
+                    $('#verCajaNombre').text(datos.nombre || '—');
+                    $('#verCajaDescripcion').text(datos.descripcion || '—');
 
-                    $('#verTipoIngresoEstado').html(datos.estado
+                    $('#verCajaEstado').html(datos.estado
                         ? '<span class="badge bg-success">Activo</span>'
                         : '<span class="badge bg-secondary">Inactivo</span>');
 
@@ -269,9 +269,9 @@
                     modalVer?.show();
                 },
                 error: function () {
-                    $('#verTipoIngresoAviso')
+                    $('#verCajaAviso')
                         .removeClass('d-none')
-                        .text('No se pudo cargar la ficha del tipo de ingreso.');
+                        .text('No se pudo cargar la ficha del caja.');
 
                     modalVer?.show();
                 },
@@ -279,7 +279,7 @@
         });
 
         /**
-         * Donde se esta usando el tipo, y si se puede borrar.
+         * Donde se esta usando la caja, y si se puede borrar.
          *
          * La lista sale con la tabla y el numero al lado, que es la misma forma
          * que la tabla de usos de las monedas. Y debajo va el aviso que dice que
@@ -287,14 +287,14 @@
          * "desactivalo" deja al usuario sin salida.
          */
         function pintarUsos(usos, frase) {
-            const $usos = $('#verTipoIngresoUsos').empty();
-            const $aviso = $('#verTipoIngresoSePuedeBorrar');
+            const $usos = $('#verCajaUsos').empty();
+            const $aviso = $('#verCajaSePuedeBorrar');
 
             $aviso.addClass('d-none').empty();
 
             if (usos.length === 0) {
                 $usos.html(
-                    '<p class="text-muted mb-0">No hay ningún ingreso con este tipo. '
+                    '<p class="text-muted mb-0">No hay ningún cobro con esta caja. '
                     + 'Se puede eliminar.</p>'
                 );
 
@@ -303,7 +303,7 @@
                     .addClass('alert-success')
                     .html(
                         '<i class="bi bi-check-circle me-1"></i>'
-                        + 'Ningún ingreso usa este tipo, así que se puede eliminar sin dejar nada a medias.'
+                        + 'Ningún cobro usa esta caja, así que se puede eliminar sin dejar nada a medias.'
                     );
 
                 return;
@@ -327,16 +327,16 @@
                 .addClass('alert-info')
                 .html(
                     '<i class="bi bi-info-circle me-1"></i>'
-                    + 'No se puede eliminar mientras tenga ingresos, en ' + frase + '. '
+                    + 'No se puede eliminar mientras tenga cobros, en ' + frase + '. '
                     + 'Se puede <strong>desactivar</strong>, que lo saca de los desplegables sin '
-                    + 'tocar los ingresos que ya se registraron con él, y se puede volver a activar.'
+                    + 'tocar los cobros que ya se registraron con él, y se puede volver a activar.'
                 );
         }
 
         // El boton de editar de la ficha abre el formulario con lo que ya esta
         // cargado, sin volver a pedirlo: los datos son los mismos que se
         // acaba de traer, y volver a pedirlos es una peticion que no cambia
-        // nada entre medias salvo que alguien edite el tipo en otra pestaña.
+        // nada entre medias salvo que alguien edite la caja en otra pestaña.
         $(document).on('click', '#btnEditarDesdeFicha', function () {
             if (!tipoEnLaFicha) {
                 return;
@@ -356,7 +356,7 @@
 
             limpiarError();
 
-            const $boton = $('#btnGuardarTipoIngreso');
+            const $boton = $('#btnGuardarCaja');
             $boton.prop('disabled', true);
 
             $.ajax({
@@ -394,7 +394,7 @@
          * Y el boton no esta dentro de un form, asi que el metodo de la peticion
          * va aqui. Las demas pantallas hacen lo mismo con el boton de borrar.
          */
-        $(document).on('click', '.btn-cambiar-estado-tipo-ingreso', function (evento) {
+        $(document).on('click', '.btn-cambiar-estado-caja', function (evento) {
             evento.preventDefault();
 
             const $boton = $(this);
@@ -424,7 +424,7 @@
         // Borrar
         // ------------------------------------------------------------------
 
-        $(document).on('click', '[data-confirm-delete-tipo-ingreso]', function (evento) {
+        $(document).on('click', '[data-confirm-delete-caja]', function (evento) {
             evento.preventDefault();
 
             const $boton = $(this);
@@ -437,16 +437,20 @@
 
             /*
              * El aviso dice el nombre y avisa de lo que no tiene arreglo: si hay
-             * ingresos con este tipo el servidor lo va a rechazar, y ese rechazo
-             * es la respuesta correcta —no es un fallo— porque el ingreso guarda
-             * qué tipo era y sin él no se podría saber.
+             * cobros en esta caja el servidor lo va a rechazar, y ese rechazo es
+             * la respuesta correcta —no es un fallo— porque el cobro guarda en
+             * qué caja entró y sin ella no se podría saber.
+             *
+             * Y avisa del nombre y no del identificador porque el nombre puede
+             * repetirse: con dos cajas que se llamen igual el aviso es el mismo
+             * para las dos, y lo que las distingue es si tienen cobros.
              */
             Swal.fire({
-                title: '¿Eliminar el tipo de ingreso "' + nombre + '"?',
+                title: '¿Eliminar la caja "' + nombre + '"?',
                 html: 'Se borra del catálogo.<br><br>'
-                    + '<strong>Solo se puede si no hay ningún ingreso con este tipo.</strong> '
-                    + 'Si ya hay ingresos, no se podrá borrar y habrá que desactivarlo, '
-                    + 'que lo saca de los desplegables sin tocar lo ya registrado.',
+                    + '<strong>Solo se puede si no hay ningún cobro en esta caja.</strong> '
+                    + 'Si ya hay cobros, no se podrá borrar y habrá que desactivarla, '
+                    + 'que la saca de los desplegables sin tocar lo ya registrado.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'Sí, eliminar',
@@ -480,7 +484,7 @@
 
                         const mensaje = respuesta.errors
                             ? Object.values(respuesta.errors).flat().join('<br>')
-                            : (respuesta.message || 'No se pudo eliminar el tipo de ingreso.');
+                            : (respuesta.message || 'No se pudo eliminar la caja.');
 
                         Swal.fire({
                             title: 'No se puede eliminar',
@@ -494,8 +498,8 @@
         });
 
         function recargarTabla() {
-            if ($.fn.dataTable.isDataTable('#tipos-ingreso-table')) {
-                $('#tipos-ingreso-table').DataTable().ajax.reload();
+            if ($.fn.dataTable.isDataTable('#cajas-table')) {
+                $('#cajas-table').DataTable().ajax.reload();
             } else {
                 window.location.reload();
             }
