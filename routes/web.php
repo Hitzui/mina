@@ -4,6 +4,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\Configuracion\CategoriaCostoController;
 use App\Http\Controllers\Configuracion\CajaController;
 use App\Http\Controllers\Configuracion\MonedaController;
+use App\Http\Controllers\Configuracion\MetodoPagoController;
 use App\Http\Controllers\Configuracion\PrecioOroController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
 use App\Http\Controllers\Configuracion\TipoIngresoController;
@@ -283,6 +284,36 @@ Route::resource(
         'cajas' => 'caja',
     ])
     ->names('configuracion.cajas');
+
+
+/*
+| Los metodos de pago van justo detras de las cajas, y por la misma razon que
+| ellas van al final del bloque: son las dos cosas que se eligen una sola vez, al
+| registrar un cobro, y no en cada linea de una orden. El orden entre las dos es
+| el que se leeria al hacer el cobro —primero donde entra el dinero, despues con
+| que se paga— y no el alfabetico, que las pondria igual.
+|
+| Y van juntas porque van en el mismo formulario: cuando exista la pantalla del
+| cobro, las dos preguntas se harn en la misma pantalla.
+|
+| La ruta de activar y desactivar va ANTES que el resource, y por la misma razon
+| que en los tipos de ingreso y las cajas: si colgara despues, el {metodoPago} de
+| la ruta se comeria la palabra "cambiar-estado" y devolveria un "no encontrado"
+| en vez de cambiar el estado.
+*/
+Route::post(
+    'configuracion/metodos-pago/{metodoPago}/cambiar-estado',
+    [MetodoPagoController::class, 'cambiarEstado']
+    )->name('configuracion.metodos_pago.cambiar-estado');
+
+Route::resource(
+    'configuracion/metodos-pago',
+    MetodoPagoController::class
+    )
+    ->parameters([
+        'metodos-pago' => 'metodoPago',
+    ])
+    ->names('configuracion.metodos_pago');
 
 
 Route::resource(

@@ -402,6 +402,31 @@
         </a>
     </li>
 
+    {{--
+        Los metodos de pago van las ULTIMAS de Configuracion, detras de las cajas,
+        y por lo mismo que ellas: los dos aparecen solo cuando llega un cobro, que
+        es el ultimo paso de una orden.
+
+        Y van detras de las cajas y no antes porque en el cobro se pregunta primero
+        donde entra el dinero y despues con que se paga. El icono es el de una
+        tarjeta, que es la forma de pago que todo el mundo reconoce sin tener que
+        leer el texto.
+
+        Y NO SE CONFUNDEN CON LOS TIPOS DE PAGO DE EMPLEADO, que estan mas arriba
+        en el mismo bloque. Aquellos son como se le paga a la gente que trabaja
+        aqui; estos son como se le paga a quien compra. Son dos tablas distintas y
+        por eso dos pantallas distintas: un cobro no puede acabar guardando un
+        metodo de pago de empleado.
+    --}}
+    <li class="{{ Request::routeIs('configuracion.metodos_pago.*') ? 'active' : '' }}">
+        <a href="{{ route('configuracion.metodos_pago.index') }}">
+            <div>
+                <i class="bi bi-credit-card-2-front"></i>
+                <span>Métodos de pago</span>
+            </div>
+        </a>
+    </li>
+
                 </ul>
             </li>
 

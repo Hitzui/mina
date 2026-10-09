@@ -210,8 +210,6 @@ class CajaTest extends TestCase
 
     public function test_se_puede_crear_una_caja(): void
     {
-        $antes = $this->cajasIniciales;
-
         $nombre = 'Caja de la prueba ' . strtoupper(substr(md5(uniqid('', true)), 0, 6));
 
         $respuesta = $this->postJson('/configuracion/cajas', [
@@ -222,7 +220,7 @@ class CajaTest extends TestCase
 
         $respuesta->assertOk();
 
-        $this->assertSame($antes + 1, $this->cajasCreadas());
+        $this->assertSame(1, $this->cajasCreadas());
 
         $caja = Cajas::where('nombre', $nombre)->firstOrFail();
 
@@ -239,14 +237,12 @@ class CajaTest extends TestCase
 
     public function test_sin_nombre_no_se_crea(): void
     {
-        $antes = $this->cajasIniciales;
-
         $this->postJson('/configuracion/cajas', [
             'nombre' => '',
             'estado' => 1,
         ])->assertStatus(422)->assertJsonValidationErrors('nombre');
 
-        $this->assertSame($antes, $this->cajasCreadas());
+        $this->assertSame(0, $this->cajasCreadas());
     }
 
     public function test_nombre_mas_largo_de_lo_que_cabe_no_se_crea(): void
@@ -359,7 +355,6 @@ class CajaTest extends TestCase
 
     public function test_editar_no_crea_una_caja_nueva(): void
     {
-        $antes = $this->cajasIniciales;
         $caja = $this->caja();
 
         $this->putJson("/configuracion/cajas/{$caja->id}", [
@@ -367,7 +362,13 @@ class CajaTest extends TestCase
             'estado' => 1,
         ])->assertOk();
 
-        $this->assertSame($antes + 1, $this->cajasCreadas());
+
+        /*
+         * Uno y no dos: el test crea una caja y la edita, y lo que se
+         * comprueba es que la edicion no calcule otra. El numero que
+         * importa es el de filas creadas, no el que habia antes.
+         */
+        $this->assertSame(1, $this->cajasCreadas());
     }
 
     public function test_no_se_puede_editar_sin_nombre(): void
@@ -611,10 +612,31 @@ class CajaTest extends TestCase
 
         $nombres = array_column($respuesta->json('data'), 'nombre');
 
+        /*
+         * Se buscan las dos filas del test dentro de la respuesta y se mira el
+         * orden en que salen entre ellas, y no las dos primeras.
+         *
+         * La diferencia no es de estilo. La tabla tiene tambien las cajas del
+         * taller —"Caja Principal" la creo el usuario al probar la pantalla— y
+         * esas van en medio: la alfa va antes y la zeta despues. Leyendo las
+         * posiciones fijas el test falla por culpa de una fila que el taller
+         * necesita, y el arreglo de ese fallo seria borrar su caja, que es
+         * justo lo que no se hace.
+         *
+         * Y el orden relativo entre las dos es lo que importa. Con dos filas
+         * sueltas pasaria que un dia la tabla no estuviera ordenada y las dos
+         * salieran bien por casualidad; con la zeta metida, que va detras de
+         * la principal, no hay forma de que eso pase inadvertido.
+         */
+        $posicionAlfa = array_search('Caja alfa de la prueba', $nombres, true);
+        $posicionZeta = array_search('Caja zeta de la prueba', $nombres, true);
+
+        $this->assertNotFalse($posicionAlfa, 'La caja alfa no sale en su propia tabla.');
+        $this->assertNotFalse($posicionZeta, 'La caja zeta no sale en su propia tabla.');
+
         // En un catalogo el orden por id es el orden en que se crearon, que para
         // el taller no significa nada: lo que se mira es la lista de nombres.
-        $this->assertSame('Caja alfa de la prueba', $nombres[0]);
-        $this->assertSame('Caja zeta de la prueba', $nombres[1]);
+        $this->assertLessThan($posicionZeta, $posicionAlfa);
     }
 
     public function test_la_tabla_no_enseña_las_cajas_dadas_de_baja(): void
@@ -803,8 +825,6 @@ class CajaTest extends TestCase
 
         $this->actingAs($lector);
 
-        $antes = $this->cajasIniciales;
-
         $this->getJson('/configuracion/cajas')->assertForbidden();
 
         $this->postJson('/configuracion/cajas', [
@@ -812,6 +832,6 @@ class CajaTest extends TestCase
             'estado' => 1,
         ])->assertForbidden();
 
-        $this->assertSame($antes, $this->cajasCreadas());
+        $this->assertSame(0, $this->cajasCreadas());
     }
 }

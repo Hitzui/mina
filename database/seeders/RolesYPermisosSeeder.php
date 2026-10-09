@@ -40,6 +40,7 @@ class RolesYPermisosSeeder extends Seeder
         'configuracion.tipos_pago_empleado',
         'configuracion.tipos_ingreso',
         'configuracion.cajas',
+        'configuracion.metodos_pago',
         'usuarios',
     ];
 
@@ -159,6 +160,19 @@ class RolesYPermisosSeeder extends Seeder
              * persona no es el supervisor del taller.
              */
             'configuracion.cajas.view',
+            /*
+             * Los metodos de pago, igual que las cajas: el supervisor los ve y
+             * no los toca. Verlos hace falta porque el metodo sale en el
+             * desplegable del cobro y quien registra cobros es el supervisor,
+             * y sin este permiso ese desplegable saldria vacio.
+             *
+             * Y a diferencia de las cajas, aqui el supervisor NO los crea, y no
+             * por jerarquia sino por el mismo motivo que las cajas: las formas de
+             * cobro las decide quien lleva el taller, no quien supervisa. Que
+             * acepten un talon o no es una decision de como se trabaja, y por eso
+             * es de administracion.
+             */
+            'configuracion.metodos_pago.view',
             /*
              * Valorar el oro va con el supervisor, como las recuperaciones y
              * a diferencia de cargar el precio.
