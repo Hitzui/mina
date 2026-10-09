@@ -90,8 +90,15 @@
                 </div>
             </li>
 
-            <li class="menu {{ Request::is('/') ? 'active' : '' }}">
-                <a href="{{ url('/') }}" aria-expanded="false" class="dropdown-toggle">
+            {{--
+                Se marca con routeIs('home') y no con Request::is('/') porque el
+                panel tiene un filtro de periodo en la url: "/?periodo=anio" no es
+                la raiz y Request::is('/') no la reconoce, de modo que al cambiar el
+                periodo se apagaba la Pestana de Inicio. Parecia un fallo del panel y
+                era del menu.
+            --}}
+            <li class="menu {{ Request::routeIs('home') ? 'active' : '' }}">
+                <a href="{{ route('home') }}" aria-expanded="false" class="dropdown-toggle">
                     <div>
                         <i class="bi bi-speedometer2"></i>
                         <span>Dashboard</span>

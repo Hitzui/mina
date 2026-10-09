@@ -55,9 +55,33 @@ class ControlAccesoTest extends TestCase
         }
     }
 
-    public function test_la_pagina_de_inicio_sigue_siendo_publica(): void
+    /*
+     * "/" YA NO ES PÚBLICA, y antes si lo era.
+     *
+     * Antes "/" devolvía una vista de bienvenida vacía —nada de datos, nada que
+     * ver— y que fuera pública era correcto: una página de bienvenida es pública
+     * hasta que tiene algo que enseñar. Con el panel de inicio tiene cifras: cuántos
+     * artículos se vendieron, cuánto dinero entró y cuánto salió, y quién lo está
+     * trabajando. Eso es de quien tiene sesión y de nadie más.
+     *
+     * Y la ruta se metió DENTRO del grupo de autenticado en vez de dejar una ruta
+     * pública que comprobara la sesión a mano, porque dos rutas con el mismo nombre
+     * y una de las dos comprobando el acceso es la forma de que dentro de seis meses
+     * alguien añada algo a la de arriba y no se note.
+     *
+     * Antes este test afirmaba lo contrario —"la pagina de inicio sigue siendo
+     * publica"—, y por eso no se ha borrado: se ha cambiado. Un test que afirma
+     * justo lo contrario de lo que hace el código estorba, porque el día que alguien
+     * lea este archivo creerá que "/" es pública.
+     */
+    public function test_la_pagina_de_inicio_ya_no_es_publica(): void
     {
-        $this->get('/')->assertOk();
+        $this->get('/')->assertRedirect('/login');
+
+        // Y con sesión sí se abre, que es lo que importa: no se rompió, se cerró
+        $this->actingAs($this->usuarioConRol('admin'))
+            ->get('/')
+            ->assertOk();
     }
 
     public function test_el_operador_ve_el_listado_pero_no_puede_borrar(): void

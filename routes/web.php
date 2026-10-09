@@ -5,6 +5,7 @@ use App\Http\Controllers\Configuracion\CategoriaCostoController;
 use App\Http\Controllers\Configuracion\CajaController;
 use App\Http\Controllers\Configuracion\MonedaController;
 use App\Http\Controllers\Configuracion\MetodoPagoController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Configuracion\PrecioOroController;
 use App\Http\Controllers\Configuracion\TipoPagoEmpleadoController;
 use App\Http\Controllers\Configuracion\TipoIngresoController;
@@ -41,14 +42,26 @@ use Illuminate\Support\Facades\Route;
 */
 
 
-Route::get('/', function () {
-    return view('welcome', ['title' => 'This is Title', 'breadcrumbs' => []]);
-})->name('home');
-
 /*
-|--------------------------------------------------------------------------
+| El panel de inicio va DENTRO del grupo de autenticado, y antes estaba fuera.
+|
+| "/" devolvia una vista de bienvenida vacia, sin ningun dato, y eso era correcto
+| para una pagina de bienvenida. Es un agujero para un panel: el panel enseña
+| cuantos articulos se vendieron, cuanto dinero entro y cuanto salio, asi que
+| tiene que exigir usuario como todo lo demas.
+|
+| Y por eso va dentro del grupo de en lugar de dejar una ruta publica que solo
+| compruebe que haya sesion: dos rutas con el mismo nombre y una de las dos
+| comprobando el acceso es la forma de que dentro de seis meses alguien anada algo
+| a la de arriba y no se note. El nombre "home" tiene que significar una sola cosa.
+|
+| No tiene permiso de modulo, y es decision: es la pagina a la que entra todo el
+| que se autentica, y un permiso que casi todo el mundo tiene no protege nada. El
+| motivo entero esta en el controlador.
+|
+| ---------------------------------------------------------------------------
 | Rutas de la aplicacion
-|--------------------------------------------------------------------------
+|---------------------------------------------------------------------------
 |
 | Todo el panel administrativo y de procesos exige un usuario autenticado.
 | El permiso especifico de cada accion lo aplica el constructor de cada
@@ -57,6 +70,8 @@ Route::get('/', function () {
 */
 
 Route::middleware('auth')->group(function () {
+
+Route::get('/', DashboardController::class)->name('home');
 
 Route::get(
     'admin/clientes/selector',

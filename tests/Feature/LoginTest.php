@@ -147,11 +147,24 @@ class LoginTest extends TestCase
         $this->get('/admin/clientes')->assertRedirect('/login');
     }
 
+    /*
+     * El navbar no debe ofrecer "Cerrar sesion" a quien no entro.
+     *
+     * Esta prueba se hacia antes contra "/" porque la portada era publica y usaba
+     * el mismo layout que el panel. "/" ya no es publica —enseña cifras del taller y
+     * por eso exige sesion—, asi que se comprueba contra "/login", que es donde cae
+     * de verdad un visitante sin sesion y que usa el mismo layout. El sitio cambia y
+     * lo que se quiere comprobar no: el navbar no puede ofrecer salir a quien no ha
+     * entrado.
+     *
+     * Y "/" ahora manda al login, que es justo lo que se comprueba aqui al principio:
+     * no hay una puerta trasera por la que entrar al panel sin sesion.
+     */
     public function test_un_visitante_sin_sesion_no_ve_el_boton_de_salir(): void
     {
-        // La portada es publica y usa el mismo layout que el panel.
-        // El navbar no debe ofrecer "Cerrar sesion" a quien no entro.
-        $r = $this->get('/');
+        $this->get('/')->assertRedirect('/login');
+
+        $r = $this->get('/login');
 
         $r->assertOk();
         $r->assertDontSee('Cerrar sesión');

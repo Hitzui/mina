@@ -904,7 +904,20 @@ class TipoCambioTest extends TestCase
         ], self::CABECERAS)
             ->assertOk()
             ->assertJsonPath('vista_previa', true)
-            ->assertJsonPath('total', 30);
+            /*
+             * Los dias que tiene el mes de HOY, y no un numero escrito a mano.
+             *
+             * La plantilla se dibuja con los dias de verdad del mes que se descarga,
+             * asi que el archivo lleva 31 filas en enero y 30 en abril. Con el 30
+             * escrito aqui la prueba pasaba en los meses de 30 dias y fallaba en los
+             * de 31, sin que hubiera cambiado ni el codigo ni el archivo: el dia 28
+             * de septiembre pasaba y el dia 1 de octubre no. Un test que depende
+             * del mes en que se ejecuta no mide el codigo, mide el calendario.
+             *
+             * Y el numero sale de la misma fuente que usa el generador —today()—,
+             * que es la unica forma de que los dos no se separen.
+             */
+            ->assertJsonPath('total', (int) today()->daysInMonth);
     }
 
     // ==================================================================
