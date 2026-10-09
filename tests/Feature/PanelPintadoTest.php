@@ -509,6 +509,76 @@ class PanelPintadoTest extends TestCase
         return $css;
     }
 
+    public function test_las_tarjetas_de_color_no_dejan_texto_gris(): void
+    {
+        $html = $this->panel();
+
+        /*
+         * El fallo que el usuario vio: las tarjetas llevan el color del estado como
+         * fondo y la letra iba en "text-secondary", que es un gris. Con el azul del
+         * tema, ese gris da un contraste de 1,04 sobre 1, y 1 sobre 1 es lo que da un
+         * color consigo mismo: invisible.
+         *
+         * Y no daba error. Una letra que no se ve no falla ningún análisis, no sale
+         * nada en la consola y la página devuelve 200. El número grande se veía
+         * porque iba en negro y los otros dos textos —el título y el pie, que es
+         * donde se explica qué significa el número— no se veían nada.
+         *
+         * Se busca "text-secondary" y "text-muted" dentro de una tarjeta de color. Y
+         * no vale con que no aparezcan: una tarjeta con el color puesto en el html y
+         * la letra gris puesta en otro sitio se cuela igual. Por eso se saca cada
+         * tarjeta y se mira su contenido entero.
+         */
+        /*
+         * Y el patrón tiene que ser "<a [^>]*class=" y no "<a class=". La tarjeta
+         * que lleva enlace pone el href antes de la clase, y la que no lo lleva es
+         * un div. Con el patrón corto no se encontraba ninguna tarjeta y el test
+         * fallaba por no encontrar lo que buscaba —que es distinto de que no haya
+         * nada—.
+         */
+        preg_match_all(
+            '#<[ad] [^>]*class="card br-8 mb-3 bg-\w+[^"]*"[^>]*>(.*?)</[ad]>#s',
+            $html,
+            $coincidencias
+        );
+
+        $this->assertNotEmpty(
+            $coincidencias[1],
+            'No se ha encontrado ninguna tarjeta de color en el panel.'
+        );
+
+        $conGris = [];
+
+        foreach ($coincidencias[1] as $cuerpo) {
+            foreach (['text-secondary', 'text-muted'] as $gris) {
+                if (str_contains($cuerpo, $gris)) {
+                    $conGris[] = $gris;
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            array_values(array_unique($conGris)),
+            'Hay tarjetas de color con la letra en gris: ' . implode(', ', array_unique($conGris))
+            . '. Sobre un fondo de color, el gris del tema no se lee.'
+        );
+
+        /*
+         * Y lo de arriba: cada tarjeta de color tiene que llevar el color de la letra
+         * escrito en el style. Es lo que hace que la tarjeta se lea, y así no depende
+         * de que una clase que no exista haga su trabajo.
+         */
+        foreach ($coincidencias[1] as $cuerpo) {
+            $this->assertMatchesRegularExpression(
+                '/style="[^"]*color:\s*#(ffffff|151a26)/',
+                $cuerpo,
+                'Una tarjeta de color no lleva el color de la letra escrito en el estilo, '
+                    . 'así que su texto sale con el color por defecto del tema.'
+            );
+        }
+    }
+
     // ==================================================================
     // Ayudas
     // ==================================================================

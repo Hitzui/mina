@@ -150,45 +150,30 @@
             </p>
         </div>
 
-        <div class="col-6 col-md-4 col-xl-3">
-            <x-dashboard._tarjeta
-                titulo="Pendientes"
-                :valor="(string) collect($ordenesPorEstado)->firstWhere('estado', 1)['cuantas']"
-                icono="bi-hourglass-split"
-                color="bg-primary"
-                pie="Sin empezar"
-                :enlace="route('procesos.ordenes_trabajo.index', ['estado' => 1])" />
-        </div>
+        {{--
+            Las cuatro tarjetas de órdenes salen de un bucle y no están escritas una a
+            una, y no por ahorrar líneas: porque el color de la letra lo decide el
+            hexadecimal del estado, y si el color de fondo y el hexadecimal van en
+            sitios distintos acabarían siendo distintos el uno del otro y la tarjeta
+            se pinta de un color mientras el número se calcula pensando en otro.
+            Con un solo sitio no pueden separarse.
 
-        <div class="col-6 col-md-4 col-xl-3">
-            <x-dashboard._tarjeta
-                titulo="En proceso"
-                :valor="(string) collect($ordenesPorEstado)->firstWhere('estado', 2)['cuantas']"
-                icono="bi-hourglass-bottom"
-                color="bg-warning"
-                pie="Con trabajo empezado"
-                :enlace="route('procesos.ordenes_trabajo.index', ['estado' => 2])" />
-        </div>
-
-        <div class="col-6 col-md-4 col-xl-3">
-            <x-dashboard._tarjeta
-                titulo="Finalizadas"
-                :valor="(string) collect($ordenesPorEstado)->firstWhere('estado', 3)['cuantas']"
-                icono="bi-check2-circle"
-                color="bg-success"
-                pie="Cerradas y entregadas"
-                :enlace="route('procesos.ordenes_trabajo.index', ['estado' => 3])" />
-        </div>
-
-        <div class="col-6 col-md-4 col-xl-3">
-            <x-dashboard._tarjeta
-                titulo="Canceladas"
-                :valor="(string) collect($ordenesPorEstado)->firstWhere('estado', 0)['cuantas']"
-                icono="bi-x-circle"
-                color="bg-danger"
-                pie="Se tiró la toalla"
-                :enlace="route('procesos.ordenes_trabajo.index', ['estado' => 0])" />
-        </div>
+            Y el título no sale de "texto" más una "s", porque "En proceso" más "s" es
+            "En procesos", que no existe. Los títulos van escritos en el servicio, en
+            plural y en las palabras del taller.
+        --}}
+        @foreach ($ordenesPorEstado as $estado)
+            <div class="col-6 col-md-4 col-xl-3">
+                <x-dashboard._tarjeta
+                    :titulo="$estado['titulo']"
+                    :valor="(string) $estado['cuantas']"
+                    :hex="$estado['hex']"
+                    :color="$estado['color']"
+                    :icono="$estado['icono']"
+                    :pie="$estado['pie']"
+                    :enlace="route('procesos.ordenes_trabajo.index', ['estado' => $estado['estado']])" />
+            </div>
+        @endforeach
 
         {{-- ============================================================
              2. LOS PROCESOS
@@ -206,8 +191,9 @@
                 <x-dashboard._tarjeta
                     :titulo="$procesoEstado['texto']"
                     :valor="(string) $procesoEstado['cuantas']"
+                    :hex="$procesoEstado['hex']"
+                    :color="$procesoEstado['color']"
                     icono="bi-diagram-3"
-                    :color="$procesoEstado['estado'] === 1 ? 'bg-secondary' : $procesoEstado['color']"
                     :pie="$procesoEstado['pie']" />
             </div>
         @endforeach
@@ -223,14 +209,25 @@
             </p>
         </div>
 
-        <div class="col-12 col-lg-4">
+        {{--
+            Las tres de dinero llevan su hexadecimal al lado de la clase de bootstrap.
 
-            {{-- El color del boton cambia con la alerta que lleva. --}}
+            Y no salen del modelo porque no son estados de nada: son colores para
+            distinguir tres cifras que sí son estados —lo que sale, lo que entra y lo
+            que se recuperó— y no hay ningún catálogo que los defina. Los
+            hexadecimales son los del tema para esas clases, y hay un test que lo
+            comprueba contra la hoja de estilos: si el tema cambiara el rojo, el test
+            falla en vez de que la tarjeta se pintara de un color y la letra se
+            calculara pensando en otro.
+        --}}
+
+        <div class="col-12 col-lg-4">
             <x-dashboard._tarjeta
                 titulo="Costo total"
                 :valor="'C$ ' . number_format($dinero['costo_total'], 2)"
                 icono="bi-arrow-down-circle"
                 color="bg-danger"
+                hex="#e7515a"
                 :pie="'En ' . $dinero['costo_filas'] . ' '
                     . ($dinero['costo_filas'] === 1 ? 'fila' : 'filas')
                     . ': ' . number_format($dinero['partes']['costos']['total'], 2)
@@ -243,9 +240,7 @@
                         . ' '
                         . ($dinero['costo_sin_equivalente'] === 1 ? 'fila quedó' : 'filas quedaron')
                         . ' sin tipo de cambio y no suma en esta cifra'
-                    : null"
-                colorAviso="text-warning" />
-
+                    : null" />
         </div>
 
         <div class="col-12 col-lg-4">
@@ -254,6 +249,7 @@
                 :valor="'C$ ' . number_format($dinero['ingresos'], 2)"
                 icono="bi-arrow-up-circle"
                 color="bg-success"
+                hex="#00ab55"
                 :pie="'En ' . $dinero['ingresos_filas'] . ' '
                     . ($dinero['ingresos_filas'] === 1 ? 'ingreso' : 'ingresos')"
                 :aviso="$dinero['ingresos_sin_equivalente'] > 0
@@ -261,8 +257,7 @@
                         . ' '
                         . ($dinero['ingresos_sin_equivalente'] === 1 ? 'ingreso quedó' : 'ingresos quedaron')
                         . ' sin tipo de cambio y no suma en esta cifra'
-                    : null"
-                colorAviso="text-warning" />
+                    : null" />
         </div>
 
         <div class="col-12 col-lg-4">
@@ -271,6 +266,7 @@
                 :valor="number_format($oro['total'], 4) . ' g'"
                 icono="bi-gem"
                 color="bg-info"
+                hex="#2196f3"
                 :pie="$oro['filas'] . ' '
                     . ($oro['filas'] === 1 ? 'partida' : 'partidas')
                     . ($oro['sinPureza'] > 0

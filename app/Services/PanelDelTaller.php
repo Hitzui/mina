@@ -141,6 +141,33 @@ class PanelDelTaller
     private const ULTIMAS_ORDENES = 5;
 
     /**
+     * Los titulos de las tarjetas de ordenes, y lo que explica cada numero.
+     *
+     * ---------------------------------------------------------------------------
+     * POR QUE NO SE AÑADE UNA "S" AL NOMBRE DEL ESTADO
+     * ---------------------------------------------------------------------------
+     *
+     * Porque el nombre del estado es singular —va pegado a un nombre propio:
+     * "OT-2026-0001: Finalizada"— y en las tarjetas va detras de un plural implícito.
+     * Añadir la "s" da "Canceladas" y "Pendientes", que está bien, y "En procesos",
+     * que no existe. Y "Terminadas" por "Finalizadas" tampoco: son cosas distintas.
+     *
+     * Y no son un detalle de idioma. El taller distingue una orden "cancelada" de
+     * una "finalizada" con bastante precision —una se completo y la otra se abandono—
+     * y un titulo de tarjeta es de los sitios donde se lee eso todos los dias.
+     *
+     * El pie va con el mismo criterio, y es donde se explica el numero. El de las
+     * finalizadas dice "Cerradas y entregadas" y no "Terminadas", que es el momento
+     * en que una orden pasa a estar así.
+     */
+    private const TARJETAS_DE_ORDEN = [
+        0 => ['titulo' => 'Canceladas', 'pie' => 'Se tiró la toalla', 'icono' => 'bi-x-circle'],
+        1 => ['titulo' => 'Pendientes', 'pie' => 'Sin empezar', 'icono' => 'bi-hourglass-split'],
+        2 => ['titulo' => 'En proceso', 'pie' => 'Con trabajo empezado', 'icono' => 'bi-hourglass-bottom'],
+        3 => ['titulo' => 'Finalizadas', 'pie' => 'Cerradas y entregadas', 'icono' => 'bi-check2-circle'],
+    ];
+
+    /**
      * Los titulos de las tarjetas de procesos, y lo que explica cada numero.
      *
      * ---------------------------------------------------------------------------
@@ -292,9 +319,14 @@ class PanelDelTaller
         $tarjetas = [];
 
         foreach (OrdenesTrabajo::ESTADOS as $estado => $datos) {
+            $delPanel = self::TARJETAS_DE_ORDEN[(int) $estado] ?? null;
+
             $tarjetas[] = [
                 'estado' => (int) $estado,
                 'texto' => $datos['texto'],
+                'titulo' => $delPanel['titulo'] ?? $datos['texto'],
+                'pie' => $delPanel['pie'] ?? null,
+                'icono' => $delPanel['icono'] ?? 'bi-graph-up',
                 'color' => $datos['color'],
                 'hex' => $datos['hex'],
                 'cuantas' => (int) ($cuantas[$estado] ?? 0),
@@ -312,6 +344,9 @@ class PanelDelTaller
             $tarjetas[] = [
                 'estado' => $estado,
                 'texto' => 'Desconocido (' . $estado . ')',
+                'titulo' => 'Desconocido',
+                'pie' => null,
+                'icono' => 'bi-graph-up',
                 'color' => 'bg-secondary',
                 'hex' => '#888ea8',
                 'cuantas' => (int) $n,
