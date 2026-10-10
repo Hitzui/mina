@@ -1789,6 +1789,30 @@ class CobroTest extends TestCase
     }
 
     /**
+     * Los campos ocultos de la plantilla no participan en la validación del navegador.
+     *
+     * El atributo min del importe es correcto para una línea real, pero un input
+     * oculto con 0.00 bloquea el envío y el navegador no puede enfocarlo. La
+     * plantilla queda deshabilitada; JavaScript habilita sus controles al clonar.
+     */
+    public function test_la_plantilla_oculta_no_bloquea_el_envio_del_formulario()
+    {
+        $html = $this->actingAs($this->usuario())
+            ->get(route('procesos.cobros.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<select(?=[^>]*class="form-select ingreso-linea")(?=[^>]*disabled)[^>]*>/s',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/<input(?=[^>]*class="form-control monto-linea")(?=[^>]*min="0\.01")(?=[^>]*disabled)[^>]*value=""[^>]*>/s',
+            $html
+        );
+    }
+
+    /**
      * Una linea que no cubre el ingreso entero dice cuanto falta.
      *
      * Y no es un adorno: sin ese aviso, el taller ve un ingreso con una linea de

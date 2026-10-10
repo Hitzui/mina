@@ -362,6 +362,7 @@
                                     <select
                                         class="form-select ingreso-linea"
                                         data-nombre="ingresos[__i__][ingreso_id]"
+                                        disabled
                                     >
                                         <option value="">Seleccione el ingreso</option>
                                         @foreach ($ingresos as $ingreso)
@@ -391,7 +392,8 @@
                                         data-nombre="ingresos[__i__][monto]"
                                         step="0.01"
                                         min="0.01"
-                                        value="0.00"
+                                        value=""
+                                        disabled
                                     >
                                 </td>
                                 <td>
@@ -401,6 +403,7 @@
                                         data-nombre="ingresos[__i__][observaciones]"
                                         maxlength="255"
                                         placeholder="Opcional"
+                                        disabled
                                     >
                                 </td>
                                 <td class="text-center">

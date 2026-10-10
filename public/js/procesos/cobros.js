@@ -415,6 +415,10 @@
                 .addClass('linea-dato')
                 .attr('data-indice', indice);
 
+            // La plantilla está deshabilitada para no bloquear la validación nativa.
+            // Al clonar una fila real, sus controles vuelven a participar.
+            $fila.find('select, input').prop('disabled', false);
+
             // El id no puede repetirse en el documento
             $fila.find('select').removeAttr('id');
             $fila.find('input').removeAttr('id');
@@ -434,8 +438,6 @@
                 $ingreso.val(String(linea.ingreso_id));
                 $fila.find('.monto-linea').val(dinero(linea.monto));
                 $fila.find('.nota-linea').val(linea.observaciones || '');
-            } else {
-                $fila.find('.monto-linea').val(dinero(0));
             }
 
             $cuerpo.append($fila);
