@@ -640,7 +640,7 @@
             --}}
             @can('cobros.view')
                 <li class="menu {{ Request::routeIs('procesos.cobros.*') ? 'active' : '' }}">
-                    <a href="{{ route('procesos.cobros.index') }}">
+                    <a href="{{ route('procesos.cobros.index') }}" aria-expanded="false" class="dropdown-toggle">
                         <div>
                             <i class="bi bi-cash-coin"></i>
                             <span>Cobros</span>
