@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Procesos;
 use App\DataTables\AcuerdosOrdenDataTable;
 use App\DataTables\CostosOrdenDataTable;
 use App\DataTables\IngresosDataTable;
+use App\DataTables\LiquidacionesDataTable;
 use App\DataTables\OrdenesTrabajoDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
+use App\Models\AcuerdosOrden;
 use App\Models\Ingreso;
 use App\Models\OrdenesTrabajo;
 use App\Models\TiposIngreso;
@@ -242,7 +244,8 @@ class OrdenTrabajoController extends Controller
         ProcesosOrdenDataTable $dataTable,
         CostosOrdenDataTable $costosDataTable,
         IngresosDataTable $ingresosDataTable,
-        AcuerdosOrdenDataTable $acuerdosDataTable
+        AcuerdosOrdenDataTable $acuerdosDataTable,
+        LiquidacionesDataTable $liquidacionesDataTable
     ) {
         $title = 'Información de Orden de Trabajo';
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
@@ -260,6 +263,15 @@ class OrdenTrabajoController extends Controller
             $costosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $ingresosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $acuerdosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+            $liquidacionesDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+            $acuerdosLiquidables = AcuerdosOrden::deOrden($ordenTrabajo->id)
+                ->where(AcuerdosOrden::ESTADO, true)
+                ->whereNotNull(AcuerdosOrden::PORCENTAJE_CLIENTE)
+                ->whereNotNull(AcuerdosOrden::PORCENTAJE_EMPRESA)
+                ->whereNull(AcuerdosOrden::TARIFA_SERVICIO)
+                ->with('tipo_participacion')
+                ->orderBy(AcuerdosOrden::ID)
+                ->get();
 
             // Los combos del modal de costos generales
             $combos = $this->datosDeCombos();
@@ -315,6 +327,8 @@ class OrdenTrabajoController extends Controller
                     'costosDataTable',
                     'ingresosDataTable',
                     'acuerdosDataTable',
+                    'liquidacionesDataTable',
+                    'acuerdosLiquidables',
                     'tiposParticipacion',
                     'tiposIngreso',
                     'ingresosTotalNio',

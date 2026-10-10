@@ -153,6 +153,33 @@
         </div>
     </div>
 
+    @can('liquidaciones.view')
+        <div class="row">
+            <div class="col-12 mt-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                            <div>
+                                <h5 class="mb-1"><i class="bi bi-box-seam me-2"></i>Liquidaciones de oro</h5>
+                                <p class="text-muted mb-0">Lotes liquidados y distribución de gramos según el acuerdo aplicado.</p>
+                            </div>
+                            @can('liquidaciones.create')
+                                <button type="button" class="btn btn-primary" id="btnNuevaLiquidacion"
+                                        @disabled((int) $ordenTrabajo->estado === \App\Models\OrdenesTrabajo::ESTADO_CANCELADA || $acuerdosLiquidables->isEmpty())
+                                        title="{{ $acuerdosLiquidables->isEmpty() ? 'Agregue primero un acuerdo porcentual activo' : '' }}">
+                                    <i class="bi bi-plus me-1"></i>Nueva liquidación
+                                </button>
+                            @endcan
+                        </div>
+                        <div class="table-responsive">
+                            {{ $liquidacionesDataTable->html()->table() }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endcan
+
     {{--
         Ingresos de la orden: el dinero que entra.
 
@@ -360,6 +387,9 @@
         {{ $costosDataTable->html()->scripts() }}
         {{ $ingresosDataTable->html()->scripts() }}
         {{ $acuerdosDataTable->html()->scripts() }}
+        @can('liquidaciones.view')
+            {{ $liquidacionesDataTable->html()->scripts() }}
+        @endcan
         @vite(['resources/assets/js/select2/select2-init.js'])
         {{--
             El de los ingresos va antes que el de los costos: los dos montan
@@ -371,6 +401,9 @@
         <script src="{{ asset('plugins/sweetalerts2/sweetalerts2.min.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/ingresos.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/acuerdos.js') }}"></script>
+        @canany(['liquidaciones.create', 'liquidaciones.edit'])
+            <script src="{{ asset('js/ordenes_trabajo/liquidaciones.js') }}"></script>
+        @endcanany
         <script src="{{ asset('js/ordenes_trabajo/costos.js') }}"></script>
     </x-slot>
 
@@ -379,6 +412,10 @@
 
     @canany(['acuerdos_orden.create', 'acuerdos_orden.edit'])
         @include('procesos.ordenes_trabajo.acuerdos._modal_form')
+    @endcanany
+
+    @canany(['liquidaciones.create', 'liquidaciones.edit'])
+        @include('procesos.ordenes_trabajo.liquidaciones._modal_form')
     @endcanany
 
     @include('procesos.ordenes_trabajo.costos._modal_form')

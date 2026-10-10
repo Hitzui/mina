@@ -23,6 +23,7 @@ class RolesYPermisosSeeder extends Seeder
         'etapas',
         'ordenes_trabajo',
         'acuerdos_orden',
+        'liquidaciones',
         'procesos_orden',
         'proceso_equipo',
         'recuperaciones',
@@ -116,6 +117,7 @@ class RolesYPermisosSeeder extends Seeder
             'etapas.view',
             'ordenes_trabajo.view', 'ordenes_trabajo.create', 'ordenes_trabajo.edit',
             'acuerdos_orden.view', 'acuerdos_orden.create', 'acuerdos_orden.edit',
+            'liquidaciones.view', 'liquidaciones.create', 'liquidaciones.edit',
             'procesos_orden.view', 'procesos_orden.create', 'procesos_orden.edit',
             'proceso_equipo.view', 'proceso_equipo.create', 'proceso_equipo.edit',
             'movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit',
@@ -235,6 +237,7 @@ class RolesYPermisosSeeder extends Seeder
             'equipos.view',
             'ordenes_trabajo.view',
             'acuerdos_orden.view',
+            'liquidaciones.view',
             'procesos_orden.view', 'procesos_orden.create', 'procesos_orden.edit',
             // Registrar el uso de un equipo en el proceso es trabajo de
             // campo, igual que registrar el trabajo de un empleado
