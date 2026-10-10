@@ -22,7 +22,7 @@
 24. Tipos de ingreso -> ok. CRUD en modal con ficha, en Configuración. Un tipo en uso no se borra: se desactiva
 25. Ingresos -> ok. En la ficha de la orden, encima de los costos. El total no se escribe: lo calcula el servidor. Con la moneda base el tipo de cambio es uno y el equivalente en cordoba tambien se escribe
 26. Cajas -> ok. CRUD en modal con ficha, en Configuración. Esta pantalla sí crea cajas, al revés que los tipos de ingreso: una caja es un hecho del taller, no una clasificación. En uso no se borra: se desactiva. El nombre puede repetirse
-27. Métodos de pago -> falta la pantalla
+27. Métodos de pago -> ok. CRUD en modal con ficha, en Configuración, la última detrás de las cajas. Esta pantalla sí crea métodos, por el mismo motivo que las cajas: un método de pago es una forma de cobrar, no una clasificación. No son los tipos de pago de empleado: aquellos son cómo se le paga a quien trabaja aquí. En uso no se borra: se desactiva. El nombre puede repetirse, y a diferencia de las cajas eso no parte ninguna suma
 28. Cobros -> falta la pantalla
 29. Detalle de cobros -> falta la pantalla
 30. Cierres -> falta la pantalla
