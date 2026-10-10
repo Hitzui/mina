@@ -6,9 +6,12 @@ use App\Models\Etapa;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf as PdfFacade;
+use Barryvdh\DomPDF\PDF as PdfDocument;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Mockery;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -78,6 +81,34 @@ class OrdenTrabajoPdfTest extends TestCase
         $this->assertStringContainsString($etapa->nombre, $html);
         $this->assertStringContainsString('Proceso validado con el cliente', $html);
         $this->assertSame(6, substr_count($html, '<td class="check">□</td>'));
+    }
+
+    public function test_el_controlador_envia_al_pdf_los_procesos_de_la_orden(): void
+    {
+        $orden = $this->crearOrden();
+        $etapa = Etapa::query()->where('estado', true)->firstOrFail();
+        $proceso = ProcesosOrden::create([
+            'orden_trabajo_id' => $orden->id,
+            'etapa_id' => $etapa->id,
+            'codigo' => 'PR-'.strtoupper(Str::random(8)),
+            'estado' => ProcesosOrden::ESTADO_PENDIENTE,
+        ]);
+
+        $pdf = Mockery::mock(PdfDocument::class);
+        $pdf->shouldReceive('setPaper')->once()->with('letter', 'portrait')->andReturnSelf();
+        $pdf->shouldReceive('download')->once()->andReturn(response('fake-pdf'));
+
+        PdfFacade::shouldReceive('loadView')
+            ->once()
+            ->with('procesos.ordenes_trabajo.pdf', Mockery::on(function (array $datos) use ($proceso) {
+                return $datos['procesos']->contains(fn (ProcesosOrden $fila) => $fila->is($proceso))
+                    && $datos['renglonesEnBlanco'] === 5;
+            }))
+            ->andReturn($pdf);
+
+        $this->get(route('procesos.ordenes_trabajo.pdf', $orden))
+            ->assertOk()
+            ->assertSee('fake-pdf');
     }
 
     private function crearOrden(): OrdenesTrabajo
