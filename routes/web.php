@@ -34,6 +34,7 @@ use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
+use App\Http\Controllers\Procesos\OrdenTrabajoPdfController;
 use App\Http\Controllers\Procesos\ProcesoOrdenController;
 use App\Http\Controllers\Procesos\ProduccionController;
 use App\Http\Controllers\Procesos\RecuperacionController;
@@ -172,6 +173,10 @@ Route::middleware('auth')->group(function () {
     Route::get('procesos/ordenes-trabajo/eventos',
         [OrdenTrabajoController::class, 'eventos'])
         ->name('procesos.ordenes_trabajo.eventos');
+    Route::get('procesos/ordenes-trabajo/{ordenTrabajo}/pdf',
+        OrdenTrabajoPdfController::class)
+        ->middleware('permission:ordenes_trabajo.view')
+        ->name('procesos.ordenes_trabajo.pdf');
     Route::resource('procesos/ordenes-trabajo', OrdenTrabajoController::class)
         /*
          * El resource genera el placeholder {ordenes_trabajo} a partir del
