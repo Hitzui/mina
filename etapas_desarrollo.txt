@@ -1,6 +1,6 @@
 3. Etapas -> ok
 4. Órdenes de trabajo -> ok. Lista, alta, edición, ficha y calendario.
-5. Procesos de la orden -> CRUD y validaciones de fechas, etapa activa y pesos; proceso finalizado/cancelado bloquea nuevas altas y no se elimina si conserva registros; costos desglosados en NIO y FX exige tipo del día. Gastos generales de orden aún no se distribuyen automáticamente por proceso
+5. Procesos de la orden -> CRUD y validaciones de fechas, etapa activa y pesos; proceso finalizado/cancelado bloquea nuevas altas y no se elimina si conserva registros; costos desglosados en NIO y FX exige tipo del día. Pendiente implementar la distribución automática de gastos generales proporcional al costo directo de cada proceso en NIO; si no existe base de costos directos, el gasto queda sin asignar
 6. Categorías de costos -> ok
 7. Tipos de pago de empleado -> ok
 8. Pagos/tarifas de empleados -> ok
@@ -17,7 +17,7 @@
 19. Precios de oro -> ok. CRUD en modal, carga del mes desde Excel, y el 0 quiere decir "de ese día no se sabe"
 20. Valoraciones de oro -> ok. CRUD en modal, en Producción. El valor no se escribe: lo calcula el servidor. Una valoración por recuperación
 21. Tipos de participación -> ok. CRUD con ficha en Configuración; muestra los acuerdos asociados y no permite borrar tipos usados, incluidos acuerdos dados de baja. Los tipos inactivos se conservan para el historial y se retiran de nuevos acuerdos.
-22. Acuerdos -> falta la pantalla
+22. Acuerdos -> ok. CRUD dentro de la ficha de la orden, con tipo de participación, condición, moneda, observaciones y estado. Cada acuerdo usa una modalidad: porcentajes de cliente y empresa que suman 100%, o tarifa de servicio. Los acuerdos históricos pueden conservar catálogos inactivos al editarse
 23. Liquidaciones -> falta la pantalla
 24. Tipos de ingreso -> ok. CRUD en modal con ficha, en Configuración. Un tipo en uso no se borra: se desactiva
 25. Ingresos -> ok. En la ficha de la orden, encima de los costos. El total no se escribe: lo calcula el servidor. Con la moneda base el tipo de cambio es uno y el equivalente en cordoba tambien se escribe

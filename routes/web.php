@@ -26,6 +26,7 @@ use App\Http\Controllers\Procesos\CobroController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
 use App\Http\Controllers\Procesos\IngresoController;
 use App\Http\Controllers\Procesos\MovimientoCajaController;
+use App\Http\Controllers\Procesos\OrdenesTrabajo\AcuerdoOrdenController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
@@ -655,6 +656,16 @@ Route::middleware('auth')->group(function () {
     | un insumo suelto. Van con proceso_orden_id en NULL, que es para lo que
     | existe esa columna. Los que si son de un proceso se registran en el.
     */
+    Route::resource(
+        'procesos/ordenes-trabajo/{ordenTrabajo}/acuerdos',
+        AcuerdoOrdenController::class
+    )
+        ->only(['index', 'store', 'show', 'update', 'destroy'])
+        ->parameters([
+            'acuerdos' => 'acuerdoOrden',
+        ])
+        ->names('procesos.ordenes_trabajo.acuerdos');
+
     Route::resource(
         'procesos/ordenes-trabajo/{ordenTrabajo}/costos',
         CostosOrdenController::class

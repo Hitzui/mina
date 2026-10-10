@@ -129,6 +129,29 @@
         </div>
     </div>
 
+    <div class="row">
+        <div class="col-12 mt-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-1"><i class="bi bi-file-earmark-text me-2"></i>Acuerdos de participación</h5>
+                            <p class="text-muted mb-0">Condiciones pactadas con el cliente para esta orden.</p>
+                        </div>
+                        @can('acuerdos_orden.create')
+                            <button type="button" class="btn btn-primary" id="btnNuevoAcuerdoOrden">
+                                <i class="bi bi-plus me-1"></i>Nuevo acuerdo
+                            </button>
+                        @endcan
+                    </div>
+                    <div class="table-responsive">
+                        {{ $acuerdosDataTable->html()->table() }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{--
         Ingresos de la orden: el dinero que entra.
 
@@ -335,6 +358,7 @@
         {{ $dataTable->html()->scripts() }}
         {{ $costosDataTable->html()->scripts() }}
         {{ $ingresosDataTable->html()->scripts() }}
+        {{ $acuerdosDataTable->html()->scripts() }}
         @vite(['resources/assets/js/select2/select2-init.js'])
         {{--
             El de los ingresos va antes que el de los costos: los dos montan
@@ -344,11 +368,16 @@
             el otro ya esta, y esa dependencia no existe.
             --}}
         <script src="{{ asset('js/ordenes_trabajo/ingresos.js') }}"></script>
+        <script src="{{ asset('js/ordenes_trabajo/acuerdos.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/costos.js') }}"></script>
     </x-slot>
 
     @include('procesos.ingresos._modal_form')
     @include('procesos.ingresos._modal_show')
+
+    @canany(['acuerdos_orden.create', 'acuerdos_orden.edit'])
+        @include('procesos.ordenes_trabajo.acuerdos._modal_form')
+    @endcanany
 
     @include('procesos.ordenes_trabajo.costos._modal_form')
     @include('procesos.ordenes_trabajo.costos._modal_show')

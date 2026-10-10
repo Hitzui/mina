@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Procesos;
 
+use App\DataTables\AcuerdosOrdenDataTable;
 use App\DataTables\CostosOrdenDataTable;
 use App\DataTables\IngresosDataTable;
 use App\DataTables\OrdenesTrabajoDataTable;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ingreso;
 use App\Models\OrdenesTrabajo;
 use App\Models\TiposIngreso;
+use App\Models\TiposParticipacion;
 use App\Models\UnidadMedida;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -239,7 +241,8 @@ class OrdenTrabajoController extends Controller
         string $id,
         ProcesosOrdenDataTable $dataTable,
         CostosOrdenDataTable $costosDataTable,
-        IngresosDataTable $ingresosDataTable
+        IngresosDataTable $ingresosDataTable,
+        AcuerdosOrdenDataTable $acuerdosDataTable
     ) {
         $title = 'Información de Orden de Trabajo';
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
@@ -256,6 +259,7 @@ class OrdenTrabajoController extends Controller
             $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $costosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $ingresosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+            $acuerdosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
 
             // Los combos del modal de costos generales
             $combos = $this->datosDeCombos();
@@ -275,6 +279,7 @@ class OrdenTrabajoController extends Controller
              * consulta mas por cada vez que se entra a una orden.
              */
             $tiposIngreso = TiposIngreso::paraRegistrar()->get();
+            $tiposParticipacion = TiposParticipacion::paraRegistrar()->get();
 
             /*
              * El total de lo facturado en córdobas. Se calcula aqui y no en el
@@ -309,6 +314,8 @@ class OrdenTrabajoController extends Controller
                     'dataTable',
                     'costosDataTable',
                     'ingresosDataTable',
+                    'acuerdosDataTable',
+                    'tiposParticipacion',
                     'tiposIngreso',
                     'ingresosTotalNio',
                     'ingresosCantidad',
