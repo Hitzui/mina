@@ -291,7 +291,17 @@
          * que en casi todas partes, y parseFloat("3.000,00") devuelve 3.
          */
         function construirOpciones(ingresos) {
-            const $opciones = $('<option value=""></option>').text('Seleccione el ingreso');
+            /*
+             * Las opciones se construyen dentro de un select temporal para que
+             * queden como hermanos. Anidar <option> dentro de otra <option>
+             * convierte el marcador y el primer ingreso en una sola etiqueta:
+             * se ve el texto pegado, pero el select sigue sin un ingreso elegido.
+             */
+            const $contenedor = $('<select></select>');
+
+            $('<option value=""></option>')
+                .text('Seleccione el ingreso')
+                .appendTo($contenedor);
 
             ingresos.forEach(function (ingreso) {
                 const texto = ingreso.tipo + ' — ' + ingreso.codigo_orden + ' — ' + ingreso.fecha
@@ -305,10 +315,10 @@
                     .attr('data-cobrado', ingreso.cobrado)
                     .attr('data-texto', texto)
                     .text(texto)
-                    .appendTo($opciones);
+                    .appendTo($contenedor);
             });
 
-            return $opciones;
+            return $contenedor.children('option');
         }
 
         /**
