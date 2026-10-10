@@ -3,10 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Models\Cajas;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -21,6 +23,7 @@ class CrearAdminCommand extends Command
                             {--name= : Nombre del administrador}
                             {--email= : Correo electronico}
                             {--password= : Contrasena (si se omite se genera una segura)}
+                            {--caja-id= : ID de la caja activa asignada al usuario}
                             {--reset : Cambiar la contrasena del administrador existente}
                             {--force : Crear un segundo usuario aunque ya exista uno}';
 
@@ -29,7 +32,7 @@ class CrearAdminCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Crea el usuario administrador del sistema (solo uno)';
+    protected $description = 'Crea o actualiza un usuario administrador asignado a una caja';
 
     /**
      * Execute the console command.
@@ -40,16 +43,38 @@ class CrearAdminCommand extends Command
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $existente = User::query()->first();
+        if ($this->option('reset') && $this->option('force')) {
+            $this->error('Use --reset para modificar una cuenta existente o --force para crear otra.');
 
-        if ($existente && ! $this->option('reset') && ! $this->option('force')) {
+            return self::FAILURE;
+        }
+
+        $existente = null;
+        if ($this->option('reset')) {
+            $existente = $this->option('email')
+                ? User::query()->where('email', $this->option('email'))->first()
+                : User::query()->first();
+
+            if (! $existente) {
+                $this->error('No se encontró la cuenta que indicó para actualizar.');
+
+                return self::FAILURE;
+            }
+        } elseif ($this->option('force')) {
+            if (! $this->option('email')) {
+                $this->error('Indique --email para crear el usuario adicional.');
+
+                return self::FAILURE;
+            }
+        } elseif (User::query()->exists()) {
+            $existente = User::query()->first();
             $this->error('Ya existe un usuario en el sistema:');
             $this->line('  ' . $existente->email);
             $this->newLine();
             $this->comment('Para cambiarle la contrasena usa:');
             $this->line('  php artisan mina:crear-admin --reset');
             $this->comment('Para crear un usuario adicional sin tocar el anterior:');
-            $this->line('  php artisan mina:crear-admin --force --email=otro@correo.com');
+            $this->line('  php artisan mina:crear-admin --force --email=otro@correo.com --caja-id=ID');
             return self::FAILURE;
         }
 
@@ -63,7 +88,7 @@ class CrearAdminCommand extends Command
 
         $validador = Validator::make($campos, [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($existente?->id)],
             'password' => ['required', 'string', Password::min(10)],
         ]);
 
@@ -75,9 +100,24 @@ class CrearAdminCommand extends Command
             return self::FAILURE;
         }
 
+        $caja = null;
+        if ($this->option('caja-id')) {
+            $caja = Cajas::paraRegistrar()->find((int) $this->option('caja-id'));
+
+            if (! $caja) {
+                $this->error('La caja indicada no existe o está desactivada.');
+
+                return self::FAILURE;
+            }
+        } elseif (! $existente) {
+            $this->error('Al crear un usuario, indique --caja-id con el ID de una caja activa.');
+
+            return self::FAILURE;
+        }
+
         if ($existente) {
             $objetivo = $existente;
-            $accion = $this->option('force') ? 'actualizado' : 'contrasena actualizada';
+            $accion = 'actualizado';
         } else {
             $objetivo = new User();
             $accion = 'creado';
@@ -86,6 +126,9 @@ class CrearAdminCommand extends Command
         $objetivo->name = $campos['name'];
         $objetivo->email = $campos['email'];
         $objetivo->password = Hash::make($password);
+        if ($caja) {
+            $objetivo->caja_id = $caja->id;
+        }
         $objetivo->save();
 
         // El registro publico esta desactivado, asi que el rol se asigna aqui.
@@ -96,6 +139,7 @@ class CrearAdminCommand extends Command
         $this->line('  Correo     : ' . $objetivo->email);
         $this->line('  Contrasena : ' . $password);
         $this->line('  Rol        : admin (' . $objetivo->getRoleNames()->implode(', ') . ')');
+        $this->line('  Caja       : ' . ($objetivo->caja?->nombre ?? 'sin asignar'));
         $this->newLine();
 
         if (! $this->option('password')) {

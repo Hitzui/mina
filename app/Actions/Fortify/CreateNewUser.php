@@ -30,12 +30,18 @@ class CreateNewUser implements CreatesNewUsers
                 Rule::unique(User::class),
             ],
             'password' => $this->passwordRules(),
+            'caja_id' => [
+                'required',
+                'integer',
+                Rule::exists('cajas', 'id')->where(fn($query) => $query->where('estado', true)),
+            ],
         ])->validate();
 
         return User::create([
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => Hash::make($input['password']),
+            'caja_id' => $input['caja_id'],
         ]);
     }
 }

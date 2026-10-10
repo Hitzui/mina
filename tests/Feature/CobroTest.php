@@ -64,6 +64,7 @@ use App\Models\DetalleCobro;
 use App\Models\Ingreso;
 use App\Models\Moneda;
 use App\Models\MovimientoCaja;
+use App\DataTables\MovimientosCajaDataTable;
 use App\Models\OrdenesTrabajo;
 use App\Models\TiposIngreso;
 use App\Models\User;
@@ -130,6 +131,7 @@ class CobroTest extends TestCase
             'email' => $nombre . '@taller.test',
             'password' => Hash::make('prueba1234'),
             'email_verified_at' => now(),
+            'caja_id' => $this->cajaActiva()->id,
         ]);
 
         $this->usuario->syncPermissions([
@@ -1963,10 +1965,12 @@ class CobroTest extends TestCase
     {
         $cajaOrigen = Caja::create(['nombre' => 'Caja origen test ' . uniqid(), 'estado' => true]);
         $cajaDestino = Caja::create(['nombre' => 'Caja destino test ' . uniqid(), 'estado' => true]);
+        $usuario = $this->usuario();
+        $usuario->forceFill(['caja_id' => $cajaOrigen->id])->save();
         $moneda = $this->monedaActiva();
         $metodo = $this->metodoActivo();
 
-        $this->actingAs($this->usuario())
+        $this->actingAs($usuario)
             ->get(route('procesos.movimientos_caja.create'))
             ->assertOk()
             ->assertSee('>Ingreso<', false)
@@ -2013,9 +2017,20 @@ class CobroTest extends TestCase
         $this->assertNotSame($transferencias[0]->tipo, $transferencias[1]->tipo);
         $this->assertSame($transferencias[0]->transferencia_id, $transferencias[1]->id);
 
+        $cajasVisibles = app(MovimientosCajaDataTable::class)
+            ->query(new MovimientoCaja())
+            ->get()
+            ->pluck('caja_id')
+            ->unique()
+            ->values()
+            ->all();
+        $this->assertSame([(int) $cajaOrigen->id], array_map('intval', $cajasVisibles));
+
         $this->get(route('procesos.movimientos_caja.index'))
             ->assertOk()
             ->assertSee('Resumen de saldos por caja y moneda')
+            ->assertSee($cajaOrigen->nombre)
+            ->assertDontSee($cajaDestino->nombre)
             ->assertSee('Saldo inicial')
             ->assertSee('Entradas')
             ->assertSee('Salidas')
@@ -2343,12 +2358,13 @@ class CobroTest extends TestCase
      */
     public function test_el_listado_avisa_si_no_hay_cajas_activas()
     {
+        $usuario = $this->usuario();
         $cajas = Caja::query()->where('estado', true)->pluck('id')->all();
 
         Caja::query()->whereIn('id', $cajas)->update(['estado' => false]);
 
         try {
-            $this->actingAs($this->usuario())
+            $this->actingAs($usuario)
                 ->get(route('procesos.cobros.index'))
                 ->assertOk()
                 ->assertSee('No hay ninguna caja activa');

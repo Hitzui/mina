@@ -35,6 +35,7 @@ class LoginTest extends TestCase
             'name' => 'Administrador',
             'email' => 'admin-' . uniqid() . '@test.local',
             'password' => Hash::make('contrasena-de-prueba'),
+            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $user->syncRoles(['admin']);
@@ -67,7 +68,7 @@ class LoginTest extends TestCase
         $r->assertSee('name="_token"', false);
         $r->assertSee('name="email"', false);
         $r->assertSee('name="password"', false);
-        $r->assertSee('name="caja_id"', false);
+        $r->assertDontSee('name="caja_id"', false);
         $r->assertSee('type="password"', false);
         $r->assertSee('name="remember"', false);
 
@@ -97,16 +98,16 @@ class LoginTest extends TestCase
 
     public function test_el_administrador_puede_iniciar_sesion_y_entrar_al_panel(): void
     {
-        $admin = $this->crearAdmin();
         $cajaElegida = Cajas::create([
             'nombre' => 'Caja elegida ' . uniqid(),
             'estado' => true,
         ]);
+        $admin = $this->crearAdmin();
+        $admin->forceFill(['caja_id' => $cajaElegida->id])->save();
 
         $response = $this->post('/login', [
             'email' => $admin->email,
             'password' => 'contrasena-de-prueba',
-            'caja_id' => $cajaElegida->id,
         ]);
 
         $response->assertRedirect('/');
@@ -130,7 +131,6 @@ class LoginTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'esta-es-la-equivocada',
-            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $this->assertGuest();
@@ -146,7 +146,6 @@ class LoginTest extends TestCase
         $this->from('/login')->post('/login', [
             'email' => $admin->email,
             'password' => 'incorrecta',
-            'caja_id' => $this->cajaActivaId(),
         ])->assertRedirect('/login');
 
         // Al volver al formulario, el correo debe seguir puesto
@@ -162,7 +161,6 @@ class LoginTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'contrasena-de-prueba',
-            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $this->assertAuthenticated();
@@ -206,13 +204,53 @@ class LoginTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'contrasena-de-prueba',
-            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $r = $this->get('/admin/clientes');
 
         $r->assertOk();
         $r->assertSee('Administrador');
+        $r->assertSee(session('caja_seleccionada_nombre'));
         $r->assertSee('Cerrar sesión');
+    }
+
+    public function test_un_usuario_sin_caja_asignada_no_puede_iniciar_sesion(): void
+    {
+        $usuario = User::create([
+            'name' => 'Sin caja',
+            'email' => 'sin-caja-' . uniqid() . '@test.local',
+            'password' => Hash::make('contrasena-de-prueba'),
+        ]);
+        $usuario->syncRoles(['admin']);
+
+        $this->post('/login', [
+            'email' => $usuario->email,
+            'password' => 'contrasena-de-prueba',
+        ])->assertRedirect('/login')->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
+    public function test_un_usuario_con_caja_inactiva_no_puede_iniciar_sesion(): void
+    {
+        $caja = Cajas::create([
+            'nombre' => 'Caja inactiva de login ' . uniqid(),
+            'estado' => true,
+        ]);
+        $usuario = User::create([
+            'name' => 'Caja inactiva',
+            'email' => 'caja-inactiva-' . uniqid() . '@test.local',
+            'password' => Hash::make('contrasena-de-prueba'),
+            'caja_id' => $caja->id,
+        ]);
+        $usuario->syncRoles(['admin']);
+        $caja->update(['estado' => false]);
+
+        $this->post('/login', [
+            'email' => $usuario->email,
+            'password' => 'contrasena-de-prueba',
+        ])->assertRedirect('/login')->assertSessionHasErrors('email');
+
+        $this->assertGuest();
     }
 }

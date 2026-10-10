@@ -29,6 +29,7 @@ class MovimientoCajaController extends Controller
         $saldos = MovimientoCaja::query()
             ->join('cajas', 'cajas.id', '=', 'movimientos_caja.caja_id')
             ->join('monedas', 'monedas.id', '=', 'movimientos_caja.moneda_id')
+            ->where('movimientos_caja.caja_id', auth()->user()?->caja_id ?? 0)
             ->groupBy('cajas.id', 'cajas.nombre', 'monedas.id', 'monedas.codigo')
             ->selectRaw('cajas.nombre AS caja, monedas.codigo AS moneda')
             ->selectRaw('ROUND(SUM(CASE WHEN movimientos_caja.origen = ? THEN movimientos_caja.monto ELSE 0 END), 2) AS saldo_inicial', [MovimientoCaja::ORIGEN_SALDO_INICIAL])

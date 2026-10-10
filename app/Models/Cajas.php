@@ -23,12 +23,12 @@ use Illuminate\Support\Facades\DB;
  * crea cuando el taller tiene la caja, que es un hecho —se abre la caja chica
  * un dia u otro— y no una opinion sobre como se lleva la contabilidad.
  *
- * CUANDO SE USE EN LOS COBROS.
+ * ASIGNACION A USUARIOS Y USO EN LOS COBROS.
  *
- * La tabla cobros tiene la caja_id, y esa pantalla todavia no existe. Cuando
- * exista, la caja se elegira de las activas, con el mismo paraRegistrar() que
- * esta usando el catalogo de tipos de ingreso: el filtro vive aqui y no en el
- * desplegable de la pantalla, para que ningun camino lo esquive.
+ * Cada usuario tiene una caja de trabajo. Al iniciar sesion se toma la caja
+ * asignada al usuario y el libro de movimientos se limita a esa caja. Los cobros
+ * nuevos siguen usando paraRegistrar() y la caja asignada queda como unica
+ * opcion de captura.
  *
  * Y COMO EN EL RESTO DEL SISTEMA: un nombre puede repetirse.
  *
@@ -63,7 +63,7 @@ class Cajas extends BaseCaja
 	}
 
 	/**
-	 * Los cobros, movimientos y cierres que conservan la clave de esta caja.
+	 * Los cobros, movimientos, cierres y usuarios que conservan la clave de esta caja.
 	 *
 	 * Se cuentan TODAS las filas de cobros, incluidas las dadas de baja, y no
 	 * solo las vivas, porque la clave foranea sigue escribiendo el numero en las
@@ -106,6 +106,7 @@ class Cajas extends BaseCaja
 		foreach ([
 			'movimientos_caja' => 'movimiento',
 			'cierres_caja' => 'cierre',
+			'users' => 'usuario',
 		] as $tabla => $donde) {
 			try {
 				$cuantas = DB::table($tabla)->where('caja_id', $this->id)->count();
@@ -138,6 +139,11 @@ class Cajas extends BaseCaja
 	public function sePuedeBorrar(): bool
 	{
 		return $this->usos() === [];
+	}
+
+	public function usuarios()
+	{
+		return $this->hasMany(User::class, 'caja_id');
 	}
 
 	/**

@@ -452,6 +452,24 @@ class CajaTest extends TestCase
         $this->assertSoftDeleted('cajas', ['id' => $caja->id]);
     }
 
+    public function test_una_caja_asignada_a_un_usuario_no_se_borra(): void
+    {
+        $caja = $this->caja();
+        $usuario = User::create([
+            'name' => 'Usuario con caja',
+            'email' => 'usuario-caja-' . uniqid() . '@taller.test',
+            'password' => Hash::make('prueba1234'),
+            'caja_id' => $caja->id,
+        ]);
+
+        $this->deleteJson("/configuracion/cajas/{$caja->id}")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(Cajas::NOMBRE);
+
+        $this->assertDatabaseHas('cajas', ['id' => $caja->id, 'deleted_at' => null]);
+        $this->assertDatabaseHas('users', ['id' => $usuario->id, 'caja_id' => $caja->id]);
+    }
+
     public function test_una_caja_con_cobros_no_se_borra(): void
     {
         $caja = $this->caja();

@@ -104,32 +104,6 @@
                                     @enderror
                                 </div>
 
-                                {{-- Caja de trabajo que quedará activa para esta sesión. --}}
-                                <div class="mb-3">
-                                    <label for="caja_id" class="form-label">
-                                        Caja que va a utilizar <span class="text-danger">*</span>
-                                    </label>
-                                    <select
-                                        id="caja_id"
-                                        name="caja_id"
-                                        class="form-select @error('caja_id') is-invalid @enderror"
-                                        required
-                                    >
-                                        <option value="">Seleccione una caja</option>
-                                        @foreach ($cajas as $caja)
-                                            <option value="{{ $caja->id }}" @selected(old('caja_id') == $caja->id)>
-                                                {{ $caja->nombre }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('caja_id')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    @if ($cajas->isEmpty())
-                                        <div class="form-text text-danger">No hay cajas activas disponibles para iniciar sesión.</div>
-                                    @endif
-                                </div>
-
                                 {{-- Recordarme --}}
                                 <div class="mb-4">
                                     <div class="form-check form-check-primary form-check-inline">

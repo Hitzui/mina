@@ -33,6 +33,7 @@ class MovimientosCajaDataTable extends DataTable
     public function query(MovimientoCaja $model): QueryBuilder
     {
         return $model->newQuery()
+            ->where('caja_id', auth()->user()?->caja_id ?? 0)
             ->with(['caja', 'metodoPago', 'moneda'])
             ->orderByDesc('fecha')->orderByDesc('id');
     }
