@@ -7,6 +7,24 @@
 
         const modal = new bootstrap.Modal(document.getElementById('modalAcuerdoOrden'));
 
+        function aviso(titulo, texto, icono) {
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                return window.Swal.fire({title: titulo, text: texto, icon: icono});
+            }
+
+            window.alert(titulo + (texto ? '\n' + texto : ''));
+        }
+
+        function confirmar(config) {
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                return window.Swal.fire(config).then(function (resultado) {
+                    return !!resultado.isConfirmed;
+                });
+            }
+
+            return Promise.resolve(window.confirm(config.title + '\n' + config.text));
+        }
+
         function recargar() {
             if ($.fn.dataTable.isDataTable('#acuerdos-orden-table')) {
                 $('#acuerdos-orden-table').DataTable().ajax.reload();
@@ -69,7 +87,7 @@
                 $form.append($('<input>', {type: 'hidden', name: '_method', value: 'PUT'}));
                 modal.show();
             }).fail(function (xhr) {
-                Swal.fire({title: 'No se pudo abrir el acuerdo', text: xhr.responseJSON?.message || 'Intente de nuevo.', icon: 'error'});
+                aviso('No se pudo abrir el acuerdo', xhr.responseJSON?.message || 'Intente de nuevo.', 'error');
             });
         }
 
@@ -125,17 +143,17 @@
 
         $(document).on('click', '.btn-borrar-acuerdo-orden', function () {
             const $button = $(this);
-            Swal.fire({
+            confirmar({
                 title: '¿Eliminar este acuerdo?',
                 text: 'Se eliminará el acuerdo «' + ($button.data('tipo') || '') + '» de esta orden.',
                 icon: 'warning', showCancelButton: true,
                 confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar',
             }).then(function (result) {
-                if (!result.isConfirmed) return;
+                if (!result) return;
                 $.ajax({url: $button.data('url'), method: 'POST', data: {
                     _method: 'DELETE', _token: $('meta[name="csrf-token"]').attr('content'),
                 }}).done(recargar).fail(function (xhr) {
-                    Swal.fire({title: 'No se pudo eliminar', text: xhr.responseJSON?.message || 'Intente de nuevo.', icon: 'error'});
+                    aviso('No se pudo eliminar', xhr.responseJSON?.message || 'Intente de nuevo.', 'error');
                 });
             });
         });
