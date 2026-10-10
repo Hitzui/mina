@@ -33,6 +33,7 @@ class RolesYPermisosSeeder extends Seeder
         'compras',
         'trabajos_empleado',
         'ingresos',
+        'cobros',
         'tipos_cambio',
         'configuracion.monedas',
         'configuracion.precios_oro',
@@ -123,6 +124,21 @@ class RolesYPermisosSeeder extends Seeder
              * categorias y cambiarlo despues ya no reordena lo que esta escrito.
              */
             'ingresos.view', 'ingresos.create', 'ingresos.edit',
+            /*
+             * Y los cobros, que son la otra cara de los ingresos y por la misma
+             * razon: quien esta en el taller es quien sabe cuanto le trajeron de
+             * dinero, y cuanto de lo que ya le habian facturado. Si el ingreso lo carga uno y el cobro otro, el saldo que sale
+             * de los dos no lo sabe nadie sin revisar las dos pantallas, y es
+             * justo el numero que hay que mirar.
+             *
+             * Sin borrar, como los ingresos: un cobro es un papel que respalda
+             * dinero recibido, y borrar un papel de ese tipo es decision de
+             * administracion. Cambiar el estado —pasarlo a Finalizada cuando llega
+             * el dinero, o a Cancelada cuando se equivocaron de cliente— si lo
+             * lleva, porque eso es parte de registrar el cobro y no de decidir que
+             * se hizo mal.
+             */
+            'cobros.view', 'cobros.create', 'cobros.edit',
             // El almacen lo lleva administracion: el material entra por ahi y
             // el catalogo es un dato maestro, no trabajo de campo
             'movimientos_inventario.view', 'movimientos_inventario.create',

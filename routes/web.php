@@ -18,6 +18,7 @@ use App\Http\Controllers\Inventario\MaterialesController;
 use App\Http\Controllers\Inventario\ProductoController;
 use App\Http\Controllers\Inventario\ProveedorController;
 use App\Http\Controllers\Configuracion\TipoCambioController;
+use App\Http\Controllers\Procesos\CobroController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
 use App\Http\Controllers\Procesos\IngresoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
@@ -710,6 +711,45 @@ Route::delete(
     'procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/materiales/{movimiento}',
     [MaterialesProcesoController::class, 'destroy']
 )->name('procesos.ordenes_trabajo.procesos.materiales.destroy');
+
+
+/*
+| Los cobros: el dinero que el cliente entrega.
+|
+| Van aqui, al lado de las ordenes y no dentro de ellas, por una razon que sale
+| del propio esquema: cobros NO tiene columna orden_trabajo_id. Un cobro es por
+| cliente —"hoy me entrega 1.000, de lo que me debe"— y no de una orden. Meterlo
+| debajo de la orden habria obligado a elegir una orden para cobrar, que es
+| exactamente lo que no se puede hacer cuando el cliente paga a cuenta.
+|
+| Y sus lineas apuntan a ingresos, que si son de una orden: por eso el desglose
+| si lleva la orden de cada ingreso, aunque el cobro entero no la lleve.
+|
+| La ruta de los ingresos por cliente va ANTES del resource, y no por costumbre
+| sino porque es POST y el resource tambien genera un POST para {cobro}: sin
+| esto, "procesos/cobros/ingresos-cliente" se podria leer como un cobro con id
+| "ingresos-cliente", y la peticion devolveria la ficha de un cobro que no
+| existe en vez de la lista de ingresos.
+*/
+Route::post(
+    'procesos/cobros/ingresos-cliente',
+    [CobroController::class, 'ingresosDeCliente']
+)->name('procesos.cobros.ingresos-cliente');
+
+Route::resource(
+    'procesos/cobros',
+    CobroController::class
+)
+    /*
+     * El resource genera el placeholder {cobros} a partir del nombre en plural,
+     * pero destroy() recibe $cobro. Sin esto los nombres no coinciden y Laravel NO
+     * hace el route model binding: inyecta un modelo vacio, delete() no borra nada
+     * y aun asi se muestra "Cobro eliminado correctamente".
+     */
+    ->parameters([
+        'cobros' => 'cobro',
+    ])
+    ->names('procesos.cobros');
 
 
 }); // fin del grupo middleware('auth')
