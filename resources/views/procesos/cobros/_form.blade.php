@@ -325,13 +325,23 @@
                 <div class="alert alert-danger d-none" id="errorLineas"></div>
 
                 <div class="table-responsive">
-                    <table class="table align-middle" id="tablaLineas">
+                    {{--
+                        El ancho fijo impide que una etiqueta larga del Select2
+                        agrande la primera columna y comprima los campos editables.
+                        En pantallas estrechas la tabla conserva un ancho legible y
+                        el contenedor permite desplazarse horizontalmente.
+                    --}}
+                    <table
+                        class="table align-middle"
+                        id="tablaLineas"
+                        style="table-layout: fixed; min-width: 760px;"
+                    >
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 34%">Ingreso</th>
-                                <th style="width: 26%">De un total de</th>
-                                <th style="width: 20%">Importe de esta línea</th>
-                                <th style="width: 17%">Nota</th>
+                                <th style="width: 44%">Ingreso</th>
+                                <th style="width: 20%">De un total de</th>
+                                <th style="width: 18%">Importe de esta línea</th>
+                                <th style="width: 15%">Nota</th>
                                 <th style="width: 3%"></th>
                             </tr>
                         </thead>

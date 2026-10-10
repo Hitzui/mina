@@ -34,6 +34,15 @@
     line-height: calc(1.5em + 0.75rem);
 }
 
+/* En el reparto de cobros el selector comparte fila con otros campos. */
+#tablaLineas .select2-selection--single .select2-selection__rendered {
+    min-width: 0;
+    overflow: hidden;
+    padding-right: 1.25rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .select2-container .select2-selection--single .select2-selection__placeholder {
     color: var(--bs-secondary-color, #6c757d);
 }

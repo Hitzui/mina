@@ -1778,7 +1778,9 @@ class CobroTest extends TestCase
 
         $this->actingAs($usuario)
             ->get(route('procesos.cobros.edit', $cobro))
-            ->assertSee('btnAgregarLinea', false);
+            ->assertSee('btnAgregarLinea', false)
+            ->assertSee('style="table-layout: fixed; min-width: 760px;"', false)
+            ->assertSee('style="width: 44%"', false);
 
         $this->actingAs($usuario)
             ->get(route('procesos.cobros.show', $cobro))
