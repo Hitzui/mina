@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Procesos;
 
 use App\Http\Controllers\Controller;
+use App\Models\Etapa;
 use App\Models\OrdenesTrabajo;
-use App\Models\ProcesosOrden;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrdenTrabajoPdfController extends Controller
@@ -13,21 +13,16 @@ class OrdenTrabajoPdfController extends Controller
     {
         $ordenTrabajo->load('cliente');
 
-        $procesos = ProcesosOrden::query()
-            ->with('etapa')
-            ->where(ProcesosOrden::ORDEN_TRABAJO_ID, $ordenTrabajo->getKey())
+        $etapas = Etapa::query()
+            ->orderBy(Etapa::ORDEN)
+            ->orderBy(Etapa::NOMBRE)
             ->get()
-            ->sortBy(fn ($proceso) => sprintf(
-                '%010d-%010d',
-                $proceso->etapa?->orden ?? PHP_INT_MAX,
-                $proceso->id
-            ))
             ->values();
 
         return Pdf::loadView('procesos.ordenes_trabajo.pdf', [
             'ordenTrabajo' => $ordenTrabajo,
-            'procesos' => $procesos,
-            'renglonesEnBlanco' => $procesos->isEmpty() ? 8 : 5,
+            'etapas' => $etapas,
+            'renglonesEnBlanco' => $etapas->isEmpty() ? 8 : 5,
         ])
             ->setPaper('letter', 'portrait')
             ->download('orden-trabajo-'.$ordenTrabajo->codigo.'.pdf');

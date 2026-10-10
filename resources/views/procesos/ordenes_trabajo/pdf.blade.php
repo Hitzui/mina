@@ -71,8 +71,8 @@
         </div>
     @endif
 
-    <h2>Procesos acordados</h2>
-    <p class="nota">Revise los procesos que se realizarán. Tache cualquier proceso que no corresponda y confirme la lista antes de firmar.</p>
+    <h2>Procesos disponibles en el sistema</h2>
+    <p class="nota">Marque los procesos que se realizarán, tache los que no correspondan y use los renglones adicionales si hace falta agregar otro proceso.</p>
 
     <table class="procesos">
         <thead>
@@ -84,18 +84,18 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($procesos as $proceso)
+            @foreach($etapas as $etapa)
                 <tr>
                     <td class="check">□</td>
                     <td class="numero">{{ $loop->iteration }}</td>
-                    <td><strong>{{ $proceso->etapa?->nombre ?? 'Etapa no disponible' }}</strong><br>{{ $proceso->codigo }}</td>
-                    <td>{{ $proceso->observaciones }}</td>
+                    <td><strong>{{ $etapa->nombre }}</strong>@unless($etapa->estado) <span class="muted">(inactivo)</span>@endunless</td>
+                    <td>{{ $etapa->descripcion }}</td>
                 </tr>
             @endforeach
             @for($i = 1; $i <= $renglonesEnBlanco; $i++)
                 <tr>
                     <td class="check">□</td>
-                    <td class="numero">{{ $procesos->count() + $i }}</td>
+                <td class="numero">{{ $etapas->count() + $i }}</td>
                     <td></td>
                     <td></td>
                 </tr>
@@ -103,7 +103,7 @@
         </tbody>
     </table>
 
-    <p class="nota">La firma confirma que el cliente revisó y autorizó los procesos indicados en esta orden. Los renglones completados a mano se ingresarán posteriormente al sistema.</p>
+    <p class="nota">La firma confirma que el cliente revisó y autorizó los procesos marcados. Los procesos agregados a mano se ingresarán posteriormente al sistema.</p>
 
     <table class="firma">
         <tr>
