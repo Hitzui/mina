@@ -46,6 +46,7 @@
         const $campoFecha = $('#ingresoFecha');
         const $moneda = $('#ingresoMoneda');
         const $cantidad = $('#ingresoCantidad');
+        const $unidad = $('#ingresoUnidad');
         const $unitario = $('#ingresoUnitario');
         const $total = $('#ingresoTotal');
         const $totalMoneda = $('#ingresoTotalMoneda');
@@ -249,6 +250,7 @@
 
             fijar($tipo, '');
             fijar($moneda, $moneda.find('option[data-base="1"]').val() ?? '');
+            fijar($unidad, '');
 
             $cantidad.val('1');
             $unitario.val('0.00');
@@ -380,7 +382,7 @@
 
                     $('#ingresoDescripcion').val(r.descripcion ?? '');
                     $cantidad.val(r.cantidad ?? '');
-                    $('#ingresoUnidad').val(r.unidad_medida ?? '');
+                    $('#ingresoUnidad').val(r.unidad_medida_id ?? '').trigger('change');
                     $unitario.val(r.precio_unitario ?? '');
                     $('#ingresoObservaciones').val(r.observaciones ?? '');
 

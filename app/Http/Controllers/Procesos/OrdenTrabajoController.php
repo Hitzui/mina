@@ -3,19 +3,16 @@
 namespace App\Http\Controllers\Procesos;
 
 use App\DataTables\CostosOrdenDataTable;
-use App\DataTables\EmpleadosSelectorDataTable;
 use App\DataTables\IngresosDataTable;
 use App\DataTables\OrdenesTrabajoDataTable;
 use App\DataTables\ProcesosOrdenDataTable;
-use App\DataTables\TrabajosEmpleadosDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\Ingreso;
 use App\Models\OrdenesTrabajo;
-use App\Models\ProcesosOrden;
 use App\Models\TiposIngreso;
-use App\Models\TiposPagoEmpleado;
+use App\Models\UnidadMedida;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -49,7 +46,7 @@ class OrdenTrabajoController extends Controller
      */
     public function index(OrdenesTrabajoDataTable $dataTable)
     {
-        $title = "Órdenes de Trabajo";
+        $title = 'Órdenes de Trabajo';
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -64,7 +61,7 @@ class OrdenTrabajoController extends Controller
 
     public function calendario()
     {
-        $title = "Calendario de Órdenes de Trabajo";
+        $title = 'Calendario de Órdenes de Trabajo';
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -145,7 +142,7 @@ class OrdenTrabajoController extends Controller
                     'estado_color' => $color,
                     'fecha' => $orden->fecha?->format('d/m/Y') ?? '—',
                     'peso' => number_format($orden->peso_mineral, 2, '.', ',')
-                        . ' ' . $orden->unidad_peso,
+                        .' '.$orden->unidad_peso,
                     'descripcion' => $orden->descripcion ?: '',
                     'procesos' => (int) $orden->procesos_ordenes_count,
                     'url' => route('procesos.ordenes_trabajo.show', $orden),
@@ -161,20 +158,22 @@ class OrdenTrabajoController extends Controller
      */
     public function create()
     {
-        $title = "Ingresar Orden de Trabajo";
+        $title = 'Ingresar Orden de Trabajo';
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
             [
                 'label' => 'Órdenes de Trabajo',
-                'url' => route('procesos.ordenes_trabajo.index')
+                'url' => route('procesos.ordenes_trabajo.index'),
             ],
             ['label' => 'Ingresar Orden de Trabajo'],
         ];
 
+        $unidadesMedida = UnidadMedida::where('estado', true)->orderBy('nombre')->get();
+
         return view(
             'procesos.ordenes_trabajo.create',
-            compact('title', 'breadcrumbs')
+            compact('title', 'breadcrumbs', 'unidadesMedida')
         );
     }
 
@@ -183,6 +182,7 @@ class OrdenTrabajoController extends Controller
      */
     public function store(Request $request)
     {
+        $this->normalizarUnidadPeso($request);
         $validated = $request->validate([
             'cliente_id' => [
                 'required',
@@ -207,12 +207,15 @@ class OrdenTrabajoController extends Controller
                 'gt:0',
             ],
 
-            'unidad_peso' => [
+            'unidad_peso_id' => [
                 'required',
-                'string',
-                'in:toneladas,kg,gramos',
+                'integer',
+                'exists:unidades_medida,id,estado,1',
             ],
         ]);
+
+        $unidad = UnidadMedida::findOrFail($validated['unidad_peso_id']);
+        $validated['unidad_peso'] = $unidad->nombre;
 
         $validated['codigo'] = $this->generarCodigo();
         $validated['estado'] = 1;
@@ -233,19 +236,18 @@ class OrdenTrabajoController extends Controller
      * Display the specified resource.
      */
     public function show(
-        string                     $id,
-        ProcesosOrdenDataTable     $dataTable,
-        CostosOrdenDataTable       $costosDataTable,
-        IngresosDataTable          $ingresosDataTable
-    )
-    {
-        $title = "Información de Orden de Trabajo";
+        string $id,
+        ProcesosOrdenDataTable $dataTable,
+        CostosOrdenDataTable $costosDataTable,
+        IngresosDataTable $ingresosDataTable
+    ) {
+        $title = 'Información de Orden de Trabajo';
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
             [
                 'label' => 'Órdenes de Trabajo',
-                'url' => route('procesos.ordenes_trabajo.index')
+                'url' => route('procesos.ordenes_trabajo.index'),
             ],
             ['label' => 'Información de Orden de Trabajo'],
         ];
@@ -296,6 +298,7 @@ class OrdenTrabajoController extends Controller
 
             // Un ingreso se fecha el dia en que se registra, no un dia antes
             $fechaPorDefecto = now()->format('Y-m-d');
+            $unidadesMedida = UnidadMedida::where('estado', true)->orderBy('nombre')->get();
 
             return view(
                 'procesos.ordenes_trabajo.show',
@@ -312,7 +315,8 @@ class OrdenTrabajoController extends Controller
                     'ingresosSinEquivalente',
                     'categorias',
                     'monedas',
-                    'fechaPorDefecto'
+                    'fechaPorDefecto',
+                    'unidadesMedida'
                 )
             );
         } else {
@@ -326,28 +330,30 @@ class OrdenTrabajoController extends Controller
      */
     public function edit(string $id)
     {
-        $title = "Editar Orden de Trabajo";
+        $title = 'Editar Orden de Trabajo';
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
             [
                 'label' => 'Órdenes de Trabajo',
-                'url' => route('procesos.ordenes_trabajo.index')
+                'url' => route('procesos.ordenes_trabajo.index'),
             ],
             [
                 'label' => 'Información de Orden de Trabajo',
                 'url' => route(
                     'procesos.ordenes_trabajo.show',
                     $ordenTrabajo
-                )
+                ),
             ],
             ['label' => 'Editar Orden de Trabajo'],
         ];
 
         if ($ordenTrabajo) {
+            $unidadesMedida = UnidadMedida::where('estado', true)->orderBy('nombre')->get();
+
             return view(
                 'procesos.ordenes_trabajo.edit',
-                compact('title', 'breadcrumbs', 'ordenTrabajo')
+                compact('title', 'breadcrumbs', 'ordenTrabajo', 'unidadesMedida')
             );
         } else {
             return redirect()->route('procesos.ordenes_trabajo.index');
@@ -360,6 +366,7 @@ class OrdenTrabajoController extends Controller
     public function update(Request $request, string $id)
     {
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
+        $this->normalizarUnidadPeso($request);
         $tieneOperaciones = $ordenTrabajo
             ->procesos_ordenes()
             ->exists();
@@ -378,6 +385,8 @@ class OrdenTrabajoController extends Controller
                     'max:1000',
                 ],
             ]);
+            $validated['unidad_peso'] = $ordenTrabajo->unidad_peso;
+            $validated['unidad_peso_id'] = $ordenTrabajo->unidad_peso_id;
 
         } else {
 
@@ -405,12 +414,14 @@ class OrdenTrabajoController extends Controller
                     'gt:0',
                 ],
 
-                'unidad_peso' => [
+                'unidad_peso_id' => [
                     'required',
-                    'string',
-                    'in:toneladas,kg,gramos',
+                    'integer',
+                    'exists:unidades_medida,id,estado,1',
                 ],
             ]);
+            $unidad = UnidadMedida::findOrFail($validated['unidad_peso_id']);
+            $validated['unidad_peso'] = $unidad->nombre;
         }
 
         $ordenTrabajo->update($validated);
@@ -423,6 +434,13 @@ class OrdenTrabajoController extends Controller
             'procesos.ordenes_trabajo.show',
             $ordenTrabajo->id
         );
+    }
+
+    private function normalizarUnidadPeso(Request $request): void
+    {
+        if (! $request->filled('unidad_peso_id') && $request->filled('unidad_peso')) {
+            $request->merge(['unidad_peso_id' => UnidadMedida::where('nombre', trim($request->input('unidad_peso')))->value('id')]);
+        }
     }
 
     /**
@@ -474,7 +492,7 @@ class OrdenTrabajoController extends Controller
 
         if ($ultimo) {
             $partes = explode('-', $ultimo->codigo);
-            $numero = ((int)end($partes)) + 1;
+            $numero = ((int) end($partes)) + 1;
         }
 
         return sprintf(

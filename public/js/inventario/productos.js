@@ -183,7 +183,7 @@
                     // del formulario es de solo lectura y solo sirve para
                     // mostrarlo, asi que no se toca aqui.
                     $('#nombre').val(datos.nombre ?? '');
-                    $('#unidad_medida').val(datos.unidad_medida ?? '');
+                    $('#unidad_medida_id').val(datos.unidad_medida_id ?? '').trigger('change');
                     $('#categoria').val(datos.categoria ?? '');
                     $('#stock_minimo').val(datos.stock_minimo ?? 0);
                     $('#descripcion').val(datos.descripcion ?? '');

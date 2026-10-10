@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\MovimientosInventario;
 use App\Models\Producto;
+use App\Models\UnidadMedida;
 use Illuminate\Http\Request;
 use RealRashid\SweetAlert\Facades\Alert;
 
@@ -36,9 +37,11 @@ class ProductoController extends Controller
             ['label' => 'Materiales'],
         ];
 
+        $unidadesMedida = UnidadMedida::where('estado', true)->orderBy('nombre')->get();
+
         return $dataTable->render(
             'inventario.productos.index',
-            compact('title', 'breadcrumbs')
+            compact('title', 'breadcrumbs', 'unidadesMedida')
         );
     }
 
@@ -55,10 +58,13 @@ class ProductoController extends Controller
 
     public function store(Request $request)
     {
-        $producto = Producto::crearConCodigo($this->validar($request));
+        $datos = $this->validar($request);
+        $unidad = UnidadMedida::findOrFail($datos['unidad_medida_id']);
+        $datos['unidad_medida'] = $unidad->nombre;
+        $producto = Producto::crearConCodigo($datos);
 
         $mensaje = 'Material creado correctamente con el código '
-            . $producto->codigo . '.';
+            .$producto->codigo.'.';
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -110,6 +116,7 @@ class ProductoController extends Controller
             'nombre' => $producto->nombre,
             'descripcion' => $producto->descripcion ?? '',
             'unidad_medida' => $producto->unidad_medida,
+            'unidad_medida_id' => $producto->unidad_medida_id,
             'categoria' => $producto->categoria ?? '',
             'stock_minimo' => (float) $producto->stock_minimo,
             'estado' => (bool) $producto->estado,
@@ -137,11 +144,11 @@ class ProductoController extends Controller
             $proceso = $movimiento->proceso_orden?->etapa?->nombre
                 ?? $movimiento->proceso_orden?->codigo;
 
-            return 'Proceso: ' . ($proceso ?? '—');
+            return 'Proceso: '.($proceso ?? '—');
         }
 
         return $movimiento->orden_trabajo
-            ? 'Orden: ' . $movimiento->orden_trabajo->codigo
+            ? 'Orden: '.$movimiento->orden_trabajo->codigo
             : 'Almacén';
     }
 
@@ -164,7 +171,10 @@ class ProductoController extends Controller
 
     public function update(Request $request, Producto $producto)
     {
-        $producto->update($this->validar($request));
+        $datos = $this->validar($request);
+        $unidad = UnidadMedida::findOrFail($datos['unidad_medida_id']);
+        $datos['unidad_medida'] = $unidad->nombre;
+        $producto->update($datos);
 
         $mensaje = 'Material actualizado correctamente.';
 
@@ -191,8 +201,8 @@ class ProductoController extends Controller
             $producto->update(['estado' => false]);
 
             $mensaje = 'El material tiene movimientos en el almacén, así que se '
-                . 'desactivó en vez de borrarse: el historial del kardex y los '
-                . 'costos de los procesos necesitan que siga existiendo.';
+                .'desactivó en vez de borrarse: el historial del kardex y los '
+                .'costos de los procesos necesitan que siga existiendo.';
 
             if ($request->expectsJson()) {
                 return response()->json([
@@ -232,23 +242,25 @@ class ProductoController extends Controller
      * material cambia de nombre, de unidad o de minimo, no de identidad. Si
      * alguna vez hiciera falta renumerar, eso es una migracion con su
      * script, no un campo de un formulario.
-     *
-     * @return array
      */
     private function validar(Request $request): array
     {
+        if (! $request->filled('unidad_medida_id') && $request->filled('unidad_medida')) {
+            $request->merge(['unidad_medida_id' => UnidadMedida::where('nombre', trim($request->input('unidad_medida')))->value('id')]);
+        }
+
         return $request->validate([
             'nombre' => ['required', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:255'],
-            'unidad_medida' => ['required', 'string', 'max:15'],
+            'unidad_medida_id' => ['required', 'integer', 'exists:unidades_medida,id,estado,1'],
             'categoria' => ['nullable', 'string', 'max:60'],
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'estado' => ['nullable', 'boolean'],
         ], [
             'nombre.required' => 'El material necesita un nombre.',
             'nombre.max' => 'El nombre es demasiado largo.',
-            'unidad_medida.required' => 'Indique en qué se mide el material (kg, litro, tm...).',
-            'unidad_medida.max' => 'La unidad es demasiado larga.',
+            'unidad_medida_id.required' => 'Elija la unidad de medida del material.',
+            'unidad_medida_id.exists' => 'La unidad ya no está disponible.',
             'stock_minimo.min' => 'El mínimo no puede ser negativo.',
         ]);
     }

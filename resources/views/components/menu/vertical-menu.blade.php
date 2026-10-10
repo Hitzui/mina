@@ -324,6 +324,33 @@
                         </a>
                     </li>
 
+                    <li class="{{ Request::routeIs('configuracion.tipos_produccion.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.tipos_produccion.index') }}">
+                            <div>
+                                <i class="bi bi-box-seam"></i>
+                                <span>Tipos de Producción</span>
+                            </div>
+                        </a>
+                    </li>
+
+                    <li class="{{ Request::routeIs('configuracion.tipos_participacion.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.tipos_participacion.index') }}">
+                            <div>
+                                <i class="bi bi-people"></i>
+                                <span>Tipos de participación</span>
+                            </div>
+                        </a>
+                    </li>
+
+                    <li class="{{ Request::routeIs('configuracion.unidades_medida.*') ? 'active' : '' }}">
+                        <a href="{{ route('configuracion.unidades_medida.index') }}">
+                            <div>
+                                <i class="bi bi-rulers"></i>
+                                <span>Unidades de medida</span>
+                            </div>
+                        </a>
+                    </li>
+
                     {{--
                         El tipo de cambio va aqui y no en Inventario, y no es solo
                         una cuestion de donde queda mas comodo: el tipo de
@@ -527,20 +554,16 @@
 
             @php
                 $produccionActiva = Request::routeIs('procesos.recuperaciones.*')
+                    || Request::routeIs('procesos.producciones.*')
                     || Request::routeIs('procesos.valoraciones_oro.*')
                     || Request::is('produccion/*');
             @endphp
 
             {{--
-                Este bloque estaba puesto como un menu apagado, sin nada
-                detras: era un sitio reservado que todavia no tenia ninguna
-                pantalla. Lo primero que ha entrado en el son las
-                recuperaciones de oro, que es la parte de produccion que
-                primero se necesita, porque sin saber cuantos gramos salieron
-                de una orden no hay nada que valorar ni que liquidar. Y detras
-                de ellas las valoraciones, que son el paso siguiente: los
-                gramos por un lado, el precio del gramo por otro, y el valor
-                de la partida es donde se juntan los dos.
+                Producciones registra los productos obtenidos por orden y,
+                cuando corresponde, por proceso. Recuperaciones de oro anota
+                aparte los gramos de cada partida, y Valoraciones calcula el
+                valor de esas recuperaciones con el precio del gramo.
 
                 El prefijo de la url de la pantalla es procesos/ y no
                 produccion/, y el motivo es el mismo que en el resto del
@@ -571,6 +594,15 @@
                     id="produccion"
                     data-bs-parent="#accordionExample"
                 >
+
+                    <li class="{{ Request::routeIs('procesos.producciones.*') ? 'active' : '' }}">
+                        <a href="{{ route('procesos.producciones.index') }}">
+                            <div>
+                                <i class="bi bi-box-seam"></i>
+                                <span>Producciones</span>
+                            </div>
+                        </a>
+                    </li>
 
                     <li class="{{ Request::routeIs('procesos.recuperaciones.*') ? 'active' : '' }}">
                         <a href="{{ route('procesos.recuperaciones.index') }}">

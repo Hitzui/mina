@@ -10,9 +10,9 @@ use App\Models\Ingreso;
 use App\Models\Moneda;
 use App\Models\OrdenesTrabajo;
 use App\Models\TiposCambio;
+use App\Models\UnidadMedida;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use RealRashid\SweetAlert\Facades\Alert;
 
 /**
@@ -136,6 +136,7 @@ class IngresoController extends Controller
             'descripcion' => $ingreso->descripcion,
             'cantidad' => $ingreso->cantidad,
             'unidad_medida' => $ingreso->unidad_medida,
+            'unidad_medida_id' => $ingreso->unidad_medida_id,
             'precio_unitario' => $ingreso->precio_unitario,
             'total' => $ingreso->total,
             'moneda' => $ingreso->moneda?->codigo ?? '—',
@@ -158,6 +159,7 @@ class IngresoController extends Controller
             'descripcion' => $ingreso->descripcion,
             'cantidad' => $ingreso->cantidad,
             'unidad_medida' => $ingreso->unidad_medida,
+            'unidad_medida_id' => $ingreso->unidad_medida_id,
             'precio_unitario' => $ingreso->precio_unitario,
             'moneda_id' => $ingreso->moneda_id,
             'total_nio' => $ingreso->total_nio,
@@ -227,7 +229,7 @@ class IngresoController extends Controller
      */
     private function armar(array $datos, OrdenesTrabajo $ordenTrabajo, ?Ingreso $ingreso = null): Ingreso
     {
-        $ingreso = $ingreso ?? new Ingreso();
+        $ingreso = $ingreso ?? new Ingreso;
 
         $ingreso->orden_trabajo_id = $ordenTrabajo->id;
         $ingreso->liquidacion_id = $ingreso->liquidacion_id;
@@ -235,7 +237,10 @@ class IngresoController extends Controller
         $ingreso->fecha = $datos[Ingreso::FECHA];
         $ingreso->descripcion = $datos[Ingreso::DESCRIPCION] ?? null;
         $ingreso->cantidad = $datos[Ingreso::CANTIDAD];
-        $ingreso->unidad_medida = $datos[Ingreso::UNIDAD_MEDIDA] ?? null;
+        $ingreso->unidad_medida_id = $datos[Ingreso::UNIDAD_MEDIDA_ID] ?? null;
+        $ingreso->unidad_medida = isset($datos[Ingreso::UNIDAD_MEDIDA_ID])
+            ? UnidadMedida::find($datos[Ingreso::UNIDAD_MEDIDA_ID])?->nombre
+            : null;
         $ingreso->precio_unitario = $datos[Ingreso::PRECIO_UNITARIO];
         $ingreso->moneda_id = $datos[Ingreso::MONEDA_ID];
         $ingreso->estado = $ingreso->estado ?? 1;
@@ -254,8 +259,8 @@ class IngresoController extends Controller
      * porque si no el total en cordoba de una orden facturada en cordoba saldria
      * vacio y la suma de abajo no cuadraria con las filas que se ven.
      *
-     * @return float|null  Uno para la base, el valor del cambio, o null si no
-     *                     se encontro ninguno.
+     * @return float|null Uno para la base, el valor del cambio, o null si no
+     *                    se encontro ninguno.
      */
     private function tipoDeCambio(array $datos): ?float
     {
@@ -302,11 +307,15 @@ class IngresoController extends Controller
      * que no los haya: parece que controlan algo y no controlan nada.
      *
      * @param  int|null  $ignorarId  El ingreso que se esta editando, para que no
-     *                                se compare consigo mismo.
+     *                               se compare consigo mismo.
      * @return array<string, array<int, mixed>>
      */
     private function validar(Request $request, ?int $ignorarId = null): array
     {
+        if (! $request->filled(Ingreso::UNIDAD_MEDIDA_ID) && $request->filled(Ingreso::UNIDAD_MEDIDA)) {
+            $request->merge([Ingreso::UNIDAD_MEDIDA_ID => UnidadMedida::where('nombre', trim($request->input(Ingreso::UNIDAD_MEDIDA)))->value('id')]);
+        }
+
         return $request->validate(
             [
                 /*
@@ -356,10 +365,10 @@ class IngresoController extends Controller
                     'gt:0',
                 ],
 
-                Ingreso::UNIDAD_MEDIDA => [
+                Ingreso::UNIDAD_MEDIDA_ID => [
                     'nullable',
-                    'string',
-                    'max:20',
+                    'integer',
+                    Rule::exists('unidades_medida', 'id')->where('estado', true),
                 ],
 
                 Ingreso::PRECIO_UNITARIO => [
@@ -382,17 +391,17 @@ class IngresoController extends Controller
                 ],
             ],
             [
-                Ingreso::TIPO_INGRESO_ID . '.required' => 'Elija de qué tipo es el ingreso.',
-                Ingreso::TIPO_INGRESO_ID . '.exists' => 'Ese tipo de ingreso no existe o está inactivo.',
-                Ingreso::FECHA . '.required' => 'Indique la fecha del ingreso.',
-                Ingreso::FECHA . '.date' => 'La fecha no es válida.',
-                Ingreso::DESCRIPCION . '.max' => 'La descripción no puede superar los 255 caracteres.',
-                Ingreso::CANTIDAD . '.required' => 'Indique la cantidad.',
-                Ingreso::CANTIDAD . '.gt' => 'La cantidad debe ser mayor que cero. Si no se cobró nada, no se registra un ingreso: eso se anota en la orden.',
-                Ingreso::UNIDAD_MEDIDA . '.max' => 'La unidad no puede pasar de 20 caracteres.',
-                Ingreso::PRECIO_UNITARIO . '.required' => 'Indique el precio unitario.',
-                Ingreso::PRECIO_UNITARIO . '.gte' => 'El precio unitario no puede ser negativo.',
-                Ingreso::MONEDA_ID . '.required' => 'Seleccione la moneda del ingreso.',
+                Ingreso::TIPO_INGRESO_ID.'.required' => 'Elija de qué tipo es el ingreso.',
+                Ingreso::TIPO_INGRESO_ID.'.exists' => 'Ese tipo de ingreso no existe o está inactivo.',
+                Ingreso::FECHA.'.required' => 'Indique la fecha del ingreso.',
+                Ingreso::FECHA.'.date' => 'La fecha no es válida.',
+                Ingreso::DESCRIPCION.'.max' => 'La descripción no puede superar los 255 caracteres.',
+                Ingreso::CANTIDAD.'.required' => 'Indique la cantidad.',
+                Ingreso::CANTIDAD.'.gt' => 'La cantidad debe ser mayor que cero. Si no se cobró nada, no se registra un ingreso: eso se anota en la orden.',
+                Ingreso::UNIDAD_MEDIDA_ID.'.exists' => 'La unidad ya no está disponible.',
+                Ingreso::PRECIO_UNITARIO.'.required' => 'Indique el precio unitario.',
+                Ingreso::PRECIO_UNITARIO.'.gte' => 'El precio unitario no puede ser negativo.',
+                Ingreso::MONEDA_ID.'.required' => 'Seleccione la moneda del ingreso.',
             ]
         );
     }
@@ -408,13 +417,13 @@ class IngresoController extends Controller
     {
         $moneda = Moneda::find($datos[Ingreso::MONEDA_ID]);
 
-        $mensaje = 'Ingreso registrado: ' . number_format((float) $ingreso->total, 2)
-            . ' ' . ($moneda?->codigo ?? '') . '.';
+        $mensaje = 'Ingreso registrado: '.number_format((float) $ingreso->total, 2)
+            .' '.($moneda?->codigo ?? '').'.';
 
         if ($ingreso->total_nio === null) {
             $mensaje .= ' No se encontró tipo de cambio de esa moneda para la '
-                . 'fecha indicada; el equivalente en córdobas quedó vacío y no '
-                . 'cuenta en el total de la orden.';
+                .'fecha indicada; el equivalente en córdobas quedó vacío y no '
+                .'cuenta en el total de la orden.';
 
             return $mensaje;
         }

@@ -7,110 +7,119 @@ use App\Models\Concerns\GeneraCodigo;
 
 class Producto extends BaseProducto
 {
-	use GeneraCodigo;
+    use GeneraCodigo;
 
-	/*
-	 * El codigo lo pone el sistema, no la persona que da de alta el
-	 * material.
-	 *
-	 * El formato sigue el que ya usan los empleados (EMP-000001): unas
-	 * letras y un numero de seis digitos con ceros delante. Los ceros no son
-	 * adorno: hacen que el codigo se ordene igual que el numero al mirar la
-	 * columna, y sin ellos el 10 se colaria antes que el 9.
-	 */
-	public const PREFIJO_CODIGO = 'MAT-';
-	public const LARGO_NUMERO_CODIGO = 6;
+    /*
+     * El codigo lo pone el sistema, no la persona que da de alta el
+     * material.
+     *
+     * El formato sigue el que ya usan los empleados (EMP-000001): unas
+     * letras y un numero de seis digitos con ceros delante. Los ceros no son
+     * adorno: hacen que el codigo se ordene igual que el numero al mirar la
+     * columna, y sin ellos el 10 se colaria antes que el 9.
+     */
+    public const PREFIJO_CODIGO = 'MAT-';
 
-	protected $fillable = [
-		self::CODIGO,
-		self::NOMBRE,
-		self::DESCRIPCION,
-		self::UNIDAD_MEDIDA,
-		self::CATEGORIA,
-		self::STOCK_MINIMO,
-		self::ESTADO
-	];
+    public const LARGO_NUMERO_CODIGO = 6;
 
-	/*
-	 * Como se muestra un producto en los combos y en las pantallas.
-	 *
-	 * El producto no tiene columna "nombre corto": se describe con el
-	 * codigo y el nombre, y la unidad detras, porque en un consumo de
-	 * 200 lo que importa es saber si son kilos o toneladas.
-	 */
-	public function getNombreCompletoAttribute(): string
-	{
-		return $this->nombre . ' (' . $this->unidad_medida . ')';
-	}
+    protected $fillable = [
+        self::CODIGO,
+        self::NOMBRE,
+        self::DESCRIPCION,
+        self::UNIDAD_MEDIDA,
+        self::UNIDAD_MEDIDA_ID,
+        self::CATEGORIA,
+        self::STOCK_MINIMO,
+        self::ESTADO,
+    ];
 
-	/**
-	 * El saldo de este producto en el almacen.
-	 */
-	public function inventario()
-	{
-		return $this->hasOne(InventarioProducto::class);
-	}
+    public const UNIDAD_MEDIDA_ID = 'unidad_medida_id';
 
-	/**
-	 * Todos los movimientos de este producto, entradas y salidas.
-	 */
-	public function movimientos()
-	{
-		return $this->hasMany(MovimientosInventario::class);
-	}
+    public function unidadMedida()
+    {
+        return $this->belongsTo(UnidadMedida::class, self::UNIDAD_MEDIDA_ID);
+    }
 
-	/**
-	 * Cuanto hay en el almacen ahora mismo.
-	 *
-	 * Sale del saldo resumido y no de sumar el kardex: el kardex es la
-	 * fuente historica, pero recorrerlo entero para cada fila de un
-	 * listado seria lento, y el saldo se mantiene con el mismo criterio
-	 * en cada movimiento.
-	 */
-	public function getExistenciaAttribute(): float
-	{
-		if ($this->relationLoaded('inventario')) {
-			return (float) ($this->inventario?->cantidad_actual ?? 0);
-		}
+    /*
+     * Como se muestra un producto en los combos y en las pantallas.
+     *
+     * El producto no tiene columna "nombre corto": se describe con el
+     * codigo y el nombre, y la unidad detras, porque en un consumo de
+     * 200 lo que importa es saber si son kilos o toneladas.
+     */
+    public function getNombreCompletoAttribute(): string
+    {
+        return $this->nombre.' ('.$this->unidad_medida.')';
+    }
 
-		return (float) ($this->inventario()->value('cantidad_actual') ?? 0);
-	}
+    /**
+     * El saldo de este producto en el almacen.
+     */
+    public function inventario()
+    {
+        return $this->hasOne(InventarioProducto::class);
+    }
 
-	/**
-	 * A cuanto costo promedio sale de aqui un kilo, un litro o lo que sea.
-	 */
-	public function getCostoPromedioAttribute(): float
-	{
-		if ($this->relationLoaded('inventario')) {
-			return (float) ($this->inventario?->cpp_actual ?? 0);
-		}
+    /**
+     * Todos los movimientos de este producto, entradas y salidas.
+     */
+    public function movimientos()
+    {
+        return $this->hasMany(MovimientosInventario::class);
+    }
 
-		return (float) ($this->inventario()->value('cpp_actual') ?? 0);
-	}
+    /**
+     * Cuanto hay en el almacen ahora mismo.
+     *
+     * Sale del saldo resumido y no de sumar el kardex: el kardex es la
+     * fuente historica, pero recorrerlo entero para cada fila de un
+     * listado seria lento, y el saldo se mantiene con el mismo criterio
+     * en cada movimiento.
+     */
+    public function getExistenciaAttribute(): float
+    {
+        if ($this->relationLoaded('inventario')) {
+            return (float) ($this->inventario?->cantidad_actual ?? 0);
+        }
 
-	/**
-	 * Cuanto vale en NIO todo lo que hay de este producto.
-	 */
-	public function getValorInventarioAttribute(): float
-	{
-		if ($this->relationLoaded('inventario')) {
-			return (float) ($this->inventario?->valor_actual ?? 0);
-		}
+        return (float) ($this->inventario()->value('cantidad_actual') ?? 0);
+    }
 
-		return (float) ($this->inventario()->value('valor_actual') ?? 0);
-	}
+    /**
+     * A cuanto costo promedio sale de aqui un kilo, un litro o lo que sea.
+     */
+    public function getCostoPromedioAttribute(): float
+    {
+        if ($this->relationLoaded('inventario')) {
+            return (float) ($this->inventario?->cpp_actual ?? 0);
+        }
 
-	/**
-	 * Si el material esta por debajo del minimo con el que se quiere
-	 * tener en el almacen.
-	 *
-	 * Es un aviso de reponer, no un estado: no impide consumir ni
-	 * comprar. Solo dice que conviene mirar.
-	 */
-	public function estaPorDebajoDelMinimo(): bool
-	{
-		$minimo = (float) $this->stock_minimo;
+        return (float) ($this->inventario()->value('cpp_actual') ?? 0);
+    }
 
-		return $minimo > 0 && $this->existencia < $minimo;
-	}
+    /**
+     * Cuanto vale en NIO todo lo que hay de este producto.
+     */
+    public function getValorInventarioAttribute(): float
+    {
+        if ($this->relationLoaded('inventario')) {
+            return (float) ($this->inventario?->valor_actual ?? 0);
+        }
+
+        return (float) ($this->inventario()->value('valor_actual') ?? 0);
+    }
+
+    /**
+     * Si el material esta por debajo del minimo con el que se quiere
+     * tener en el almacen.
+     *
+     * Es un aviso de reponer, no un estado: no impide consumir ni
+     * comprar. Solo dice que conviene mirar.
+     */
+    public function estaPorDebajoDelMinimo(): bool
+    {
+        $minimo = (float) $this->stock_minimo;
+
+        return $minimo > 0 && $this->existencia < $minimo;
+    }
 }

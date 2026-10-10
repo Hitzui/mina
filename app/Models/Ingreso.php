@@ -23,78 +23,86 @@ use App\Models\Base\Ingreso as BaseIngreso;
  */
 class Ingreso extends BaseIngreso
 {
-	protected $fillable = [
-		self::ORDEN_TRABAJO_ID,
-		self::LIQUIDACION_ID,
-		self::TIPO_INGRESO_ID,
-		self::FECHA,
-		self::DESCRIPCION,
-		self::CANTIDAD,
-		self::UNIDAD_MEDIDA,
-		self::PRECIO_UNITARIO,
-		self::TOTAL,
-		self::PRECIO_UNITARIO_NIO,
-		self::TOTAL_NIO,
-		self::MONEDA_ID,
-		self::ESTADO,
-		self::OBSERVACIONES
-	];
+    protected $fillable = [
+        self::ORDEN_TRABAJO_ID,
+        self::LIQUIDACION_ID,
+        self::TIPO_INGRESO_ID,
+        self::FECHA,
+        self::DESCRIPCION,
+        self::CANTIDAD,
+        self::UNIDAD_MEDIDA,
+        self::UNIDAD_MEDIDA_ID,
+        self::PRECIO_UNITARIO,
+        self::TOTAL,
+        self::PRECIO_UNITARIO_NIO,
+        self::TOTAL_NIO,
+        self::MONEDA_ID,
+        self::ESTADO,
+        self::OBSERVACIONES,
+    ];
 
-	/**
-	 * Los ingresos de una orden.
-	 *
-	 * Van por fecha de mas reciente a mas antigua y no por id: lo que se mira al
-	 * entrar en una orden es el ultimo ingreso que se registro, no el primero que
-	 * se escribio en el sistema.
-	 */
-	public function scopeDeOrden($query, int $ordenTrabajoId)
-	{
-		return $query->where(self::ORDEN_TRABAJO_ID, $ordenTrabajoId)
-			->orderByDesc(self::FECHA)
-			->orderByDesc(self::ID);
-	}
+    public const UNIDAD_MEDIDA_ID = 'unidad_medida_id';
 
-	/**
-	 * Calcula el total y su equivalente en cordoba, y los deja actualizados.
-	 *
-	 * El total NUNCA se acepta del formulario: se calcula aqui con la cantidad y
-	 * el precio unitario, que son lo unico que viene de la pantalla. Si se
-	 * recibiera ya calculado, un valor equivocado en el formulario se guardaria
-	 * como si fuera verdad y no habria forma de saber que no cuadra con la
-	 * multiplicacion.
-	 *
-	 * El equivalente en cordoba se guarda y no se recalcula al leer, y por el
-	 * mismo motivo que la depreciacion y que los costos: si manana se corrige el
-	 * tipo de cambio de una fecha, los ingresos de una orden ya cerrada no deben
-	 * moverse. Un documento que cambia de valor solo porque se corrigio una tabla
-	 * de hace tres meses no es un documento, es una consulta.
-	 *
-	 * Y con la moneda base el tipo de cambio es 1, no null. Ver el comentario de
-	 * la clase, que explica por que aqui es distinto del resto del sistema.
-	 *
-	 * @param  float|null  $tipoCambio  Cuantos cordobas vale una unidad de la
-	 *                                   moneda del ingreso, o null si no se
-	 *                                   encontro ninguno.
-	 */
-	public function calcularTotales(?float $tipoCambio): self
-	{
-		$this->total = round(
-			(float) $this->cantidad * (float) $this->precio_unitario,
-			2
-		);
+    public function unidadMedida()
+    {
+        return $this->belongsTo(UnidadMedida::class, self::UNIDAD_MEDIDA_ID);
+    }
 
-		if ($tipoCambio !== null) {
-			$this->precio_unitario_nio = round(
-				(float) $this->precio_unitario * $tipoCambio,
-				4
-			);
+    /**
+     * Los ingresos de una orden.
+     *
+     * Van por fecha de mas reciente a mas antigua y no por id: lo que se mira al
+     * entrar en una orden es el ultimo ingreso que se registro, no el primero que
+     * se escribio en el sistema.
+     */
+    public function scopeDeOrden($query, int $ordenTrabajoId)
+    {
+        return $query->where(self::ORDEN_TRABAJO_ID, $ordenTrabajoId)
+            ->orderByDesc(self::FECHA)
+            ->orderByDesc(self::ID);
+    }
 
-			$this->total_nio = round($this->total * $tipoCambio, 2);
-		} else {
-			$this->precio_unitario_nio = null;
-			$this->total_nio = null;
-		}
+    /**
+     * Calcula el total y su equivalente en cordoba, y los deja actualizados.
+     *
+     * El total NUNCA se acepta del formulario: se calcula aqui con la cantidad y
+     * el precio unitario, que son lo unico que viene de la pantalla. Si se
+     * recibiera ya calculado, un valor equivocado en el formulario se guardaria
+     * como si fuera verdad y no habria forma de saber que no cuadra con la
+     * multiplicacion.
+     *
+     * El equivalente en cordoba se guarda y no se recalcula al leer, y por el
+     * mismo motivo que la depreciacion y que los costos: si manana se corrige el
+     * tipo de cambio de una fecha, los ingresos de una orden ya cerrada no deben
+     * moverse. Un documento que cambia de valor solo porque se corrigio una tabla
+     * de hace tres meses no es un documento, es una consulta.
+     *
+     * Y con la moneda base el tipo de cambio es 1, no null. Ver el comentario de
+     * la clase, que explica por que aqui es distinto del resto del sistema.
+     *
+     * @param  float|null  $tipoCambio  Cuantos cordobas vale una unidad de la
+     *                                  moneda del ingreso, o null si no se
+     *                                  encontro ninguno.
+     */
+    public function calcularTotales(?float $tipoCambio): self
+    {
+        $this->total = round(
+            (float) $this->cantidad * (float) $this->precio_unitario,
+            2
+        );
 
-		return $this;
-	}
+        if ($tipoCambio !== null) {
+            $this->precio_unitario_nio = round(
+                (float) $this->precio_unitario * $tipoCambio,
+                4
+            );
+
+            $this->total_nio = round($this->total * $tipoCambio, 2);
+        } else {
+            $this->precio_unitario_nio = null;
+            $this->total_nio = null;
+        }
+
+        return $this;
+    }
 }

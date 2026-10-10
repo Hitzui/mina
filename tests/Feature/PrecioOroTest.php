@@ -1,4 +1,5 @@
 <?php
+
 /**
  * La serie del precio del oro, de punta a punta.
  *
@@ -34,9 +35,10 @@ namespace Tests\Feature;
 use App\Models\Moneda;
 use App\Models\PreciosOro;
 use App\Models\User;
+use App\Services\PrecioOroImportador;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -77,7 +79,7 @@ class PrecioOroTest extends TestCase
 
         $admin = User::create([
             'name' => 'Admin',
-            'email' => 'oro-' . uniqid() . '@test.local',
+            'email' => 'oro-'.uniqid().'@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
         $admin->syncRoles(['admin']);
@@ -122,7 +124,7 @@ class PrecioOroTest extends TestCase
 
     private function excel(array $filas, string $nombre = 'precio-oro.xlsx'): UploadedFile
     {
-        $libro = new Spreadsheet();
+        $libro = new Spreadsheet;
         $hoja = $libro->getActiveSheet();
         $hoja->setTitle('Julio');
 
@@ -130,11 +132,11 @@ class PrecioOroTest extends TestCase
             $numero = $indice + 1;
 
             foreach ($celdas as $columna => $valor) {
-                $hoja->setCellValue(chr(65 + $columna) . $numero, $valor);
+                $hoja->setCellValue(chr(65 + $columna).$numero, $valor);
             }
         }
 
-        $ruta = sys_get_temp_dir() . '/precio-oro-' . uniqid() . '.xlsx';
+        $ruta = sys_get_temp_dir().'/precio-oro-'.uniqid().'.xlsx';
 
         (new Xlsx($libro))->save($ruta);
 
@@ -180,6 +182,7 @@ class PrecioOroTest extends TestCase
         $this->assertNotNull($precio, 'El precio deberia haberse guardado');
         $this->assertSame(78.4521, (float) $precio->precio, 'El precio deberia guardar sus cuatro decimales');
         $this->assertSame('gramo', $precio->unidad);
+        $this->assertSame((int) DB::table('unidades_medida')->where('nombre', 'gramo')->value('id'), (int) $precio->unidad_id);
     }
 
     public function test_un_dia_no_puede_tener_dos_precios_de_la_misma_unidad_y_moneda(): void
@@ -271,7 +274,7 @@ class PrecioOroTest extends TestCase
     {
         $precio = $this->crear('2090-07-01', 78.4521);
 
-        $this->put('/configuracion/precios-oro/' . $precio->id, [
+        $this->put('/configuracion/precios-oro/'.$precio->id, [
             'fecha' => '2090-07-01',
             'precio' => 79.1234,
             'unidad' => 'gramo',
@@ -286,7 +289,7 @@ class PrecioOroTest extends TestCase
         $this->crear('2090-07-01', 78.4521);
         $otro = $this->crear('2090-07-02', 78.5000);
 
-        $this->put('/configuracion/precios-oro/' . $otro->id, [
+        $this->put('/configuracion/precios-oro/'.$otro->id, [
             'fecha' => '2090-07-01',
             'precio' => 78.9999,
             'unidad' => 'gramo',
@@ -472,7 +475,7 @@ class PrecioOroTest extends TestCase
         $this->crear('2090-07-10', 78.4521, 'gramo', $dolarId);
         $conCero = $this->crear('2090-07-11', 0, 'gramo', $dolarId);
 
-        $datos = $this->get('/configuracion/precios-oro/' . $conCero->id, self::CABECERAS)
+        $datos = $this->get('/configuracion/precios-oro/'.$conCero->id, self::CABECERAS)
             ->assertOk()
             ->json();
 
@@ -700,7 +703,7 @@ class PrecioOroTest extends TestCase
 
     public function test_un_archivo_que_no_es_un_excel_avisa_y_no_guarda_nada(): void
     {
-        $ruta = sys_get_temp_dir() . '/esto-no-es-un-excel-' . uniqid() . '.txt';
+        $ruta = sys_get_temp_dir().'/esto-no-es-un-excel-'.uniqid().'.txt';
 
         file_put_contents($ruta, "esto es un texto, no una hoja de calculos\n");
 
@@ -737,12 +740,12 @@ class PrecioOroTest extends TestCase
         $this->assertNotEmpty(
             $contenido,
             'La plantilla no puede venir con cero bytes: la respuesta dice 200 y el archivo que se '
-            . 'descarga no existe, que es el peor de los dos mundos porque nada en la pagina avisa'
+            .'descarga no existe, que es el peor de los dos mundos porque nada en la pagina avisa'
         );
 
         $archivo = new UploadedFile($rutaTemporal, 'ejemplo.xlsx', null, null, true);
 
-        $leidas = (new \App\Services\PrecioOroImportador())->leer($rutaTemporal);
+        $leidas = (new PrecioOroImportador)->leer($rutaTemporal);
 
         $this->assertGreaterThan(
             0,
@@ -798,7 +801,7 @@ class PrecioOroTest extends TestCase
         $this->assertNotNull($precio);
 
         $this->actingAs($usuario)
-            ->put('/configuracion/precios-oro/' . $precio->id, [
+            ->put('/configuracion/precios-oro/'.$precio->id, [
                 'fecha' => '2090-07-01',
                 'precio' => 79.0000,
                 'unidad' => 'gramo',
@@ -809,7 +812,7 @@ class PrecioOroTest extends TestCase
         $this->assertSame(79.0, (float) $precio->fresh()->precio);
 
         $this->actingAs($usuario)
-            ->delete('/configuracion/precios-oro/' . $precio->id, [], self::CABECERAS)
+            ->delete('/configuracion/precios-oro/'.$precio->id, [], self::CABECERAS)
             ->assertOk();
 
         $this->assertNotNull($precio->fresh()->deleted_at);
@@ -826,7 +829,7 @@ class PrecioOroTest extends TestCase
 
         $usuario = User::create([
             'name' => 'Sin roles',
-            'email' => 'oro-sin-roles-' . uniqid() . '@test.local',
+            'email' => 'oro-sin-roles-'.uniqid().'@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
 

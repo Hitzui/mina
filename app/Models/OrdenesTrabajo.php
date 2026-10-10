@@ -27,8 +27,11 @@ class OrdenesTrabajo extends BaseOrdenesTrabajo
      * admiten datos nuevos en la orden.
      */
     public const ESTADO_CANCELADA = 0;
+
     public const ESTADO_PENDIENTE = 1;
+
     public const ESTADO_EN_PROCESO = 2;
+
     public const ESTADO_FINALIZADA = 3;
 
     public const ESTADOS = [
@@ -62,15 +65,23 @@ class OrdenesTrabajo extends BaseOrdenesTrabajo
         );
     }
 
-	protected $fillable = [
-		self::CODIGO,
-		self::CLIENTE_ID,
-		self::FECHA,
-		self::DESCRIPCION,
-		self::PESO_MINERAL,
-		self::UNIDAD_PESO,
-		self::ESTADO
-	];
+    protected $fillable = [
+        self::CODIGO,
+        self::CLIENTE_ID,
+        self::FECHA,
+        self::DESCRIPCION,
+        self::PESO_MINERAL,
+        self::UNIDAD_PESO,
+        self::UNIDAD_PESO_ID,
+        self::ESTADO,
+    ];
+
+    public const UNIDAD_PESO_ID = 'unidad_peso_id';
+
+    public function unidadMedida()
+    {
+        return $this->belongsTo(UnidadMedida::class, self::UNIDAD_PESO_ID);
+    }
 
     /**
      * Nombre del estado, para textos.

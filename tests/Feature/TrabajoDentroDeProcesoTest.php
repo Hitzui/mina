@@ -7,9 +7,10 @@ use App\Models\EmpleadosPago;
 use App\Models\Moneda;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
+use App\Models\TiposCambio;
 use App\Models\TiposPagoEmpleado;
 use App\Models\TrabajosEmpleado;
-use App\Models\TiposCambio;
+use App\Models\UnidadMedida;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -47,7 +48,7 @@ class TrabajoDentroDeProcesoTest extends TestCase
 
         $admin = User::create([
             'name' => 'Admin',
-            'email' => 'tp-' . uniqid() . '@test.local',
+            'email' => 'tp-'.uniqid().'@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
         $admin->syncRoles(['admin']);
@@ -63,7 +64,7 @@ class TrabajoDentroDeProcesoTest extends TestCase
 
         $this->tipoPago = TiposPagoEmpleado::create([
             'nombre' => 'Test dentro de proceso',
-            'codigo' => 'TDP' . substr(md5(uniqid('', true)), 0, 5),
+            'codigo' => 'TDP'.substr(md5(uniqid('', true)), 0, 5),
             'metodo_calculo' => TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
             'estado' => 1,
         ]);
@@ -83,10 +84,10 @@ class TrabajoDentroDeProcesoTest extends TestCase
     {
         $etapa = DB::table('etapas')->first();
 
-        $proceso = new ProcesosOrden();
+        $proceso = new ProcesosOrden;
         $proceso->orden_trabajo_id = $this->orden->id;
         $proceso->etapa_id = $etapa->id;
-        $proceso->codigo = 'P-' . strtoupper(substr(md5(uniqid('', true)), 0, 6));
+        $proceso->codigo = 'P-'.strtoupper(substr(md5(uniqid('', true)), 0, 6));
         $proceso->fecha_inicio = now();
         $proceso->fecha_fin = null;
         $proceso->peso_entrada = 1;
@@ -217,12 +218,12 @@ class TrabajoDentroDeProcesoTest extends TestCase
 
         $this->getJson(
             "/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$this->otroProceso->id}"
-            . "/trabajos-empleados/{$trabajo->id}"
+            ."/trabajos-empleados/{$trabajo->id}"
         )->assertNotFound();
 
         $this->getJson(
             "/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$this->otroProceso->id}"
-            . "/trabajos-empleados/{$trabajo->id}/edit"
+            ."/trabajos-empleados/{$trabajo->id}/edit"
         )->assertNotFound();
     }
 
@@ -234,13 +235,13 @@ class TrabajoDentroDeProcesoTest extends TestCase
 
         $this->put(
             "/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$this->otroProceso->id}"
-            . "/trabajos-empleados/{$trabajo->id}",
+            ."/trabajos-empleados/{$trabajo->id}",
             $this->payload()
         )->assertNotFound();
 
         $this->delete(
             "/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$this->otroProceso->id}"
-            . "/trabajos-empleados/{$trabajo->id}"
+            ."/trabajos-empleados/{$trabajo->id}"
         )->assertNotFound();
 
         $this->assertNull(
@@ -330,8 +331,8 @@ class TrabajoDentroDeProcesoTest extends TestCase
         $this->post($this->ruta(''), $this->payload(['fecha' => '2037-04-12']))
             ->assertSessionHasErrors('fecha')
             ->assertSessionHasErrors([
-                'fecha' => 'No hay tipo de cambio registrado para ' . $monedaUs->codigo
-                    . ' el 12/04/2037. Primero ingréselo en Configuración > Tipos de cambio.',
+                'fecha' => 'No hay tipo de cambio registrado para '.$monedaUs->codigo
+                    .' el 12/04/2037. Primero ingréselo en Configuración > Tipos de cambio.',
             ]);
 
         $this->assertSame($cantidadAntes, TrabajosEmpleado::count());
@@ -411,7 +412,7 @@ class TrabajoDentroDeProcesoTest extends TestCase
         $original = OrdenesTrabajo::firstOrFail();
 
         return OrdenesTrabajo::create([
-            'codigo' => 'OT-TDP-' . substr(md5(uniqid('', true)), 0, 6),
+            'codigo' => 'OT-TDP-'.substr(md5(uniqid('', true)), 0, 6),
             'cliente_id' => $original->cliente_id,
             'fecha' => $original->fecha,
             'descripcion' => 'Orden creada por la prueba automatica',
@@ -427,6 +428,7 @@ class TrabajoDentroDeProcesoTest extends TestCase
             'procesos.ordenes_trabajo.trabajos_empleados._form',
             [
                 'tiposPago' => TiposPagoEmpleado::all(),
+                'unidadesMedida' => UnidadMedida::where('estado', true)->get(),
             ]
         )->render();
     }

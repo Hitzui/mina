@@ -144,16 +144,14 @@
             Unidad
         </label>
 
-        <input
-            type="text"
-            name="unidad_medida"
-            id="ingresoUnidad"
-            class="form-control"
-            maxlength="20"
-            placeholder="g, kg, servicio"
-        >
+        <select name="unidad_medida_id" id="ingresoUnidad" class="form-select select2">
+            <option value="">Sin unidad</option>
+            @foreach ($unidadesMedida as $unidad)
+                <option value="{{ $unidad->id }}">{{ $unidad->nombre }}</option>
+            @endforeach
+        </select>
 
-        <small class="text-muted">Gramo, kilo, o lo que sea.</small>
+        <small class="text-muted">Unidad asociada a la cantidad cobrada.</small>
     </div>
 
     <div class="col-md-2">

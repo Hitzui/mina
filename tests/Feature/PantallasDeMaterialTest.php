@@ -6,11 +6,10 @@ use App\Models\InventarioProducto;
 use App\Models\Moneda;
 use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
-use App\Models\Producto;
 use App\Models\ProcesosOrden;
+use App\Models\Producto;
 use App\Models\User;
 use App\Services\InventarioService;
-
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -45,13 +44,13 @@ class PantallasDeMaterialTest extends TestCase
 
         $admin = User::create([
             'name' => 'Admin',
-            'email' => 'mat-' . uniqid() . '@test.local',
+            'email' => 'mat-'.uniqid().'@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
         $admin->syncRoles(['admin']);
         $this->actingAs($admin);
 
-        $this->inventario = new InventarioService();
+        $this->inventario = new InventarioService;
         $this->monedaBase = Moneda::where('es_moneda_base', true)->firstOrFail();
         $this->producto = $this->crearProducto();
         $this->proceso = $this->crearProceso();
@@ -66,7 +65,7 @@ class PantallasDeMaterialTest extends TestCase
              * se usara un MAT- con numeros, estos tests moverian la cuenta y
              * el numero de serie dependeria del orden en que corrieran.
              */
-            Producto::CODIGO => 'PRUEBA-' . strtoupper(substr(md5(uniqid('', true)), 0, 6)),
+            Producto::CODIGO => 'PRUEBA-'.strtoupper(substr(md5(uniqid('', true)), 0, 6)),
             Producto::NOMBRE => $nombre,
             Producto::UNIDAD_MEDIDA => 'kg',
             Producto::STOCK_MINIMO => 10,
@@ -79,10 +78,10 @@ class PantallasDeMaterialTest extends TestCase
         $orden = OrdenesTrabajo::firstOrFail();
         $etapa = DB::table('etapas')->first();
 
-        $proceso = new ProcesosOrden();
+        $proceso = new ProcesosOrden;
         $proceso->orden_trabajo_id = $orden->id;
         $proceso->etapa_id = $etapa->id;
-        $proceso->codigo = 'P-' . strtoupper(substr(md5(uniqid('', true)), 0, 6));
+        $proceso->codigo = 'P-'.strtoupper(substr(md5(uniqid('', true)), 0, 6));
         $proceso->fecha_inicio = '2026-01-01 08:00:00';
         $proceso->fecha_fin = '2026-12-31 17:00:00';
         $proceso->peso_entrada = 1;
@@ -110,7 +109,7 @@ class PantallasDeMaterialTest extends TestCase
         $proceso ??= $this->proceso;
 
         return "/procesos/ordenes-trabajo/{$proceso->orden_trabajo_id}"
-            . "/procesos/{$proceso->id}/materiales{$accion}";
+            ."/procesos/{$proceso->id}/materiales{$accion}";
     }
 
     private function payload(array $extra = []): array
@@ -171,7 +170,7 @@ class PantallasDeMaterialTest extends TestCase
     public function test_el_material_necesita_nombre_y_unidad(): void
     {
         $this->post('/inventario/productos', [])
-            ->assertSessionHasErrors(['nombre', 'unidad_medida']);
+            ->assertSessionHasErrors(['nombre', 'unidad_medida_id']);
     }
 
     // ==================================================================
@@ -189,7 +188,7 @@ class PantallasDeMaterialTest extends TestCase
         $producto = Producto::where('nombre', 'Cemento sin codigo')->firstOrFail();
 
         $this->assertMatchesRegularExpression(
-            '/^' . Producto::PREFIJO_CODIGO . '\d{6}$/',
+            '/^'.Producto::PREFIJO_CODIGO.'\d{6}$/',
             $producto->codigo,
             'El código debe llevar el prefijo y seis dígitos'
         );
@@ -272,7 +271,7 @@ class PantallasDeMaterialTest extends TestCase
         $this->assertMatchesRegularExpression('/^MAT-\d{6}$/', $siguiente->codigo);
 
         $cuantosHay = Producto::withTrashed()
-            ->where('codigo', 'like', Producto::PREFIJO_CODIGO . '%')
+            ->where('codigo', 'like', Producto::PREFIJO_CODIGO.'%')
             ->count();
 
         $this->assertLessThanOrEqual(
@@ -429,7 +428,7 @@ class PantallasDeMaterialTest extends TestCase
         $html = $this->get('/inventario/productos')->assertOk()->getContent();
 
         $this->assertStringContainsString(
-            'data-store-url="' . route('inventario.productos.store') . '"',
+            'data-store-url="'.route('inventario.productos.store').'"',
             $html
         );
 
@@ -883,7 +882,7 @@ class PantallasDeMaterialTest extends TestCase
          * paso.
          */
         $this->post(
-            '/procesos/ordenes-trabajo/999999/procesos/' . $this->proceso->id . '/materiales',
+            '/procesos/ordenes-trabajo/999999/procesos/'.$this->proceso->id.'/materiales',
             $this->payload()
         )->assertNotFound();
     }
@@ -925,7 +924,7 @@ class PantallasDeMaterialTest extends TestCase
     {
         $usuario = User::create([
             'name' => 'Sin permisos',
-            'email' => 'mat-sin-' . uniqid() . '@test.local',
+            'email' => 'mat-sin-'.uniqid().'@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
 

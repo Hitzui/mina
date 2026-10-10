@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Moneda;
 use App\Models\PreciosOro;
+use App\Models\UnidadMedida;
 use App\Services\PrecioOroImportador;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,7 +77,12 @@ class PrecioOroController extends Controller
             'configuracion.precios_oro.index',
             [
                 'monedas' => Moneda::where('estado', true)->orderBy('nombre')->get(),
-                'unidades' => PreciosOro::UNIDADES,
+                'unidades' => array_intersect_key(
+                    PreciosOro::UNIDADES,
+                    array_flip(UnidadMedida::where('estado', true)
+                        ->whereIn('nombre', array_keys(PreciosOro::UNIDADES))
+                        ->pluck('nombre')->all())
+                ),
                 'title' => 'Precios del oro',
                 'breadcrumbs' => [
                     ['label' => 'Inicio', 'url' => route('home')],
@@ -109,7 +115,7 @@ class PrecioOroController extends Controller
         if ($existe && ! $estaBorrada) {
             throw ValidationException::withMessages([
                 PreciosOro::FECHA => 'Ese día ya tiene precio para esa unidad y esa moneda. '
-                    . 'Edítalo en vez de añadir otro.',
+                    .'Edítalo en vez de añadir otro.',
             ]);
         }
 
@@ -160,7 +166,7 @@ class PrecioOroController extends Controller
                     PreciosOro::FECHA => $estaBorrado
                         ? 'Ese día tuvo precio, pero está borrado. Un día no puede tener dos precios: vuelve a poner el borrado desde la lista, o guarda este en otro día.'
                         : 'Ese día ya tiene precio para esa unidad y esa moneda, y no '
-                            . 'se pueden tener dos. Corrige el que ya hay, o cambia de día este.',
+                            .'se pueden tener dos. Corrige el que ya hay, o cambia de día este.',
                 ]);
             }
         }
@@ -171,11 +177,11 @@ class PrecioOroController extends Controller
 
         if ($cambiaClave) {
             Alert::success('Precio guardado. Ojo: el día, la unidad o la moneda han cambiado, '
-                . 'así que este precio ya no cuenta para los documentos del día anterior.');
+                .'así que este precio ya no cuenta para los documentos del día anterior.');
         } elseif ($antes > 0 && (float) $datos[PreciosOro::PRECIO] <= 0) {
             Alert::warning('El precio de ese día ahora es cero. Con cero, una valoración '
-                . 'no multiplica por cero: usa el último precio que se sepa. Si lo que querías '
-                . 'era quitar el precio de ese día, bórralo.');
+                .'no multiplica por cero: usa el último precio que se sepa. Si lo que querías '
+                .'era quitar el precio de ese día, bórralo.');
         } else {
             Alert::success('Precio del oro guardado');
         }
@@ -231,7 +237,7 @@ class PrecioOroController extends Controller
             ]);
         }
 
-        $importador = new PrecioOroImportador();
+        $importador = new PrecioOroImportador;
 
         try {
             $filas = $importador->leer($ruta);
@@ -368,6 +374,7 @@ class PrecioOroController extends Controller
 
         return DB::transaction(function () use ($filas, $monedaId, $unidad, $fuente, $ignorarCeros) {
             $guardados = 0;
+            $unidadId = UnidadMedida::where('nombre', $unidad)->where('estado', true)->value('id');
 
             foreach ($filas as $fila) {
                 if (in_array($fila['fecha'], $ignorarCeros, true)) {
@@ -389,6 +396,7 @@ class PrecioOroController extends Controller
                 PreciosOro::crearORestaurar($clave, [
                     PreciosOro::FECHA => $fila['fecha'],
                     PreciosOro::UNIDAD => $unidad,
+                    PreciosOro::UNIDAD_ID => $unidadId,
                     PreciosOro::MONEDA_ID => $monedaId,
                     PreciosOro::PRECIO => $fila['valor'],
                 ], [
@@ -407,7 +415,7 @@ class PrecioOroController extends Controller
      */
     public function plantilla()
     {
-        $libro = new Spreadsheet();
+        $libro = new Spreadsheet;
         $hoja = $libro->getActiveSheet();
         $hoja->setTitle('Precio del oro');
 
@@ -422,7 +430,7 @@ class PrecioOroController extends Controller
         for ($dia = 1; $dia <= $hoy->daysInMonth; $dia++) {
             $fecha = sprintf('%02d/%02d/%04d', $dia, $mes, $anio);
 
-            $hoja->fromArray([$fecha, number_format(78.4521 + ($dia * 0.0137), 4, '.', '')], null, 'A' . ($dia + 1));
+            $hoja->fromArray([$fecha, number_format(78.4521 + ($dia * 0.0137), 4, '.', '')], null, 'A'.($dia + 1));
         }
 
         $hoja->getStyle('A1:B1')->getFont()->setBold(true);
@@ -438,7 +446,7 @@ class PrecioOroController extends Controller
          * contents() el archivo se borra antes de que la respuesta llegue al
          * navegador: la respuesta dice 200 y lo que se descarga son cero bytes.
          */
-        $ruta = tempnam(sys_get_temp_dir(), 'plantilla-oro') . '.xlsx';
+        $ruta = tempnam(sys_get_temp_dir(), 'plantilla-oro').'.xlsx';
 
         (new Xlsx($libro))->save($ruta);
 
@@ -558,22 +566,30 @@ class PrecioOroController extends Controller
             PreciosOro::FUENTE => ['nullable', 'string', 'max:150'],
             PreciosOro::OBSERVACIONES => ['nullable', 'string', 'max:1000'],
         ], [
-            PreciosOro::FECHA . '.required' => 'Elija el día.',
-            PreciosOro::FECHA . '.date' => 'El día no es una fecha válida.',
-            PreciosOro::PRECIO . '.required' => 'Indique el precio.',
-            PreciosOro::PRECIO . '.numeric' => 'El precio tiene que ser un número. Con coma o con punto, pero solo uno de los dos como decimal.',
+            PreciosOro::FECHA.'.required' => 'Elija el día.',
+            PreciosOro::FECHA.'.date' => 'El día no es una fecha válida.',
+            PreciosOro::PRECIO.'.required' => 'Indique el precio.',
+            PreciosOro::PRECIO.'.numeric' => 'El precio tiene que ser un número. Con coma o con punto, pero solo uno de los dos como decimal.',
             /*
              * En negativo no tiene lectura: un precio negativo no significa
              * que no se sepa, significa que la columna esta al reves.
              */
-            PreciosOro::PRECIO . '.min' => 'El precio no puede ser negativo. Si de ese día no se sabe, deje el cero: eso quiere decir "no se sabe", y al valorar se usará el último precio que sí se sepa.',
-            PreciosOro::UNIDAD . '.required' => 'Elija la unidad.',
-            PreciosOro::UNIDAD . '.in' => 'Esa unidad no está en la lista.',
-            PreciosOro::MONEDA_ID . '.required' => 'Elija la moneda.',
-            PreciosOro::MONEDA_ID . '.exists' => 'Esa moneda no está en el catálogo.',
+            PreciosOro::PRECIO.'.min' => 'El precio no puede ser negativo. Si de ese día no se sabe, deje el cero: eso quiere decir "no se sabe", y al valorar se usará el último precio que sí se sepa.',
+            PreciosOro::UNIDAD.'.required' => 'Elija la unidad.',
+            PreciosOro::UNIDAD.'.in' => 'Esa unidad no está en la lista.',
+            PreciosOro::MONEDA_ID.'.required' => 'Elija la moneda.',
+            PreciosOro::MONEDA_ID.'.exists' => 'Esa moneda no está en el catálogo.',
         ]);
 
         $datos[PreciosOro::UNIDAD] = $this->unidadDe($datos[PreciosOro::UNIDAD]);
+        $datos[PreciosOro::UNIDAD_ID] = UnidadMedida::where('nombre', $datos[PreciosOro::UNIDAD])
+            ->where('estado', true)->value('id');
+
+        if (! $datos[PreciosOro::UNIDAD_ID]) {
+            throw ValidationException::withMessages([
+                PreciosOro::UNIDAD => 'La unidad seleccionada está inactiva o ya no existe.',
+            ]);
+        }
 
         return $datos;
     }

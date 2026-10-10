@@ -81,7 +81,7 @@
                             </label>
 
                             <select
-                                class="form-select @error('unidad') is-invalid @enderror"
+                                class="form-select select2 @error('unidad') is-invalid @enderror"
                                 id="unidadImportar"
                                 name="unidad"
                                 required

@@ -270,9 +270,9 @@
             </label>
 
             <select
-                class="form-select"
-                id="unidad_peso"
-                name="unidad_peso"
+                class="form-select select2"
+                id="unidad_peso_id"
+                name="unidad_peso_id"
                 {{ $tieneOperaciones ? 'disabled' : '' }}
                 required
             >
@@ -281,32 +281,9 @@
                     Seleccione una unidad
                 </option>
 
-                <option
-                    value="toneladas"
-                    @selected(old(
-                        'unidad_peso',
-                        $esEdicion ? $ordenTrabajo->unidad_peso : ''
-                    ) === 'toneladas')>
-                    Toneladas
-                </option>
-
-                <option
-                    value="kg"
-                    @selected(old(
-                        'unidad_peso',
-                        $esEdicion ? $ordenTrabajo->unidad_peso : ''
-                    ) === 'kg')>
-                    Kilogramos
-                </option>
-
-                <option
-                    value="gramos"
-                    @selected(old(
-                        'unidad_peso',
-                        $esEdicion ? $ordenTrabajo->unidad_peso : ''
-                    ) === 'gramos')>
-                    Gramos
-                </option>
+                @foreach ($unidadesMedida as $unidad)
+                    <option value="{{ $unidad->id }}" @selected((string) old('unidad_peso_id', $esEdicion ? $ordenTrabajo->unidad_peso_id : '') === (string) $unidad->id)>{{ $unidad->nombre }}</option>
+                @endforeach
 
             </select>
 
@@ -316,8 +293,8 @@
 
                 <input
                     type="hidden"
-                    name="unidad_peso"
-                    value="{{ $ordenTrabajo->unidad_peso }}"
+                    name="unidad_peso_id"
+                    value="{{ $ordenTrabajo->unidad_peso_id }}"
                 >
 
                 <div class="form-text">
@@ -327,7 +304,7 @@
 
             @endif
 
-            @error('unidad_peso')
+            @error('unidad_peso_id')
             <div class="text-danger small mt-1">
                 {{ $message }}
             </div>

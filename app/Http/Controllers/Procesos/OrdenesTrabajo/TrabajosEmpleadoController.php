@@ -14,6 +14,8 @@ use App\Models\ProcesosOrden;
 use App\Models\TiposCambio;
 use App\Models\TiposPagoEmpleado;
 use App\Models\TrabajosEmpleado;
+use App\Models\UnidadMedida;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -75,6 +77,9 @@ class TrabajosEmpleadoController extends Controller
         }
 
         $validated = $this->validarTrabajo($request);
+        $unidad = UnidadMedida::findOrFail($validated['unidad']);
+        $validated['unidad_id'] = $unidad->id;
+        $validated['unidad'] = $unidad->nombre;
 
         $tarifa = $this->tarifaVigentePara(
             $validated['empleado_id'],
@@ -151,6 +156,7 @@ class TrabajosEmpleadoController extends Controller
             'hora_fin' => $trabajosEmpleado->hora_fin?->format('H:i'),
             'cantidad' => $trabajosEmpleado->cantidad,
             'unidad' => $trabajosEmpleado->unidad,
+            'unidad_id' => $trabajosEmpleado->unidad_id,
             'tarifa' => $trabajosEmpleado->tarifa,
             'moneda' => $trabajosEmpleado->moneda?->codigo ?? '—',
             'tipo_cambio' => $trabajosEmpleado->tipo_cambio,
@@ -182,6 +188,7 @@ class TrabajosEmpleadoController extends Controller
             'descripcion' => $trabajosEmpleado->descripcion ?? '',
             'cantidad' => $trabajosEmpleado->cantidad,
             'unidad' => $trabajosEmpleado->unidad,
+            'unidad_id' => $trabajosEmpleado->unidad_id,
             'tarifa' => $trabajosEmpleado->tarifa,
             'total' => $trabajosEmpleado->total,
             'tarifa_nio' => $trabajosEmpleado->tarifa_nio,
@@ -206,6 +213,9 @@ class TrabajosEmpleadoController extends Controller
         $this->validarTrabajoProceso($ordenTrabajo, $procesoOrden, $trabajosEmpleado);
 
         $validated = $this->validarTrabajo($request);
+        $unidad = UnidadMedida::findOrFail($validated['unidad']);
+        $validated['unidad_id'] = $unidad->id;
+        $validated['unidad'] = $unidad->nombre;
 
         $tarifa = $this->tarifaVigentePara(
             $validated['empleado_id'],
@@ -217,7 +227,7 @@ class TrabajosEmpleadoController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'tipo_pago_id' => 'El empleado no tiene una tarifa vigente para el tipo de pago y fecha seleccionados.'
+                    'tipo_pago_id' => 'El empleado no tiene una tarifa vigente para el tipo de pago y fecha seleccionados.',
                 ]);
         }
 
@@ -314,7 +324,7 @@ class TrabajosEmpleadoController extends Controller
             ->orderByDesc('fecha_inicio')
             ->first();
 
-        if (!$pago) {
+        if (! $pago) {
             return null;
         }
 
@@ -327,6 +337,10 @@ class TrabajosEmpleadoController extends Controller
 
     private function validarTrabajo(Request $request): array
     {
+        if ($request->filled('unidad') && ! ctype_digit((string) $request->input('unidad'))) {
+            $request->merge(['unidad' => UnidadMedida::where('nombre', trim($request->input('unidad')))->value('id')]);
+        }
+
         /*
          * El proceso no se valida aqui: viene de la ruta y ya se
          * comprueba que pertenece a la orden. Aceptarlo del formulario
@@ -348,7 +362,7 @@ class TrabajosEmpleadoController extends Controller
             'hora_fin' => ['nullable', 'date_format:H:i', 'after_or_equal:hora_inicio'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'cantidad' => ['required', 'numeric', 'min:0'],
-            'unidad' => ['required', 'string', 'max:20'],
+            'unidad' => ['required', 'integer', Rule::exists('unidades_medida', 'id')->where('estado', true)],
             'observaciones' => ['nullable', 'string'],
         ]);
     }
@@ -375,7 +389,7 @@ class TrabajosEmpleadoController extends Controller
         return sprintf(
             'No hay tipo de cambio registrado para %s el %s. Primero ingréselo en Configuración > Tipos de cambio.',
             $moneda->codigo,
-            \Carbon\Carbon::parse($fecha)->format('d/m/Y')
+            Carbon::parse($fecha)->format('d/m/Y')
         );
     }
 
@@ -405,9 +419,9 @@ class TrabajosEmpleadoController extends Controller
             ->orderByDesc('fecha_inicio')
             ->first();
 
-        if (!$pago) {
+        if (! $pago) {
             return response()->json([
-                'message' => 'El empleado no tiene una tarifa vigente para el tipo de pago y fecha seleccionados.'
+                'message' => 'El empleado no tiene una tarifa vigente para el tipo de pago y fecha seleccionados.',
             ], 404);
         }
 

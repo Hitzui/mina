@@ -47,10 +47,9 @@
     <div class="col-md-3">
         <label for="trabajoUnidad" class="form-label">Unidad <span class="text-danger">*</span></label>
         <select name="unidad" id="trabajoUnidad" class="form-select select2" required>
-            <option value="hora">Hora</option>
-            <option value="día">Día</option>
-            <option value="unidad">Unidad</option>
-            <option value="tarea">Tarea</option>
+            @foreach ($unidadesMedida as $unidad)
+                <option value="{{ $unidad->id }}">{{ $unidad->nombre }}</option>
+            @endforeach
         </select>
     </div>
 

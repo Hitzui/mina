@@ -178,7 +178,7 @@ $(function () {
                 $('#trabajoHoraInicio').val(response.hora_inicio ?? '');
                 $('#trabajoHoraFin').val(response.hora_fin ?? '');
                 cantidad.val(response.cantidad ?? 0);
-                fijar($('#trabajoUnidad'), response.unidad ?? 'hora');
+                fijar($('#trabajoUnidad'), response.unidad_id ?? '');
                 $('#trabajoDescripcion').val(response.descripcion ?? '');
                 $('#trabajoObservaciones').val(response.observaciones ?? '');
                 tarifa.val(response.tarifa ?? 0);

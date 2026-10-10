@@ -68,20 +68,16 @@
         <label for="unidad_medida" class="form-label">
             Unidad <span class="text-danger">*</span>
         </label>
-        <input
-            type="text"
-            id="unidad_medida"
-            name="unidad_medida"
-            class="form-control @error('unidad_medida') is-invalid @enderror"
-            value="{{ old('unidad_medida', $producto->unidad_medida ?? 'kg') }}"
-            required
-            maxlength="15"
-            placeholder="kg, litro, tm..."
-        >
+        <select id="unidad_medida_id" name="unidad_medida_id" class="form-select select2 @error('unidad_medida_id') is-invalid @enderror" required>
+            <option value="">Seleccione una unidad</option>
+            @foreach ($unidadesMedida as $unidad)
+                <option value="{{ $unidad->id }}" @selected((string) old('unidad_medida_id', $producto->unidad_medida_id ?? ($unidadesMedida->firstWhere('nombre', 'kg')->id ?? '')) === (string) $unidad->id)>{{ $unidad->nombre }}</option>
+            @endforeach
+        </select>
         <div class="form-text">
             En qué se mide. Es lo que aparece junto a la cantidad.
         </div>
-        @error('unidad_medida')
+        @error('unidad_medida_id')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
     </div>

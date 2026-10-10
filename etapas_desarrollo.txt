@@ -9,14 +9,14 @@
 11. Proveedores -> ok
 12. Compras -> ok
 13. Inventario -> ok
-14. Tipos de producción -> falta la pantalla
-15. Producciones -> falta la pantalla
+14. Tipos de producción -> ok. CRUD en Configuración con ficha, activación y desactivación; un tipo usado en producciones no se borra, incluidos los registros dados de baja
+15. Producciones -> ok. CRUD en Producción con orden obligatoria y proceso opcional validado contra esa misma orden; orden/proceso cerrados bloquean altas nuevas y permiten correcciones. Cantidad no negativa con cuatro decimales; unidad de medida en Select2 desde el catálogo central y validada en servidor; los tipos inactivos solo se conservan en registros existentes
 16. Recuperaciones -> ok. CRUD en modal, en Producción. La pureza va como fracción y acotada a 1
 17. Monedas -> ok. CRUD en modal con ficha, en Configuración. Códigos ISO de tres letras
 18. Tipos de cambio -> ok. CRUD en modal y carga del mes desde Excel, en Configuración
 19. Precios de oro -> ok. CRUD en modal, carga del mes desde Excel, y el 0 quiere decir "de ese día no se sabe"
 20. Valoraciones de oro -> ok. CRUD en modal, en Producción. El valor no se escribe: lo calcula el servidor. Una valoración por recuperación
-21. Tipos de participación -> falta la pantalla
+21. Tipos de participación -> ok. CRUD con ficha en Configuración; muestra los acuerdos asociados y no permite borrar tipos usados, incluidos acuerdos dados de baja. Los tipos inactivos se conservan para el historial y se retiran de nuevos acuerdos.
 22. Acuerdos -> falta la pantalla
 23. Liquidaciones -> falta la pantalla
 24. Tipos de ingreso -> ok. CRUD en modal con ficha, en Configuración. Un tipo en uso no se borra: se desactiva
@@ -28,3 +28,4 @@
 30. Cierres de caja -> ok. Desde Caja e Ingresos se elige una caja y un período; se registra el importe contado y se conserva la diferencia como captura histórica. Tras la etapa 31, el esperado es el saldo acumulado hasta el último día del período, separado por método y moneda; el saldo inicial y los movimientos anteriores forman la apertura. No se permiten períodos que se crucen para la misma caja. Es distinto de cierres_orden, que cierra una orden de trabajo.
 31. Movimientos de caja -> ok. Libro inmutable por caja, método y moneda: los cobros Finalizados generan entradas automáticas; se registran entradas manuales, egresos, saldos iniciales y transferencias (salida y entrada enlazadas). Los cobros corregidos, cancelados o eliminados se ajustan con reversos sin borrar el historial. El cierre toma el saldo acumulado hasta la fecha final del período, separado por método y moneda, y continúa guardándose como captura histórica.
 32. Caja asignada al usuario -> ok. La cuenta tiene una caja de trabajo; al iniciar sesión se carga automáticamente, sin selector de caja. Los movimientos y su resumen se filtran por esa asignación; una cuenta sin caja activa asignada no inicia sesión. La asignación se administra con `php artisan mina:asignar-caja {usuario} {caja_id}`.
+33. Catálogo de unidades de medida -> ok. CRUD en Configuración; los formularios de materiales, órdenes, producciones, ingresos, precios del oro y trabajos de empleados eligen unidades activas. Las unidades usadas no se renombran, desactivan ni eliminan. La migración conserva las etiquetas históricas y completa sus relaciones.

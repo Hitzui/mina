@@ -25,6 +25,7 @@ class RolesYPermisosSeeder extends Seeder
         'procesos_orden',
         'proceso_equipo',
         'recuperaciones',
+        'producciones',
         'valoraciones_oro',
         'movimientos_costo',
         'movimientos_inventario',
@@ -42,6 +43,9 @@ class RolesYPermisosSeeder extends Seeder
         'configuracion.categorias_costos',
         'configuracion.tipos_pago_empleado',
         'configuracion.tipos_ingreso',
+        'configuracion.tipos_produccion',
+        'configuracion.tipos_participacion',
+        'configuracion.unidades_medida',
         'configuracion.cajas',
         'configuracion.metodos_pago',
         'usuarios',
@@ -70,7 +74,7 @@ class RolesYPermisosSeeder extends Seeder
             }
         }
 
-        $this->command?->info('  Permisos: ' . count($todos));
+        $this->command?->info('  Permisos: '.count($todos));
 
         /*
          * 2. Rol administrador: acceso total
@@ -209,6 +213,9 @@ class RolesYPermisosSeeder extends Seeder
             'configuracion.precios_oro.view',
             'configuracion.categorias_costos.view',
             'configuracion.tipos_pago_empleado.view',
+            'configuracion.tipos_produccion.view',
+            'configuracion.tipos_participacion.view',
+            'producciones.view', 'producciones.create', 'producciones.edit',
         ]);
 
         /*
@@ -253,10 +260,12 @@ class RolesYPermisosSeeder extends Seeder
              * pactó con el cliente, que no es el que esta en la etapa de Pilas.
              */
             'ingresos.view',
+            // La producción registrada es el resultado del trabajo en proceso.
+            'producciones.view', 'producciones.create', 'producciones.edit',
         ]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $this->command?->info('  Roles: ' . Role::count());
+        $this->command?->info('  Roles: '.Role::count());
     }
 }

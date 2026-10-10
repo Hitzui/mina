@@ -14,14 +14,15 @@ use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\Equipo;
 use App\Models\Etapa;
-use App\Models\MovimientosInventario;
 use App\Models\MovimientosCosto;
+use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
+use App\Models\ProcesosOrden;
 use App\Models\Produccione;
 use App\Models\Producto;
-use App\Models\ProcesosOrden;
-use App\Models\TrabajosEmpleado;
 use App\Models\TiposPagoEmpleado;
+use App\Models\TrabajosEmpleado;
+use App\Models\UnidadMedida;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -108,6 +109,7 @@ class ProcesoOrdenController extends Controller
             ->where('estado', true)
             ->orderBy('nombre')
             ->get();
+        $unidadesMedida = UnidadMedida::where('estado', true)->orderBy('nombre')->get();
 
         /*
          * El combo de equipos del modal. Se ofrecen todos los activos
@@ -148,19 +150,19 @@ class ProcesoOrdenController extends Controller
         $registrosSinEquivalenteNio = TrabajosEmpleado::withTrashed()
             ->where(TrabajosEmpleado::PROCESO_ORDEN_ID, $procesoOrden->id)
             ->whereNull(TrabajosEmpleado::TOTAL_NIO)
-            ->whereHas('moneda', fn($query) => $query->where('es_moneda_base', false))
+            ->whereHas('moneda', fn ($query) => $query->where('es_moneda_base', false))
             ->count()
             + MovimientosCosto::withTrashed()
                 ->where(MovimientosCosto::PROCESO_ORDEN_ID, $procesoOrden->id)
                 ->whereNull(MovimientosCosto::COSTO_TOTAL_NIO)
                 ->whereNull(MovimientosCosto::COSTO_UNITARIO_NIO)
-                ->whereHas('moneda', fn($query) => $query->where('es_moneda_base', false))
+                ->whereHas('moneda', fn ($query) => $query->where('es_moneda_base', false))
                 ->count()
             + MovimientosInventario::withTrashed()
                 ->where(MovimientosInventario::PROCESO_ORDEN_ID, $procesoOrden->id)
                 ->whereNull(MovimientosInventario::COSTO_TOTAL_NIO)
                 ->whereNull(MovimientosInventario::COSTO_UNITARIO_NIO)
-                ->whereHas('moneda', fn($query) => $query->where('es_moneda_base', false))
+                ->whereHas('moneda', fn ($query) => $query->where('es_moneda_base', false))
                 ->count();
 
         /*
@@ -193,6 +195,7 @@ class ProcesoOrdenController extends Controller
                 'cantidadEquipos',
                 'cantidadMateriales',
                 'tiposPago',
+                'unidadesMedida',
                 'equiposDisponibles',
                 'fechaInicioPorDefecto',
                 'categorias',
@@ -275,13 +278,13 @@ class ProcesoOrdenController extends Controller
 
             'fecha_inicio' => [
                 'nullable',
-                'date'
+                'date',
             ],
 
             'fecha_fin' => [
                 'nullable',
                 'date',
-                'after_or_equal:fecha_inicio'
+                'after_or_equal:fecha_inicio',
             ],
 
             'peso_entrada' => [
@@ -302,7 +305,7 @@ class ProcesoOrdenController extends Controller
 
             'observaciones' => [
                 'nullable',
-                'string'
+                'string',
             ],
 
             /*
@@ -348,7 +351,7 @@ class ProcesoOrdenController extends Controller
             404
         );
 
-        $title = "Editar Proceso";
+        $title = 'Editar Proceso';
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -356,17 +359,17 @@ class ProcesoOrdenController extends Controller
                 'label' => 'Órdenes de Trabajo',
                 'url' => route(
                     'procesos.ordenes_trabajo.index'
-                )
+                ),
             ],
             [
                 'label' => $ordenTrabajo->codigo,
                 'url' => route(
                     'procesos.ordenes_trabajo.show',
                     $ordenTrabajo
-                )
+                ),
             ],
             [
-                'label' => 'Editar Proceso'
+                'label' => 'Editar Proceso',
             ],
         ];
 
@@ -568,6 +571,7 @@ class ProcesoOrdenController extends Controller
     public function data(OrdenesTrabajo $ordenTrabajo, ProcesosOrdenDataTable $dataTable)
     {
         $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
+
         return $dataTable->ajax();
     }
 }
