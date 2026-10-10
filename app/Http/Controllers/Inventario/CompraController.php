@@ -10,6 +10,7 @@ use App\Models\Compra;
 use App\Models\DetalleCompra;
 use App\Models\Moneda;
 use App\Models\Producto;
+use App\Models\TiposCambio;
 use App\Services\ComprasInventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,7 @@ class CompraController extends Controller
     public function store(Request $request, ComprasInventarioService $inventario)
     {
         $datos = $this->validarCabecera($request);
+        $this->validarTipoCambioDelDia($datos);
         $lineas = $this->validarLineas($request);
 
         $compra = DB::transaction(function () use ($datos, $lineas, $inventario) {
@@ -132,6 +134,7 @@ class CompraController extends Controller
         ComprasInventarioService $inventario
     ) {
         $datos = $this->validarCabecera($request);
+        $this->validarTipoCambioDelDia($datos);
         $lineas = $this->validarLineas($request);
 
         $compra = DB::transaction(function () use ($compra, $datos, $lineas, $inventario) {
@@ -261,6 +264,27 @@ class CompraController extends Controller
             'moneda_id.required' => 'Elija la moneda de la compra.',
             'porcentaje_impuesto.max' => 'El impuesto no puede pasar de 100 %.',
             'estado.in' => 'Ese estado de compra no existe.',
+        ]);
+    }
+
+    private function validarTipoCambioDelDia(array $datos): void
+    {
+        $moneda = Moneda::find((int) $datos['moneda_id']);
+
+        if ($moneda === null || $moneda->es_moneda_base) {
+            return;
+        }
+
+        if (TiposCambio::delDia((int) $moneda->id, $datos['fecha']) !== null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'moneda_id' => sprintf(
+                'No hay tipo de cambio registrado para %s el %s. Primero ingréselo en Configuración > Tipos de cambio.',
+                $moneda->codigo,
+                \Carbon\Carbon::parse($datos['fecha'])->format('d/m/Y')
+            ),
         ]);
     }
 

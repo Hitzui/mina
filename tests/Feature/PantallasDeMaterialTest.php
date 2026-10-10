@@ -125,6 +125,25 @@ class PantallasDeMaterialTest extends TestCase
         ], $extra);
     }
 
+    public function test_un_proceso_cancelado_no_acepta_nuevos_consumos(): void
+    {
+        $this->proceso->forceFill([
+            'estado' => ProcesosOrden::ESTADO_CANCELADO,
+        ])->save();
+        $antes = MovimientosInventario::where('proceso_orden_id', $this->proceso->id)->count();
+
+        $this->post($this->rutaProceso(), $this->payload())
+            ->assertRedirect(route('procesos.ordenes_trabajo.procesos.show', [
+                $this->proceso->orden_trabajo_id,
+                $this->proceso->id,
+            ]));
+
+        $this->assertSame(
+            $antes,
+            MovimientosInventario::where('proceso_orden_id', $this->proceso->id)->count()
+        );
+    }
+
     // ==================================================================
     // El catalogo de materiales
     // ==================================================================

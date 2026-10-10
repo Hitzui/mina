@@ -8,6 +8,7 @@ use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -46,9 +47,15 @@ class MetodoCalculoTest extends TestCase
         $this->orden = OrdenesTrabajo::firstOrFail();
         $this->empleado = Empleado::where('estado', 1)->firstOrFail();
 
-        // El trabajo se registra dentro de un proceso
-        $this->proceso = ProcesosOrden::where('orden_trabajo_id', $this->orden->id)
-            ->firstOrFail();
+        // Las pruebas crean una etapa activa: el proceso de la orden real
+        // puede estar finalizado y ya no admite trabajos nuevos.
+        $this->proceso = ProcesosOrden::create([
+            ProcesosOrden::ORDEN_TRABAJO_ID => $this->orden->id,
+            ProcesosOrden::ETAPA_ID => DB::table('etapas')->value('id'),
+            ProcesosOrden::CODIGO => 'P-MC-' . strtoupper(substr(md5(uniqid('', true)), 0, 8)),
+            ProcesosOrden::FECHA_INICIO => now()->subDay(),
+            ProcesosOrden::ESTADO => ProcesosOrden::ESTADO_EN_PROCESO,
+        ]);
     }
 
     /**

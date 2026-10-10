@@ -156,6 +156,26 @@ class EquiposEnProcesosTest extends TestCase
         $this->assertNull($uso->fecha_fin, 'Sin fecha de fin el equipo sigue en el proceso');
     }
 
+    public function test_un_proceso_finalizado_no_acepta_nuevo_uso_de_equipo(): void
+    {
+        $equipo = $this->crearEquipo();
+        $this->proceso->forceFill([
+            'fecha_inicio' => now()->subDays(3),
+            'fecha_fin' => now()->subDay(),
+        ])->save();
+
+        $this->post($this->ruta(), [
+            'equipo_id' => $equipo->id,
+            'fecha_inicio' => now()->subDays(2)->format('Y-m-d H:i'),
+            'fecha_fin' => now()->subDay()->format('Y-m-d H:i'),
+        ])->assertRedirect(route('procesos.ordenes_trabajo.procesos.show', [$this->orden, $this->proceso]));
+
+        $this->assertDatabaseMissing('proceso_equipos', [
+            'proceso_orden_id' => $this->proceso->id,
+            'equipo_id' => $equipo->id,
+        ]);
+    }
+
     // ==================================================================
     // Un equipo no puede estar en dos procesos a la vez
     // ==================================================================

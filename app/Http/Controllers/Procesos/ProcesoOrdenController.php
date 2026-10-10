@@ -15,9 +15,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Equipo;
 use App\Models\Etapa;
 use App\Models\MovimientosInventario;
+use App\Models\MovimientosCosto;
 use App\Models\OrdenesTrabajo;
+use App\Models\Produccione;
 use App\Models\Producto;
 use App\Models\ProcesosOrden;
+use App\Models\TrabajosEmpleado;
 use App\Models\TiposPagoEmpleado;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -139,6 +142,27 @@ class ProcesoOrdenController extends Controller
         // El desglose de donde sale el total del proceso
         $costosDesglosados = $procesoOrden->costosDesglosados();
 
+        // Registros históricos extranjeros sin tipo de cambio guardado.
+        // No se convierten con la tasa actual: hay que cargar la tasa de su
+        // fecha y corregir el registro para conservar su valor histórico.
+        $registrosSinEquivalenteNio = TrabajosEmpleado::withTrashed()
+            ->where(TrabajosEmpleado::PROCESO_ORDEN_ID, $procesoOrden->id)
+            ->whereNull(TrabajosEmpleado::TOTAL_NIO)
+            ->whereHas('moneda', fn($query) => $query->where('es_moneda_base', false))
+            ->count()
+            + MovimientosCosto::withTrashed()
+                ->where(MovimientosCosto::PROCESO_ORDEN_ID, $procesoOrden->id)
+                ->whereNull(MovimientosCosto::COSTO_TOTAL_NIO)
+                ->whereNull(MovimientosCosto::COSTO_UNITARIO_NIO)
+                ->whereHas('moneda', fn($query) => $query->where('es_moneda_base', false))
+                ->count()
+            + MovimientosInventario::withTrashed()
+                ->where(MovimientosInventario::PROCESO_ORDEN_ID, $procesoOrden->id)
+                ->whereNull(MovimientosInventario::COSTO_TOTAL_NIO)
+                ->whereNull(MovimientosInventario::COSTO_UNITARIO_NIO)
+                ->whereHas('moneda', fn($query) => $query->where('es_moneda_base', false))
+                ->count();
+
         /*
          * Los materiales para el modal de consumo. Van con su saldo
          * cargado porque el desplegable muestra cuanto hay de cada uno y a
@@ -175,7 +199,8 @@ class ProcesoOrdenController extends Controller
                 'monedas',
                 'productos',
                 'fechaPorDefecto',
-                'costosDesglosados'
+                'costosDesglosados',
+                'registrosSinEquivalenteNio'
             )
         );
     }
@@ -243,7 +268,9 @@ class ProcesoOrdenController extends Controller
             'etapa_id' => [
                 'required',
                 'integer',
-                'exists:etapas,id'
+                Rule::exists('etapas', 'id')
+                    ->whereNull('deleted_at')
+                    ->where('estado', true),
             ],
 
             'fecha_inicio' => [
@@ -260,13 +287,17 @@ class ProcesoOrdenController extends Controller
             'peso_entrada' => [
                 'nullable',
                 'numeric',
-                'gte:0'
+                'gte:0',
+                'decimal:0,3',
+                'lte:999999999.999',
             ],
 
             'peso_salida' => [
                 'nullable',
                 'numeric',
-                'gte:0'
+                'gte:0',
+                'decimal:0,3',
+                'lte:999999999.999',
             ],
 
             'observaciones' => [
@@ -379,7 +410,10 @@ class ProcesoOrdenController extends Controller
                 'integer',
                 Rule::exists('etapas', 'id')
                     ->whereNull('deleted_at')
-                    ->where('estado', true),
+                    ->where(function ($query) use ($procesoOrden) {
+                        $query->where('estado', true)
+                            ->orWhere('id', $procesoOrden->etapa_id);
+                    }),
             ],
 
             'fecha_inicio' => [
@@ -397,12 +431,16 @@ class ProcesoOrdenController extends Controller
                 'nullable',
                 'numeric',
                 'gte:0',
+                'decimal:0,3',
+                'lte:999999999.999',
             ],
 
             'peso_salida' => [
                 'nullable',
                 'numeric',
                 'gte:0',
+                'decimal:0,3',
+                'lte:999999999.999',
             ],
 
             'observaciones' => [
@@ -464,6 +502,17 @@ class ProcesoOrdenController extends Controller
             404
         );
 
+        if ($this->tieneRegistrosAsociados($procesoOrden)) {
+            Alert::toast(
+                'No se puede dar de baja este proceso porque tiene trabajos, costos, consumos, equipos o producciones asociados. Corrija los registros desde la ficha del proceso para conservar el historial.'
+            )->error()->flash();
+
+            return redirect()->route(
+                'procesos.ordenes_trabajo.procesos.show',
+                [$ordenTrabajo, $procesoOrden]
+            );
+        }
+
         $procesoOrden->delete();
 
         Alert::toast(
@@ -474,6 +523,21 @@ class ProcesoOrdenController extends Controller
             'procesos.ordenes_trabajo.show',
             $ordenTrabajo
         );
+    }
+
+    private function tieneRegistrosAsociados(ProcesosOrden $procesoOrden): bool
+    {
+        return $procesoOrden->trabajos_empleados()->withTrashed()->exists()
+            || $procesoOrden->equipos()->withTrashed()->exists()
+            || MovimientosCosto::withTrashed()
+                ->where(MovimientosCosto::PROCESO_ORDEN_ID, $procesoOrden->id)
+                ->exists()
+            || MovimientosInventario::withTrashed()
+                ->where(MovimientosInventario::PROCESO_ORDEN_ID, $procesoOrden->id)
+                ->exists()
+            || Produccione::withTrashed()
+                ->where(Produccione::PROCESO_ORDEN_ID, $procesoOrden->id)
+                ->exists();
     }
 
     private function generarCodigo(

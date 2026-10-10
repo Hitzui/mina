@@ -215,7 +215,7 @@ class CostosDeOrdenTest extends TestCase
     {
         TiposCambio::create([
             'moneda_id' => $this->monedaExtranjera->id,
-            'fecha' => '2026-01-01',
+            'fecha' => '2026-03-10',
             'valor' => 36.5,
             'fuente' => 'Prueba',
         ]);
@@ -231,21 +231,26 @@ class CostosDeOrdenTest extends TestCase
 
         $this->assertEqualsWithDelta(20.0, (float) $costo->costo_total, 0.01);
         $this->assertEqualsWithDelta(730.0, (float) $costo->costo_total_nio, 0.01);
+        $this->assertEqualsWithDelta(730.0, $this->proceso->fresh()->costo_otros, 0.01);
     }
 
-    public function test_sin_tipo_de_cambio_el_equivalente_nio_queda_vacio(): void
+    public function test_sin_tipo_de_cambio_del_dia_no_se_guarda_el_costo(): void
     {
+        TiposCambio::create([
+            'moneda_id' => $this->monedaExtranjera->id,
+            'fecha' => '2037-04-11',
+            'valor' => 36.5,
+            'fuente' => 'Prueba día anterior',
+        ]);
+
         $this->post($this->rutaProceso(), $this->payload([
             'cantidad' => 2,
             'costo_unitario' => 10,
             'moneda_id' => $this->monedaExtranjera->id,
-        ]))->assertRedirect();
+            'fecha' => '2037-04-12',
+        ]))->assertSessionHasErrors('moneda_id');
 
-        $costo = MovimientosCosto::latest('id')->firstOrFail();
-
-        // El costo se guarda igual, solo el equivalente queda vacio
-        $this->assertEqualsWithDelta(20.0, (float) $costo->costo_total, 0.01);
-        $this->assertNull($costo->costo_total_nio);
+        $this->assertSame(0, $this->costosCreados());
     }
 
     // ==================================================================
@@ -477,6 +482,20 @@ class CostosDeOrdenTest extends TestCase
         $this->assertEqualsWithDelta(1000.0, $this->otroProceso->fresh()->costo_otros, 0.01);
     }
 
+    public function test_un_proceso_finalizado_no_acepta_nuevos_gastos(): void
+    {
+        $this->proceso->forceFill([
+            'fecha_inicio' => now()->subDays(3),
+            'fecha_fin' => now()->subDay(),
+        ])->save();
+        $antes = $this->costosCreados();
+
+        $this->post($this->rutaProceso(), $this->payload())
+            ->assertRedirect(route('procesos.ordenes_trabajo.procesos.show', [$this->orden, $this->proceso]));
+
+        $this->assertSame($antes, $this->costosCreados());
+    }
+
     public function test_quitar_el_costo_baja_el_costo_del_proceso(): void
     {
         $this->post($this->rutaProceso(), $this->payload([
@@ -650,7 +669,7 @@ class CostosDeOrdenTest extends TestCase
 
         TiposCambio::create([
             'moneda_id' => $this->monedaExtranjera->id,
-            'fecha' => '2026-01-01',
+            'fecha' => '2026-03-10',
             'valor' => 40,
             'fuente' => 'Prueba',
         ]);

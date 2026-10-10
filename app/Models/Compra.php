@@ -146,7 +146,12 @@ class Compra extends BaseCompra
             return null;
         }
 
-        $cambio = TiposCambio::vigentePara(
+        $moneda = $this->moneda;
+        if ($moneda?->es_moneda_base) {
+            return round((float) $this->total, 2);
+        }
+
+        $cambio = TiposCambio::delDia(
             (int) $this->moneda_id,
             $this->fecha->toDateString()
         );

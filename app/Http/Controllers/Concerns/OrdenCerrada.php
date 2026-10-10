@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\OrdenesTrabajo;
+use App\Models\ProcesosOrden;
 use Illuminate\Http\RedirectResponse;
 use RealRashid\SweetAlert\Facades\Alert;
 
@@ -73,6 +74,32 @@ trait OrdenCerrada
         Alert::toast($this->mensajeDeOrdenCerrada($orden, $que))->error()->flash();
 
         return redirect()->route('procesos.ordenes_trabajo.show', $orden);
+    }
+
+    /**
+     * No permite agregar actividad nueva a un proceso finalizado o cancelado.
+     * Las rutas de edición y corrección permanecen disponibles.
+     */
+    private function bloquearProcesoCerrado(
+        OrdenesTrabajo $orden,
+        ProcesosOrden $proceso,
+        string $que
+    ): ?RedirectResponse {
+        if (! $proceso->estaCerrado()) {
+            return null;
+        }
+
+        Alert::toast(sprintf(
+            'No se puede registrar %s: el proceso %s está %s. Los registros existentes todavía se pueden corregir.',
+            $que,
+            $proceso->codigo,
+            mb_strtolower($proceso->estadoTexto())
+        ))->error()->flash();
+
+        return redirect()->route(
+            'procesos.ordenes_trabajo.procesos.show',
+            [$orden, $proceso]
+        );
     }
 
     /**

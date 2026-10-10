@@ -18,6 +18,27 @@
 
                 @include('procesos.ordenes_trabajo._aviso_orden_cerrada')
 
+                @if($procesoOrden->estaCerrado())
+                    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                        <i class="bi bi-lock-fill fs-5"></i>
+                        <div>
+                            El proceso está <strong>{{ mb_strtolower($procesoOrden->estadoTexto()) }}</strong>;
+                            no admite nuevos trabajos, consumos, equipos ni gastos. Los registros existentes se pueden corregir.
+                        </div>
+                    </div>
+                @endif
+
+                @if($registrosSinEquivalenteNio > 0)
+                    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                        <div>
+                            Hay <strong>{{ $registrosSinEquivalenteNio }}</strong> registros en moneda extranjera sin equivalente en NIO.
+                            Registre el tipo de cambio de cada fecha en <strong>Configuración &gt; Tipos de cambio</strong> y edite el registro para recalcularlo.
+                            Esos importes no se incluyen en el costo consolidado hasta que tengan su equivalente histórico.
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Datos del proceso y lo que se le paga --}}
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
@@ -73,7 +94,7 @@
                         la rejilla lo dejaria como uno más de cuatro.
                     --}}
                     <div class="col-md-3">
-                        <label class="form-label text-muted">Costo de mano de obra</label>
+                        <label class="form-label text-muted">Costo de mano de obra (NIO)</label>
                         <div class="form-control bg-light fw-semibold fs-5">
                             {{ number_format($procesoOrden->costo_empleados, 2) }}
                         </div>
@@ -85,7 +106,7 @@
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label text-muted">Depreciación de equipos</label>
+                        <label class="form-label text-muted">Depreciación de equipos (NIO)</label>
                         <div class="form-control bg-light fw-semibold fs-5">
                             {{ number_format($procesoOrden->costo_equipos, 2) }}
                         </div>
@@ -97,12 +118,12 @@
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label text-muted">Otros costos</label>
+                        <label class="form-label text-muted">Otros costos (NIO)</label>
                         <div class="form-control bg-light fw-semibold fs-5">
                             {{ number_format($procesoOrden->costo_otros, 2) }}
                         </div>
                         <div class="form-text">
-                            Energía, agua, materia prima y demás conceptos
+                            Energía, agua, administración, papelería y demás conceptos
                             registrados a mano en este proceso.
                         </div>
                     </div>
@@ -110,7 +131,7 @@
                     <div class="col-md-3">
                         <label class="form-label text-muted">
                             <i class="bi bi-calculator me-1"></i>
-                            Costo total del proceso
+                            Costo total del proceso (NIO)
                         </label>
                         <div class="form-control bg-light fw-semibold fs-4 text-primary">
                             {{ number_format($procesoOrden->costo_total, 2) }}
@@ -140,8 +161,8 @@
                     <button type="button"
                             class="btn btn-primary"
                             id="btnNuevoTrabajoEmpleado"
-                            @disabled($ordenTrabajo->estaCerrada())
-                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un trabajo' : '' }}">
+                            @disabled($ordenTrabajo->estaCerrada() || $procesoOrden->estaCerrado())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un trabajo' : ($procesoOrden->estaCerrado() ? 'El proceso está cerrado: no se puede registrar un trabajo' : '') }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Nuevo trabajo
                     </button>
@@ -165,8 +186,8 @@
                     <button type="button"
                             class="btn btn-primary"
                             id="btnNuevoUsoEquipo"
-                            @disabled($ordenTrabajo->estaCerrada())
-                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar el uso de un equipo' : '' }}">
+                            @disabled($ordenTrabajo->estaCerrada() || $procesoOrden->estaCerrado())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar el uso de un equipo' : ($procesoOrden->estaCerrado() ? 'El proceso está cerrado: no se puede registrar el uso de un equipo' : '') }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Asignar equipo
                     </button>
@@ -198,14 +219,14 @@
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                     <h5 class="mb-0">
                         <i class="bi bi-cash-coin me-2"></i>
-                        Costos del proceso
+                        Costos del proceso <span class="badge bg-light-primary text-primary ms-1">NIO</span>
                     </h5>
 
                     <button type="button"
                             class="btn btn-primary"
                             id="btnNuevoCosto"
-                            @disabled($ordenTrabajo->estaCerrada())
-                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un costo' : '' }}">
+                            @disabled($ordenTrabajo->estaCerrada() || $procesoOrden->estaCerrado())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un costo' : ($procesoOrden->estaCerrado() ? 'El proceso está cerrado: no se puede registrar un costo' : '') }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Registrar costo
                     </button>
@@ -245,8 +266,8 @@
                     <button type="button"
                             class="btn btn-primary"
                             id="btnNuevoMaterial"
-                            @disabled($ordenTrabajo->estaCerrada())
-                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un consumo' : '' }}">
+                            @disabled($ordenTrabajo->estaCerrada() || $procesoOrden->estaCerrado())
+                            title="{{ $ordenTrabajo->estaCerrada() ? 'La orden está cerrada: no se puede registrar un consumo' : ($procesoOrden->estaCerrado() ? 'El proceso está cerrado: no se puede registrar un consumo' : '') }}">
                         <i class="bi bi-plus-lg me-1"></i>
                         Registrar consumo
                     </button>
@@ -320,7 +341,7 @@
                         <tfoot class="table-light">
                             <tr>
                                 <th colspan="2" class="text-end">
-                                    Costo total del proceso
+                                    Costo total del proceso (NIO)
                                 </th>
                                 <th class="text-end fs-6">
                                     {{ number_format($procesoOrden->costo_total, 2) }}

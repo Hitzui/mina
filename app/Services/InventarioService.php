@@ -58,6 +58,17 @@ class InventarioService
 
             $movimiento = $this->armar($datos, $saldo);
 
+            if ($this->requiereTipoCambioDelDia($movimiento)
+                && $this->tipoCambioDe($movimiento) === null) {
+                throw ValidationException::withMessages([
+                    MovimientosInventario::MONEDA_ID => sprintf(
+                        'No hay tipo de cambio registrado para %s el %s. Primero ingréselo en Configuración > Tipos de cambio.',
+                        $movimiento->moneda?->codigo ?? 'la moneda seleccionada',
+                        $movimiento->fecha?->format('d/m/Y') ?? 'la fecha indicada'
+                    ),
+                ]);
+            }
+
             $this->aplicarAlSaldo($saldo, $movimiento);
 
             $movimiento->save();
@@ -123,6 +134,9 @@ class InventarioService
          * el formulario se pisa, que es lo que se aseguro con el cliente.
          */
         if ($movimiento->esSalida()) {
+            // Las salidas se valúan al promedio del almacén, que ya está en
+            // moneda base. No se debe aceptar una moneda enviada por el form.
+            $movimiento->moneda_id = $this->monedaBaseId();
             $movimiento->costo_unitario = (float) $saldo->cpp_actual;
         } else {
             $movimiento->costo_unitario = (float) ($datos['costo_unitario'] ?? 0);
@@ -281,10 +295,23 @@ class InventarioService
             return null;
         }
 
-        return TiposCambio::vigentePara(
+        $moneda = $movimiento->moneda ?? Moneda::find($movimiento->moneda_id);
+
+        if ($moneda?->es_moneda_base) {
+            return 1.0;
+        }
+
+        return TiposCambio::delDia(
             (int) $movimiento->moneda_id,
             $movimiento->fecha->toDateString()
         );
+    }
+
+    private function requiereTipoCambioDelDia(MovimientosInventario $movimiento): bool
+    {
+        $moneda = $movimiento->moneda ?? Moneda::find($movimiento->moneda_id);
+
+        return $moneda !== null && ! $moneda->es_moneda_base;
     }
 
     /**

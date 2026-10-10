@@ -70,6 +70,10 @@ class CostosProcesoController extends Controller
 
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
+        if ($bloqueo = $this->bloquearProcesoCerrado($ordenTrabajo, $procesoOrden, 'un costo')) {
+            return $bloqueo;
+        }
+
         $validado = $this->validarCosto($request);
 
         [$costo, $tipoCambio] = $this->armarCosto(

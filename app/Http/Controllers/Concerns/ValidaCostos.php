@@ -112,10 +112,8 @@ trait ValidaCostos
      * una edicion perderia el id y dejaria dos filas: la vieja, que
      * nadie borro, y la nueva.
      *
-     * Devuelve tambien el tipo de cambio usado, o null cuando no habia
-     * ninguno para esa fecha. El null no se avisa aqui: cada pantalla
-     * decide si lo cuenta como falta o lo deja pasar, y por eso se
-     * devuelve en vez de resolverse dentro.
+     * Devuelve tambien el tipo de cambio exacto usado. En moneda extranjera
+     * si falta el dato se rechaza antes de guardar y se pide cargarlo.
      *
      * @param  array<string, mixed>  $validado
      * @return array{0: MovimientosCosto, 1: float|null}
@@ -139,13 +137,25 @@ trait ValidaCostos
             $validado['fecha']
         );
 
+        if ($tipoCambio === null) {
+            $moneda = Moneda::find((int) $validado['moneda_id']);
+
+            throw ValidationException::withMessages([
+                'moneda_id' => sprintf(
+                    'No hay tipo de cambio registrado para %s el %s. Primero ingréselo en Configuración > Tipos de cambio.',
+                    $moneda?->codigo ?? 'la moneda seleccionada',
+                    date('d/m/Y', strtotime($validado['fecha']))
+                ),
+            ]);
+        }
+
         $costo->calcularTotales($tipoCambio);
 
         return [$costo, $tipoCambio];
     }
 
     /**
-     * Tipo de cambio aplicable, o null si no hay uno para esa fecha.
+     * Tipo de cambio exacto del día, o null si todavía no se ha cargado.
      *
      * En una moneda base el valor es 1 por definicion, sin consultar
      * tipos_cambio: el tipo de cambio de la moneda base contra si misma
@@ -164,7 +174,7 @@ trait ValidaCostos
             return 1.0;
         }
 
-        return TiposCambio::vigentePara($monedaId, $fecha);
+        return TiposCambio::delDia($monedaId, $fecha);
     }
 
     /**

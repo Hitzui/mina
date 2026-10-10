@@ -72,6 +72,10 @@ class ProcesoEquipoController extends Controller
 
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
+        if ($bloqueo = $this->bloquearProcesoCerrado($ordenTrabajo, $procesoOrden, 'el uso de un equipo')) {
+            return $bloqueo;
+        }
+
         $validated = $this->validarUso($request);
 
         // El proceso viene de la ruta, nunca del formulario

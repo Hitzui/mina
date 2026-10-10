@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Empleado;
 use App\Models\EmpleadosPago;
+use App\Models\Moneda;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
 use App\Models\TrabajosEmpleado;
+use App\Models\TiposCambio;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -283,6 +285,84 @@ class TrabajoDentroDeProcesoTest extends TestCase
 
         // Y el otro proceso sigue en cero
         $this->assertEquals(0.0, $this->otroProceso->fresh()->costo_empleados);
+    }
+
+    public function test_el_costo_de_mano_de_obra_se_consolida_en_nio(): void
+    {
+        $monedaUs = Moneda::where('estado', true)
+            ->where('es_moneda_base', false)
+            ->firstOrFail();
+        EmpleadosPago::where('empleado_id', $this->empleado->id)
+            ->where('tipo_pago_id', $this->tipoPago->id)
+            ->update(['tarifa' => 10, 'moneda_id' => $monedaUs->id]);
+        TiposCambio::create([
+            'moneda_id' => $monedaUs->id,
+            'fecha' => '2026-03-10',
+            'valor' => 36.5,
+            'fuente' => 'Prueba costo de mano de obra',
+        ]);
+
+        $this->post($this->ruta(''), $this->payload())->assertRedirect();
+
+        $trabajo = TrabajosEmpleado::latest('id')->firstOrFail();
+        $this->assertEqualsWithDelta(40.0, (float) $trabajo->total, 0.01);
+        $this->assertEqualsWithDelta(1460.0, (float) $trabajo->total_nio, 0.01);
+        $this->assertEqualsWithDelta(1460.0, $this->proceso->fresh()->costo_empleados, 0.01);
+        $this->assertEqualsWithDelta(1460.0, $this->proceso->fresh()->costo_total, 0.01);
+    }
+
+    public function test_no_registra_trabajo_extranjero_sin_tipo_de_cambio_de_ese_dia(): void
+    {
+        $monedaUs = Moneda::where('estado', true)
+            ->where('es_moneda_base', false)
+            ->firstOrFail();
+        EmpleadosPago::where('empleado_id', $this->empleado->id)
+            ->where('tipo_pago_id', $this->tipoPago->id)
+            ->update(['moneda_id' => $monedaUs->id]);
+        TiposCambio::create([
+            'moneda_id' => $monedaUs->id,
+            'fecha' => '2037-04-11',
+            'valor' => 36.5,
+            'fuente' => 'Prueba día anterior',
+        ]);
+        $cantidadAntes = TrabajosEmpleado::count();
+
+        $this->post($this->ruta(''), $this->payload(['fecha' => '2037-04-12']))
+            ->assertSessionHasErrors('fecha')
+            ->assertSessionHasErrors([
+                'fecha' => 'No hay tipo de cambio registrado para ' . $monedaUs->codigo
+                    . ' el 12/04/2037. Primero ingréselo en Configuración > Tipos de cambio.',
+            ]);
+
+        $this->assertSame($cantidadAntes, TrabajosEmpleado::count());
+    }
+
+    public function test_un_proceso_finalizado_no_acepta_nuevos_trabajos(): void
+    {
+        $this->proceso->forceFill([
+            'fecha_inicio' => now()->subDays(3),
+            'fecha_fin' => now()->subDay(),
+        ])->save();
+        $antes = TrabajosEmpleado::count();
+
+        $this->post($this->ruta(''), $this->payload())
+            ->assertRedirect(route('procesos.ordenes_trabajo.procesos.show', [$this->orden, $this->proceso]));
+
+        $this->assertSame($antes, TrabajosEmpleado::count());
+        $this->assertSame(ProcesosOrden::ESTADO_FINALIZADO, $this->proceso->fresh()->estadoCalculado());
+    }
+
+    public function test_no_da_de_baja_un_proceso_con_trabajos_asociados(): void
+    {
+        $this->post($this->ruta(''), $this->payload())->assertRedirect();
+
+        $this->delete(route('procesos.ordenes_trabajo.procesos.destroy', [$this->orden, $this->proceso]))
+            ->assertRedirect(route('procesos.ordenes_trabajo.procesos.show', [$this->orden, $this->proceso]));
+
+        $this->assertDatabaseHas('procesos_orden', [
+            'id' => $this->proceso->id,
+            'deleted_at' => null,
+        ]);
     }
 
     public function test_el_costo_refleja_un_trabajo_borrado(): void

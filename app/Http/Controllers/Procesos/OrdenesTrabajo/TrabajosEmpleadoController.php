@@ -70,6 +70,10 @@ class TrabajosEmpleadoController extends Controller
 
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
+        if ($bloqueo = $this->bloquearProcesoCerrado($ordenTrabajo, $procesoOrden, 'un trabajo de empleado')) {
+            return $bloqueo;
+        }
+
         $validated = $this->validarTrabajo($request);
 
         $tarifa = $this->tarifaVigentePara(
@@ -86,15 +90,15 @@ class TrabajosEmpleadoController extends Controller
                 ]);
         }
 
-        $tipoCambio = 1;
-        $advertenciaTipoCambio = false;
+        $tipoCambio = 1.0;
 
         if ($tarifa['moneda'] && ! $tarifa['moneda']->es_moneda_base) {
             $tipoCambio = $this->obtenerTipoCambio($tarifa['moneda_id'], $validated['fecha']);
 
             if ($tipoCambio === null) {
-                $advertenciaTipoCambio = true;
-                $tipoCambio = 1;
+                return back()->withInput()->withErrors([
+                    'fecha' => $this->mensajeTipoCambioFaltante($tarifa['moneda'], $validated['fecha']),
+                ]);
             }
         }
 
@@ -122,10 +126,6 @@ class TrabajosEmpleadoController extends Controller
         TrabajosEmpleado::create($validated);
 
         $mensaje = 'El trabajo del empleado se registró correctamente.';
-
-        if ($advertenciaTipoCambio) {
-            $mensaje .= ' No se encontró tipo de cambio para la moneda seleccionada en la fecha indicada; se utilizó 1.0000 como valor de respaldo.';
-        }
 
         return redirect()
             ->route('procesos.ordenes_trabajo.procesos.show', [$ordenTrabajo, $procesoOrden])
@@ -221,15 +221,15 @@ class TrabajosEmpleadoController extends Controller
                 ]);
         }
 
-        $tipoCambio = 1;
-        $advertenciaTipoCambio = false;
+        $tipoCambio = 1.0;
 
         if ($tarifa['moneda'] && ! $tarifa['moneda']->es_moneda_base) {
             $tipoCambio = $this->obtenerTipoCambio($tarifa['moneda_id'], $validated['fecha']);
 
             if ($tipoCambio === null) {
-                $advertenciaTipoCambio = true;
-                $tipoCambio = 1;
+                return back()->withInput()->withErrors([
+                    'fecha' => $this->mensajeTipoCambioFaltante($tarifa['moneda'], $validated['fecha']),
+                ]);
             }
         }
 
@@ -249,10 +249,6 @@ class TrabajosEmpleadoController extends Controller
         $trabajosEmpleado->update($validated);
 
         $mensaje = 'El trabajo del empleado se actualizó correctamente.';
-
-        if ($advertenciaTipoCambio) {
-            $mensaje .= ' No se encontró tipo de cambio para la moneda seleccionada en la fecha indicada; se utilizó 1.0000 como valor de respaldo.';
-        }
 
         return redirect()
             ->route('procesos.ordenes_trabajo.procesos.show', [$ordenTrabajo, $procesoOrden])
@@ -358,20 +354,29 @@ class TrabajosEmpleadoController extends Controller
     }
 
     /**
-     * Obtener el tipo de cambio vigente de una moneda para una fecha dada.
+     * Obtener el tipo de cambio cargado para el día exacto de la operación.
      *
-     * La regla vive en TiposCambio::vigentePara() porque tambien la
+     * La regla vive en TiposCambio::delDia() porque tambien la
      * necesitan los costos de la orden; antes estaba duplicada aqui y
      * cualquier retoque a una dejaba a la otra desfasada, que es
      * exactamente lo que la documentacion pide evitar al centralizar el
      * calculo de equivalentes NIO.
      *
-     * Se devuelve null cuando no hay tipo de cambio para esa fecha, para
-     * que el llamador aplique su propia politica de respaldo y avise.
+     * Se devuelve null cuando falta la paridad exacta; el llamador detiene
+     * el registro y pide cargarla antes de continuar.
      */
     private function obtenerTipoCambio(int $monedaId, string $fecha): ?float
     {
-        return TiposCambio::vigentePara($monedaId, $fecha);
+        return TiposCambio::delDia($monedaId, $fecha);
+    }
+
+    private function mensajeTipoCambioFaltante(Moneda $moneda, string $fecha): string
+    {
+        return sprintf(
+            'No hay tipo de cambio registrado para %s el %s. Primero ingréselo en Configuración > Tipos de cambio.',
+            $moneda->codigo,
+            \Carbon\Carbon::parse($fecha)->format('d/m/Y')
+        );
     }
 
     public function tarifaVigente(
@@ -409,7 +414,7 @@ class TrabajosEmpleadoController extends Controller
         $tarifa = (float) $pago->tarifa;
         $codigoMoneda = strtoupper($pago->moneda?->codigo ?? '');
 
-        $tipoCambio = 1;
+        $tipoCambio = 1.0;
         $tarifaNio = $tarifa;
         $tipoCambioEncontrado = true;
 
@@ -418,6 +423,8 @@ class TrabajosEmpleadoController extends Controller
 
             if ($obtenido === null) {
                 $tipoCambioEncontrado = false;
+                $tipoCambio = null;
+                $tarifaNio = null;
             } else {
                 $tipoCambio = $obtenido;
                 $tarifaNio = round($tarifa * $tipoCambio, 4);
@@ -430,6 +437,9 @@ class TrabajosEmpleadoController extends Controller
             'tipo_cambio' => $tipoCambio,
             'tarifa_nio' => $tarifaNio,
             'tipo_cambio_encontrado' => $tipoCambioEncontrado,
+            'mensaje_tipo_cambio' => $tipoCambioEncontrado
+                ? null
+                : $this->mensajeTipoCambioFaltante($pago->moneda, $request->fecha),
             'metodo_calculo' => $pago->tipo_pago?->metodo_calculo
                 ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
             'fecha_inicio' => $pago->fecha_inicio?->format('d/m/Y'),

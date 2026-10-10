@@ -1,6 +1,6 @@
 3. Etapas -> ok
 4. Órdenes de trabajo -> ok. Lista, alta, edición, ficha y calendario.
-5. Procesos de la orden -> CRUD, faltan las validaciones
+5. Procesos de la orden -> CRUD y validaciones de fechas, etapa activa y pesos; proceso finalizado/cancelado bloquea nuevas altas y no se elimina si conserva registros; costos desglosados en NIO y FX exige tipo del día. Gastos generales de orden aún no se distribuyen automáticamente por proceso
 6. Categorías de costos -> ok
 7. Tipos de pago de empleado -> ok
 8. Pagos/tarifas de empleados -> ok

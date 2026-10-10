@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Base\ProcesosOrden as BaseProcesosOrden;
+use Illuminate\Support\Facades\DB;
 
 class ProcesosOrden extends BaseProcesosOrden
 {
@@ -178,19 +179,15 @@ class ProcesosOrden extends BaseProcesosOrden
 	 * desfasado respecto a los trabajos, que es el problema tipico de
 	 * mantener un total duplicado.
 	 *
-	 * Usa withTrashed() a proposito para que el total refleje el
-	 * historial, incluidos los trabajos que se han borrado logicamente.
-	 * Si lo que se quiere es solo lo que esta vigente, quitarlo.
+	 * Se suma total_nio, no total: este ultimo conserva la moneda original
+	 * del pago y no se puede sumar junto con gastos o materiales en NIO.
+	 * Los trabajos dados de baja siguen en el costo como parte del historial.
 	 */
 	public function getCostoEmpleadosAttribute(): float
 	{
-		// Con la relacion ya cargada no hay que volver a consultar
-		if ($this->relationLoaded('trabajos_empleados')) {
-			return (float) $this->trabajos_empleados
-				->sum(fn ($trabajo) => (float) $trabajo->total);
-		}
-
-		return (float) $this->trabajos_empleados()->withTrashed()->sum('total');
+		return (float) $this->trabajos_empleados()
+			->withTrashed()
+			->sum(TrabajosEmpleado::TOTAL_NIO);
 	}
 
 	/**
@@ -205,8 +202,8 @@ class ProcesosOrden extends BaseProcesosOrden
 	}
 
 	/**
-	 * Los otros costos del proceso: energia, agua, materia prima y demas
-	 * conceptos que se cargan desde la pantalla de costos.
+	 * Los gastos del proceso: energia, agua, administracion, papeleria y
+	 * demas conceptos que se cargan desde la pantalla de costos.
 	 *
 	 * Se suma al momento desde movimientos_costos. No se guarda un total
 	 * acumulado en el proceso porque entonces cualquier movimiento
@@ -216,7 +213,7 @@ class ProcesosOrden extends BaseProcesosOrden
 	{
 		return (float) MovimientosCosto::query()
 			->deProceso($this->id)
-			->sum(MovimientosCosto::COSTO_TOTAL);
+			->sum(DB::raw('COALESCE(costo_total_nio, cantidad * costo_unitario_nio, 0)'));
 	}
 
 	/**
@@ -241,7 +238,7 @@ class ProcesosOrden extends BaseProcesosOrden
 		return (float) MovimientosInventario::query()
 			->deProceso($this->id)
 			->where(MovimientosInventario::TIPO, MovimientosInventario::TIPO_SALIDA)
-			->sum(MovimientosInventario::COSTO_TOTAL_NIO);
+			->sum(DB::raw('COALESCE(costo_total_nio, cantidad * costo_unitario_nio, 0)'));
 	}
 
 	/**
@@ -306,7 +303,7 @@ class ProcesosOrden extends BaseProcesosOrden
 		// Se agrupa en la base, no en php: una consulta y no una por fila
 		$porCategoria = MovimientosCosto::query()
 			->deProceso($this->id)
-			->selectRaw('categoria_costo_id, SUM(costo_total) AS importe')
+			->selectRaw('categoria_costo_id, SUM(COALESCE(costo_total_nio, cantidad * costo_unitario_nio, 0)) AS importe')
 			->groupBy('categoria_costo_id')
 			->get()
 			->keyBy('categoria_costo_id');

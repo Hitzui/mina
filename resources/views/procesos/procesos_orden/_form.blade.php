@@ -224,8 +224,9 @@
                     $procesoOrden?->peso_entrada
                 ) }}"
                 min="0"
-                step="0.0001"
-                placeholder="0.0000"
+                max="999999999.999"
+                step="0.001"
+                placeholder="0.000"
             >
 
             @error('peso_entrada')
@@ -257,8 +258,9 @@
                     $procesoOrden?->peso_salida
                 ) }}"
                 min="0"
-                step="0.0001"
-                placeholder="0.0000"
+                max="999999999.999"
+                step="0.001"
+                placeholder="0.000"
             >
 
             @error('peso_salida')

@@ -49,4 +49,28 @@ class TiposCambio extends BaseTiposCambio
 
 		return $valor > 0 ? $valor : null;
 	}
+
+	/**
+	 * Tipo de cambio cargado para la fecha exacta de una operación.
+	 *
+	 * Los costos y movimientos de inventario que se guardan en NIO no deben
+	 * tomar por sorpresa la paridad de un día anterior. Para esas operaciones
+	 * la fecha sin registro significa que primero hay que cargarlo.
+	 */
+	public static function delDia(int $monedaId, string $fecha): ?float
+	{
+		$registro = static::query()
+			->where(self::MONEDA_ID, $monedaId)
+			->whereDate(self::FECHA, $fecha)
+			->orderByDesc(self::ID)
+			->first();
+
+		if (!$registro || !is_numeric($registro->valor)) {
+			return null;
+		}
+
+		$valor = (float) $registro->valor;
+
+		return $valor > 0 ? $valor : null;
+	}
 }

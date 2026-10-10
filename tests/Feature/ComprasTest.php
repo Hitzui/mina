@@ -9,6 +9,7 @@ use App\Models\Moneda;
 use App\Models\MovimientosInventario;
 use App\Models\Producto;
 use App\Models\Proveedore;
+use App\Models\TiposCambio;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -95,6 +96,32 @@ class ComprasTest extends TestCase
     private function crearCompra(array $datos): \Illuminate\Testing\TestResponse
     {
         return $this->post('/inventario/compras', $datos);
+    }
+
+    public function test_una_compra_extranjera_exige_tipo_de_cambio_de_su_fecha(): void
+    {
+        $proveedor = $this->crearProveedor();
+        $material = $this->crearMaterial();
+        $monedaUs = Moneda::where('estado', true)
+            ->where('es_moneda_base', false)
+            ->firstOrFail();
+        TiposCambio::create([
+            'moneda_id' => $monedaUs->id,
+            'fecha' => '2044-06-18',
+            'valor' => 36.5,
+            'fuente' => 'Prueba día anterior',
+        ]);
+        $comprasAntes = $this->cuantasComprasHay();
+
+        $this->crearCompra($this->datosCompra($proveedor, $material, [
+            'fecha' => '2044-06-19',
+            'moneda_id' => $monedaUs->id,
+        ]))->assertSessionHasErrors([
+            'moneda_id' => 'No hay tipo de cambio registrado para ' . $monedaUs->codigo
+                . ' el 19/06/2044. Primero ingréselo en Configuración > Tipos de cambio.',
+        ]);
+
+        $this->assertSame($comprasAntes, $this->cuantasComprasHay());
     }
 
     /**

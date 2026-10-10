@@ -182,8 +182,8 @@ $(function () {
                 $('#trabajoDescripcion').val(response.descripcion ?? '');
                 $('#trabajoObservaciones').val(response.observaciones ?? '');
                 tarifa.val(response.tarifa ?? 0);
-                tipoCambio.val(response.tipo_cambio ?? 1);
-                tarifaNio.val(response.tarifa_nio ?? 0);
+                tipoCambio.val(response.tipo_cambio ?? '');
+                tarifaNio.val(response.tarifa_nio ?? '');
 
                 // Al editar se usa la regla del tipo de pago del registro
                 aplicarMetodoCalculo(response.metodo_calculo);
@@ -255,7 +255,7 @@ $(function () {
                 }
 
                 if (!response.tipo_cambio_encontrado) {
-                    mostrarError('No se encontró tipo de cambio para ' + response.moneda + ' en la fecha seleccionada. Se utilizará 1.0000 como respaldo.');
+                    mostrarError(response.mensaje_tipo_cambio ?? 'No hay tipo de cambio para esa fecha. Primero ingréselo en Configuración > Tipos de cambio.');
                 }
 
                 calcularTotal();

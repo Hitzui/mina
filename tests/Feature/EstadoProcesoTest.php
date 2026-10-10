@@ -245,6 +245,53 @@ class EstadoProcesoTest extends TestCase
         $this->assertSame('Cancelado', $proceso->fresh()->estadoTexto());
     }
 
+    public function test_el_alta_rechaza_una_etapa_inactiva(): void
+    {
+        $etapa = DB::table('etapas')->first();
+        $procesosAntes = ProcesosOrden::where('orden_trabajo_id', $this->orden->id)->count();
+        DB::table('etapas')->where('id', $etapa->id)->update(['estado' => false]);
+
+        $this->post(route('procesos.ordenes_trabajo.procesos.store', $this->orden), [
+            'etapa_id' => $etapa->id,
+        ])->assertSessionHasErrors('etapa_id');
+
+        $this->assertSame($procesosAntes, ProcesosOrden::where('orden_trabajo_id', $this->orden->id)->count());
+    }
+
+    public function test_se_puede_editar_un_proceso_conservando_su_etapa_inactiva(): void
+    {
+        $proceso = $this->proceso(null, null);
+        DB::table('etapas')->where('id', $proceso->etapa_id)->update(['estado' => false]);
+
+        $this->put(route('procesos.ordenes_trabajo.procesos.update', [$this->orden, $proceso]), [
+            'etapa_id' => $proceso->etapa_id,
+            'cancelado' => '0',
+        ])->assertRedirect();
+
+        $this->assertSame($proceso->etapa_id, $proceso->fresh()->etapa_id);
+    }
+
+    public function test_el_alta_rechaza_un_peso_con_mas_de_tres_decimales(): void
+    {
+        $etapa = DB::table('etapas')->first();
+
+        $this->post(route('procesos.ordenes_trabajo.procesos.store', $this->orden), [
+            'etapa_id' => $etapa->id,
+            'peso_entrada' => '1.1234',
+        ])->assertSessionHasErrors('peso_entrada');
+    }
+
+    public function test_el_alta_rechaza_una_fecha_final_anterior_a_la_inicial(): void
+    {
+        $etapa = DB::table('etapas')->first();
+
+        $this->post(route('procesos.ordenes_trabajo.procesos.store', $this->orden), [
+            'etapa_id' => $etapa->id,
+            'fecha_inicio' => '2026-04-12 10:00:00',
+            'fecha_fin' => '2026-04-11 10:00:00',
+        ])->assertSessionHasErrors('fecha_fin');
+    }
+
     public function test_sin_marcar_el_cancelado_el_proceso_no_queda_cancelado(): void
     {
         $etapa = DB::table('etapas')->first();

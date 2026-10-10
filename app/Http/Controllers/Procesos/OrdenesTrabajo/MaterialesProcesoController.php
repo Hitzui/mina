@@ -75,6 +75,10 @@ class MaterialesProcesoController extends Controller
 
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
+        if ($bloqueo = $this->bloquearProcesoCerrado($ordenTrabajo, $procesoOrden, 'un consumo de material')) {
+            return $bloqueo;
+        }
+
         $validado = $this->validarMovimiento($request);
 
         /*

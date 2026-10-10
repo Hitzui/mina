@@ -9,6 +9,7 @@ use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
 use App\Models\ProcesosOrden;
+use App\Models\TiposCambio;
 use App\Services\InventarioService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -622,13 +623,48 @@ class InventarioTest extends TestCase
             $this->markTestSkipped('No hay una moneda extranjera con tipo de cambio');
         }
 
-        // Sin tipo de cambio no hay paridad, y entonces solo queda el
-        // equivalente de la moneda base
+        TiposCambio::create([
+            'moneda_id' => $extranjera->id,
+            'fecha' => '2026-01-10',
+            'valor' => 36.5,
+            'fuente' => 'Prueba inventario',
+        ]);
+
         $movimiento = $this->entrar(100, 10.00, [
             'moneda_id' => $extranjera->id,
         ]);
 
         $this->assertNotNull($movimiento->costo_total);
         $this->assertEqualsWithDelta(1000.00, (float) $movimiento->costo_total, 0.01);
+        $this->assertEqualsWithDelta(36500.00, (float) $movimiento->costo_total_nio, 0.01);
+    }
+
+    public function test_una_entrada_extranjera_no_acepta_un_tipo_de_cambio_de_un_dia_anterior(): void
+    {
+        $extranjera = Moneda::where('es_moneda_base', false)
+            ->where('estado', true)
+            ->firstOrFail();
+        TiposCambio::create([
+            'moneda_id' => $extranjera->id,
+            'fecha' => '2041-08-19',
+            'valor' => 36.5,
+            'fuente' => 'Prueba día anterior',
+        ]);
+
+        try {
+            $this->entrar(100, 10.00, [
+                'moneda_id' => $extranjera->id,
+                'fecha' => '2041-08-20',
+            ]);
+            $this->fail('Debió solicitar el tipo de cambio exacto del día.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('Primero ingréselo en Configuración > Tipos de cambio', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('movimientos_inventario', [
+            'producto_id' => $this->producto->id,
+            'fecha' => '2041-08-20 00:00:00',
+        ]);
+        $this->assertSame(0.0, (float) (InventarioProducto::where('producto_id', $this->producto->id)->value('cantidad_actual') ?? 0));
     }
 }
