@@ -409,7 +409,7 @@
           class="d-none"
           data-confirm-delete
           data-confirm-title="¿Eliminar la orden de trabajo?"
-          data-confirm-text="Esta acción no se puede deshacer."
+          data-confirm-text="Solo se pueden eliminar órdenes sin registros asociados."
           data-confirm-button="Sí, eliminar">
         @csrf
         @method('DELETE')

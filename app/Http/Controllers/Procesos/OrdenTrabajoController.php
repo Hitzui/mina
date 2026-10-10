@@ -20,6 +20,7 @@ use App\Models\UnidadMedida;
 use App\Services\DistribucionGastosGenerales;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use RealRashid\SweetAlert\Facades\Alert;
 
 class OrdenTrabajoController extends Controller
@@ -473,25 +474,54 @@ class OrdenTrabajoController extends Controller
      */
     public function destroy(OrdenesTrabajo $ordenTrabajo)
     {
-        /*
-         * TODO:
-         *
-         * Antes de eliminar una OT debemos validar:
-         *
-         * - Procesos registrados
-         * - Costos
-         * - Mano de obra
-         * - Movimientos de inventario
-         * - Producción
-         * - Recuperaciones
-         * - Liquidaciones
-         * - Ingresos
-         * - Cobros
-         * - Pagos pendientes
-         *
-         * Estas validaciones se incorporarán cuando
-         * dichos módulos estén implementados.
-         */
+        $registrosRelacionados = [
+            'procesos' => DB::table('procesos_orden')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'acuerdos' => DB::table('acuerdos_orden')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'cierres de orden' => DB::table('cierres_orden')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'costos' => DB::table('movimientos_costos')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'movimientos de inventario' => DB::table('movimientos_inventario')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'producciones' => DB::table('producciones')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'recuperaciones' => DB::table('recuperaciones')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'liquidaciones' => DB::table('liquidaciones')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'ingresos' => DB::table('ingresos')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
+            'cobros asociados a sus ingresos' => DB::table('detalle_cobros')
+                ->join('ingresos', 'ingresos.id', '=', 'detalle_cobros.ingreso_id')
+                ->where('ingresos.orden_trabajo_id', $ordenTrabajo->id)
+                ->distinct('detalle_cobros.cobro_id')
+                ->count('detalle_cobros.cobro_id'),
+        ];
+
+        $asociacionesEncontradas = collect($registrosRelacionados)
+            ->filter(fn (int $cantidad) => $cantidad > 0)
+            ->map(fn (int $cantidad, string $nombre) => "{$cantidad} {$nombre}")
+            ->values();
+
+        if ($asociacionesEncontradas->isNotEmpty()) {
+            Alert::toast(
+                'No se puede eliminar esta orden porque tiene registros asociados: '
+                .$asociacionesEncontradas->join(', ').'.'
+            )->error()->flash();
+
+            return redirect()->back();
+        }
 
         $ordenTrabajo->delete();
 

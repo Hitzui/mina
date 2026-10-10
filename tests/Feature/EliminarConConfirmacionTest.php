@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Cliente;
+use App\Models\Etapa;
 use App\Models\OrdenesTrabajo;
+use App\Models\ProcesosOrden;
 use App\Models\TrabajosEmpleado;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -30,7 +32,7 @@ class EliminarConConfirmacionTest extends TestCase
 
         $admin = User::create([
             'name' => 'Admin',
-            'email' => 'del-' . uniqid() . '@test.local',
+            'email' => 'del-'.uniqid().'@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
         $admin->syncRoles(['admin']);
@@ -98,7 +100,7 @@ class EliminarConConfirmacionTest extends TestCase
         ];
 
         foreach ($parciales as $vista) {
-            $ruta = resource_path('views/' . str_replace('.', '/', $vista) . '.blade.php');
+            $ruta = resource_path('views/'.str_replace('.', '/', $vista).'.blade.php');
 
             $this->assertFileExists($ruta, "No existe el partial {$vista}");
 
@@ -131,7 +133,7 @@ class EliminarConConfirmacionTest extends TestCase
                 '/data-confirm-delete\s*=\s*["\'][^"\']{20,}["\']/',
                 $contenido,
                 "El partial {$vista} tiene el mensaje en data-confirm-delete, "
-                . 'que es solo la bandera: el texto se ignoraria'
+                .'que es solo la bandera: el texto se ignoraria'
             );
         }
     }
@@ -182,7 +184,7 @@ class EliminarConConfirmacionTest extends TestCase
         ];
 
         foreach ($parciales as $vista) {
-            $ruta = resource_path('views/' . str_replace('.', '/', $vista) . '.blade.php');
+            $ruta = resource_path('views/'.str_replace('.', '/', $vista).'.blade.php');
 
             $this->assertFileExists($ruta, "No existe el partial {$vista}");
 
@@ -223,7 +225,7 @@ class EliminarConConfirmacionTest extends TestCase
      */
     public function test_el_boton_de_ordenes_que_estaba_roto_ya_operativo(): void
     {
-        $orden = OrdenesTrabajo::firstOrFail();
+        $orden = $this->crearOrdenVacia();
 
         $html = (string) view('procesos.ordenes_trabajo._action', ['id' => $orden->id])->render();
 
@@ -239,6 +241,38 @@ class EliminarConConfirmacionTest extends TestCase
         $this->assertSoftDeleted($orden);
     }
 
+    public function test_no_se_elimina_una_orden_con_procesos_incluso_si_estan_borrados_logicamente(): void
+    {
+        $orden = $this->crearOrdenVacia();
+        $proceso = ProcesosOrden::create([
+            ProcesosOrden::CODIGO => 'P-DEL-'.strtoupper(substr(md5(uniqid('', true)), 0, 6)),
+            ProcesosOrden::ORDEN_TRABAJO_ID => $orden->id,
+            ProcesosOrden::ETAPA_ID => Etapa::firstOrFail()->id,
+        ]);
+        $proceso->delete();
+
+        $this->from(route('procesos.ordenes_trabajo.show', $orden))
+            ->delete(route('procesos.ordenes_trabajo.destroy', $orden))
+            ->assertRedirect(route('procesos.ordenes_trabajo.show', $orden));
+
+        $this->assertNotSoftDeleted($orden);
+    }
+
+    private function crearOrdenVacia(): OrdenesTrabajo
+    {
+        $original = OrdenesTrabajo::firstOrFail();
+
+        return OrdenesTrabajo::create([
+            OrdenesTrabajo::CODIGO => 'OT-DEL-'.strtoupper(substr(md5(uniqid('', true)), 0, 8)),
+            OrdenesTrabajo::CLIENTE_ID => $original->cliente_id,
+            OrdenesTrabajo::FECHA => '2026-09-20',
+            OrdenesTrabajo::DESCRIPCION => 'Orden vacía para prueba de eliminación',
+            OrdenesTrabajo::PESO_MINERAL => 10,
+            OrdenesTrabajo::UNIDAD_PESO => 'toneladas',
+            OrdenesTrabajo::ESTADO => OrdenesTrabajo::ESTADO_PENDIENTE,
+        ]);
+    }
+
     /**
      * Regresion: la ruta generaba el placeholder {ordenes_trabajo}
      * mientras destroy() recibe $ordenTrabajo. Los nombres no
@@ -250,7 +284,7 @@ class EliminarConConfirmacionTest extends TestCase
     {
         $inexistente = (int) OrdenesTrabajo::withTrashed()->max('id') + 9999;
 
-        $this->delete('/procesos/ordenes-trabajo/' . $inexistente)
+        $this->delete('/procesos/ordenes-trabajo/'.$inexistente)
             ->assertNotFound();
     }
 
