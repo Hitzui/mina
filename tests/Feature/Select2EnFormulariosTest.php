@@ -6,6 +6,7 @@ use App\Models\Empleado;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
 use App\Models\TiposPagoEmpleado;
+use App\Models\UnidadMedida;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -391,6 +392,7 @@ class Select2EnFormulariosTest extends TestCase
             [
                 'tiposPago' => TiposPagoEmpleado::all(),
                 'procesos' => ProcesosOrden::all(),
+                'unidadesMedida' => UnidadMedida::all(),
             ]
         )->render();
     }

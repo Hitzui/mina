@@ -488,7 +488,7 @@ class IngresoTest extends TestCase
 
     public function test_sin_tipo_de_cambio_el_ingreso_se_guarda_y_el_equivalente_queda_vacio(): void
     {
-        $antes = $this->ingresosIniciales;
+        $antes = $this->ingresosCreados();
 
         $this->post($this->ruta(), $this->datos([
             'moneda_id' => $this->monedaSinCambio()->id,
@@ -602,7 +602,7 @@ class IngresoTest extends TestCase
 
     public function test_una_cantidad_cero_no_se_admite_y_el_aviso_dice_que_haga(): void
     {
-        $antes = $this->ingresosIniciales;
+        $antes = $this->ingresosCreados();
 
         $response = $this->postJson($this->ruta(), $this->datos(['cantidad' => 0]));
 
@@ -671,7 +671,7 @@ class IngresoTest extends TestCase
         $this->tipo->estado = false;
         $this->tipo->save();
 
-        $antes = $this->ingresosIniciales;
+        $antes = $this->ingresosCreados();
 
         $this->postJson($this->ruta(), $this->datos())
             ->assertStatus(422)
@@ -709,7 +709,7 @@ class IngresoTest extends TestCase
         $this->orden->estado = OrdenesTrabajo::ESTADO_FINALIZADA;
         $this->orden->save();
 
-        $antes = $this->ingresosIniciales;
+        $antes = $this->ingresosCreados();
 
         $this->post(
             $this->ruta(),
@@ -729,7 +729,7 @@ class IngresoTest extends TestCase
         $this->orden->estado = OrdenesTrabajo::ESTADO_CANCELADA;
         $this->orden->save();
 
-        $antes = $this->ingresosIniciales;
+        $antes = $this->ingresosCreados();
 
         $this->post($this->ruta(), $this->datos())
             ->assertRedirect(route('procesos.ordenes_trabajo.show', $this->orden));

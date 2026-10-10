@@ -39,6 +39,16 @@
                     </div>
                 @endif
 
+                @if($distribucionGastos['gastos_generales_pendientes_nio'] > 0)
+                    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                        <div>
+                            Hay {{ number_format($distribucionGastos['gastos_generales_pendientes_nio'], 2) }} NIO de gastos generales de la orden sin distribuir.
+                            {{ $distribucionGastos['motivo_pendiente'] ?? '' }}
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Datos del proceso y lo que se le paga --}}
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
@@ -131,14 +141,14 @@
                     <div class="col-md-3">
                         <label class="form-label text-muted">
                             <i class="bi bi-calculator me-1"></i>
-                            Costo total del proceso (NIO)
+                            Total con gastos generales (NIO)
                         </label>
                         <div class="form-control bg-light fw-semibold fs-4 text-primary">
-                            {{ number_format($procesoOrden->costo_total, 2) }}
+                            {{ number_format($costoTotalConGeneralesNio, 2) }}
                         </div>
                         <div class="form-text">
-                            Mano de obra, depreciación y los demás costos.
-                            Abajo está el desglose de dónde sale cada parte.
+                            Costo directo: {{ number_format($procesoOrden->costo_total, 2) }} NIO;
+                            incluye {{ number_format($gastosGeneralesAsignadosNio, 2) }} NIO de gastos generales asignados informativamente.
                         </div>
                     </div>
 
@@ -341,10 +351,16 @@
                         <tfoot class="table-light">
                             <tr>
                                 <th colspan="2" class="text-end">
-                                    Costo total del proceso (NIO)
+                                    Costo total del proceso — directo (NIO)
                                 </th>
                                 <th class="text-end fs-6">
                                     {{ number_format($procesoOrden->costo_total, 2) }}
+                                </th>
+                            </tr>
+                            <tr>
+                                <th colspan="2" class="text-end">Total con gastos generales (NIO)</th>
+                                <th class="text-end fs-6 text-primary">
+                                    {{ number_format($costoTotalConGeneralesNio, 2) }}
                                 </th>
                             </tr>
                         </tfoot>

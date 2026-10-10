@@ -35,6 +35,7 @@ class TablasResponsivasTest extends TestCase
      * y ese es justo el trabajo que se pide en la linea de arriba.
      */
     private const TABLAS = [
+        'AcuerdosOrdenDataTable',
         'CajasDataTable',
         'CategoriasCostoDataTable',
         'ClienteDataTable',
@@ -48,6 +49,7 @@ class TablasResponsivasTest extends TestCase
         'EquiposDataTable',
         'EtapaDataTable',
         'IngresosDataTable',
+        'LiquidacionesDataTable',
         'MaterialesProcesoDataTable',
         'MetodosPagoDataTable',
         'CobrosDataTable',
@@ -63,10 +65,14 @@ class TablasResponsivasTest extends TestCase
         'ProcesoEquiposDataTable',
         'ProcesosOrdenDataTable',
         'RecuperacionesDataTable',
+        'ProduccionesDataTable',
         'TiposCambioDataTable',
         'TiposIngresoDataTable',
         'TiposPagoEmpleadoDataTable',
+        'TiposParticipacionDataTable',
+        'TiposProduccionDataTable',
         'TrabajosEmpleadosDataTable',
+        'UnidadesMedidaDataTable',
         'ValoracionesOroDataTable',
     ];
 

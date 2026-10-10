@@ -17,6 +17,7 @@ use App\Models\OrdenesTrabajo;
 use App\Models\TiposIngreso;
 use App\Models\TiposParticipacion;
 use App\Models\UnidadMedida;
+use App\Services\DistribucionGastosGenerales;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -245,7 +246,8 @@ class OrdenTrabajoController extends Controller
         CostosOrdenDataTable $costosDataTable,
         IngresosDataTable $ingresosDataTable,
         AcuerdosOrdenDataTable $acuerdosDataTable,
-        LiquidacionesDataTable $liquidacionesDataTable
+        LiquidacionesDataTable $liquidacionesDataTable,
+        DistribucionGastosGenerales $distribuidor
     ) {
         $title = 'Información de Orden de Trabajo';
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
@@ -264,6 +266,7 @@ class OrdenTrabajoController extends Controller
             $ingresosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $acuerdosDataTable->setOrdenTrabajoId($ordenTrabajo->id);
             $liquidacionesDataTable->setOrdenTrabajoId($ordenTrabajo->id);
+            $distribucionGastos = $distribuidor->paraOrden($ordenTrabajo);
             $acuerdosLiquidables = AcuerdosOrden::deOrden($ordenTrabajo->id)
                 ->where(AcuerdosOrden::ESTADO, true)
                 ->whereNotNull(AcuerdosOrden::PORCENTAJE_CLIENTE)
@@ -328,6 +331,7 @@ class OrdenTrabajoController extends Controller
                     'ingresosDataTable',
                     'acuerdosDataTable',
                     'liquidacionesDataTable',
+                    'distribucionGastos',
                     'acuerdosLiquidables',
                     'tiposParticipacion',
                     'tiposIngreso',

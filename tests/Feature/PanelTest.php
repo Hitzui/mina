@@ -325,6 +325,7 @@ class PanelTest extends TestCase
 
     public function test_el_costo_suma_los_cuatro_sitios_y_no_solo_la_tabla_de_costos(): void
     {
+        $antes = app(PanelDelTaller::class)->dinero();
         $orden = $this->orden();
         $proceso = $this->proceso($orden);
 
@@ -339,15 +340,21 @@ class PanelTest extends TestCase
          * sigue siendo un numero verosimil: por eso se mira la parte y no solo el
          * total.
          */
-        $this->assertSame(2000.0, $dinero['partes']['mano_de_obra']['total']);
-        $this->assertSame(1000.0, $dinero['partes']['costos']['total']);
+        $this->assertSame(
+            2000.0,
+            $dinero['partes']['mano_de_obra']['total'] - $antes['partes']['mano_de_obra']['total']
+        );
+        $this->assertSame(
+            1000.0,
+            $dinero['partes']['costos']['total'] - $antes['partes']['costos']['total']
+        );
 
         $this->assertSame(
             3000.0,
-            $dinero['partes']['costos']['total']
-                + $dinero['partes']['mano_de_obra']['total']
-                + $dinero['partes']['depreciacion']['total']
-                + $dinero['partes']['materia_prima']['total']
+            ($dinero['partes']['costos']['total'] - $antes['partes']['costos']['total'])
+                + ($dinero['partes']['mano_de_obra']['total'] - $antes['partes']['mano_de_obra']['total'])
+                + ($dinero['partes']['depreciacion']['total'] - $antes['partes']['depreciacion']['total'])
+                + ($dinero['partes']['materia_prima']['total'] - $antes['partes']['materia_prima']['total'])
         );
     }
 
@@ -529,6 +536,7 @@ class PanelTest extends TestCase
 
     public function test_un_costo_sin_tipo_de_cambio_no_suma_pero_se_cuenta(): void
     {
+        $antes = app(PanelDelTaller::class)->dinero();
         $orden = $this->orden();
 
         $this->costo($orden, 1000, 1000);
@@ -541,10 +549,16 @@ class PanelTest extends TestCase
          * un panel que enseña "1.000" sin decir que hay otra fila de 555 que no ha
          * entrado se lee como una suma completa cuando no lo es.
          */
-        $this->assertSame(1000.0, $dinero['partes']['costos']['total']);
-        $this->assertSame(2, $dinero['partes']['costos']['filas']);
-        $this->assertSame(1, $dinero['partes']['costos']['sinEquivalente']);
-        $this->assertGreaterThanOrEqual(1, $dinero['costo_sin_equivalente']);
+        $this->assertSame(
+            1000.0,
+            $dinero['partes']['costos']['total'] - $antes['partes']['costos']['total']
+        );
+        $this->assertSame(2, $dinero['partes']['costos']['filas'] - $antes['partes']['costos']['filas']);
+        $this->assertSame(
+            1,
+            $dinero['partes']['costos']['sinEquivalente'] - $antes['partes']['costos']['sinEquivalente']
+        );
+        $this->assertGreaterThanOrEqual(1, $dinero['costo_sin_equivalente'] - $antes['costo_sin_equivalente']);
     }
 
     public function test_el_panel_avisa_de_las_filas_sin_equivalente_en_la_pantalla(): void
@@ -781,6 +795,7 @@ class PanelTest extends TestCase
 
     public function test_los_numeros_salen_con_el_formato_de_nicaragua(): void
     {
+        $antes = app(PanelDelTaller::class)->dinero()['partes']['costos']['total'];
         $orden = $this->orden();
         $this->costo($orden, 1546.5, 1546.5);
 
@@ -792,7 +807,7 @@ class PanelTest extends TestCase
          * todas las tablas de la aplicacion. Si aqui saliera 1.546,50 el taller
          * veria el numero de dos maneras en la misma pagina.
          */
-        $this->assertStringContainsString('1,546.50', $html);
+        $this->assertStringContainsString(number_format($antes + 1546.5, 2), $html);
         $this->assertStringNotContainsString('1.546,50', $html);
     }
 

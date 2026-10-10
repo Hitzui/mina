@@ -16,9 +16,19 @@ class ProcesosOrdenDataTable extends DataTable
 
     protected int $ordenTrabajoId;
 
+    /** @var array<int, array{gasto_general_asignado_nio: float, costo_total_con_generales_nio: float}> */
+    protected array $distribucionGastos = [];
+
     public function setOrdenTrabajoId(int $ordenTrabajoId): self
     {
         $this->ordenTrabajoId = $ordenTrabajoId;
+
+        return $this;
+    }
+
+    public function setDistribucionGastos(array $distribucionGastos): self
+    {
+        $this->distribucionGastos = $distribucionGastos;
 
         return $this;
     }
@@ -28,6 +38,8 @@ class ProcesosOrdenDataTable extends DataTable
      */
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
+        $distribucion = $this->distribucionGastos;
+
         return new EloquentDataTable($query)
 
             ->addColumn('etapa', function (ProcesosOrden $proceso) {
@@ -79,8 +91,18 @@ class ProcesosOrdenDataTable extends DataTable
 
             ->addColumn('costo_total', function (ProcesosOrden $proceso) {
                 return '<span class="fw-semibold">'
-                    . number_format($proceso->costo_total, 2)
-                    . '</span>';
+                    .number_format($proceso->costo_total, 2)
+                    .'</span>';
+            })
+
+            ->addColumn('gastos_generales_asignados', function (ProcesosOrden $proceso) use ($distribucion) {
+                return number_format($distribucion[$proceso->id]['gasto_general_asignado_nio'] ?? 0, 2);
+            })
+
+            ->addColumn('costo_total_con_generales', function (ProcesosOrden $proceso) use ($distribucion) {
+                $total = $distribucion[$proceso->id]['costo_total_con_generales_nio'] ?? $proceso->costo_total;
+
+                return '<span class="fw-semibold">'.number_format($total, 2).'</span>';
             })
 
             ->addColumn('action', function (ProcesosOrden $proceso) {
@@ -114,19 +136,19 @@ class ProcesosOrdenDataTable extends DataTable
                 return '
                     <div class="btn-group" role="group">
 
-                        <a href="' . $ver . '"
+                        <a href="'.$ver.'"
                            class="btn btn-sm btn-primary"
                            title="Ver el proceso y sus trabajos">
                             <i class="bi bi-eye"></i>
                         </a>
 
-                        <a href="' . $editar . '"
+                        <a href="'.$editar.'"
                            class="btn btn-sm btn-warning"
                            title="Editar">
                             <i class="bi bi-pencil"></i>
                         </a>
 
-                        <a href="' . $eliminar . '"
+                        <a href="'.$eliminar.'"
                            class="btn btn-sm btn-danger"
                            data-confirm-delete
                            data-confirm-title="¿Eliminar el proceso?"
@@ -143,6 +165,7 @@ class ProcesosOrdenDataTable extends DataTable
             ->rawColumns([
                 'estado',
                 'costo_total',
+                'costo_total_con_generales',
                 'action',
             ])
 
@@ -238,17 +261,27 @@ class ProcesosOrdenDataTable extends DataTable
                 ->addClass('text-center'),
 
             Column::computed('costo_empleados')
-                ->title('Mano de obra')
+                ->title('Mano de obra (NIO)')
                 ->addClass('text-end')
                 ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('costo_otros')
-                ->title('Otros costos')
+                ->title('Otros costos (NIO)')
                 ->addClass('text-end')
                 ->addClass(self::OCULTAR_EN_MOVIL),
 
             Column::computed('costo_total')
-                ->title('Costo total')
+                ->title('Costo directo (NIO)')
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
+
+            Column::computed('gastos_generales_asignados')
+                ->title('Gastos generales asignados (NIO)')
+                ->addClass('text-end')
+                ->addClass(self::OCULTAR_EN_MOVIL),
+
+            Column::computed('costo_total_con_generales')
+                ->title('Total con generales (NIO)')
                 ->addClass('text-end'),
 
             Column::computed('action')
@@ -266,6 +299,6 @@ class ProcesosOrdenDataTable extends DataTable
      */
     protected function filename(): string
     {
-        return 'ProcesosOrden_' . date('YmdHis');
+        return 'ProcesosOrden_'.date('YmdHis');
     }
 }

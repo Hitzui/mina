@@ -122,6 +122,39 @@
                         </a>
                     </div>
 
+                    @if($distribucionGastos['gastos_generales_nio'] > 0)
+                        <div class="alert alert-info d-flex align-items-start gap-2">
+                            <i class="bi bi-calculator fs-5"></i>
+                            <div>
+                                <strong>Distribución informativa:</strong>
+                                {{ number_format($distribucionGastos['gastos_generales_nio'], 2) }} NIO de gastos generales conocidos;
+                                {{ number_format($distribucionGastos['gastos_generales_distribuidos_nio'], 2) }} NIO distribuidos según el costo directo de cada proceso.
+                                Estas partes no crean movimientos ni duplican el gasto de la orden.
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($distribucionGastos['gastos_generales_pendientes_nio'] > 0)
+                        <div class="alert alert-warning d-flex align-items-start gap-2">
+                            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                            <div>
+                                <strong>{{ number_format($distribucionGastos['gastos_generales_pendientes_nio'], 2) }} NIO</strong>
+                                de gastos generales conocidos siguen sin distribuir.
+                                {{ $distribucionGastos['motivo_pendiente'] ?? '' }}
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($distribucionGastos['gastos_generales_sin_equivalente'] > 0)
+                        <div class="alert alert-warning d-flex align-items-start gap-2">
+                            <i class="bi bi-currency-exchange fs-5"></i>
+                            <div>
+                                Hay {{ $distribucionGastos['gastos_generales_sin_equivalente'] }} costo(s) general(es) en moneda extranjera sin equivalente NIO.
+                                Cargue el tipo de cambio exacto de la fecha y corrija el costo; esos importes no entran en la distribución.
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="table-responsive">
                         {{ $dataTable->html()->table() }}
                     </div>

@@ -20,6 +20,21 @@ use Tests\TestCase;
 class AccionesUniformesTest extends TestCase
 {
     /**
+     * Acciones AJAX que confirman desde su propio manejador, sin enlace ni
+     * formulario que pueda interceptar el confirmador global del layout.
+     *
+     * @var array<string, string>
+     */
+    private const CONFIRMACIONES_AJAX = [
+        'configuracion/tipos_participacion/_action.blade.php' => 'configuracion/tipos_participacion.js',
+        'configuracion/tipos_produccion/_action.blade.php' => 'configuracion/tipos_produccion.js',
+        'configuracion/unidades_medida/_action.blade.php' => 'configuracion/unidades_medida.js',
+        'procesos/ordenes_trabajo/acuerdos/_action.blade.php' => 'ordenes_trabajo/acuerdos.js',
+        'procesos/ordenes_trabajo/liquidaciones/_action.blade.php' => 'ordenes_trabajo/liquidaciones.js',
+        'procesos/producciones/_action.blade.php' => 'procesos/producciones.js',
+    ];
+
+    /**
      * Rutas de los partials de acciones, relativas a resources/views.
      *
      * El data provider corre antes de que arranque Laravel, asi que aqui
@@ -134,10 +149,28 @@ class AccionesUniformesTest extends TestCase
         // Todo partial de acciones tiene un boton de eliminar, y ese tiene
         // que pasar por la confirmacion de sweet-alert, no por un onclick
         // hecho a mano.
+        if (str_contains($html, 'data-confirm-delete')) {
+            $this->assertStringContainsString('data-confirm-delete', $html);
+
+            return;
+        }
+
+        $javascript = self::CONFIRMACIONES_AJAX[$relativo] ?? null;
+        $this->assertNotNull($javascript, "$relativo no pide confirmacion antes de eliminar");
+
+        $codigo = File::get(public_path('js/'.$javascript));
+        preg_match('/class="[^"]*\b((?:btn-borrar|btn-delete)[^"\s]*)/', $html, $coincidencia);
+
+        $this->assertNotEmpty($coincidencia[1] ?? null, "$relativo no tiene selector de borrado");
         $this->assertStringContainsString(
-            'data-confirm-delete',
-            $html,
-            "$relativo no pide confirmacion antes de eliminar"
+            '.'.$coincidencia[1],
+            $codigo,
+            "$relativo no enlaza su accion AJAX al manejador de confirmacion"
+        );
+        $this->assertStringContainsString(
+            'Swal.fire',
+            $codigo,
+            "$relativo no confirma su accion AJAX con SweetAlert"
         );
     }
 

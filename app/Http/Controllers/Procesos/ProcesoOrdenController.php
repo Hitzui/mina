@@ -23,6 +23,7 @@ use App\Models\Producto;
 use App\Models\TiposPagoEmpleado;
 use App\Models\TrabajosEmpleado;
 use App\Models\UnidadMedida;
+use App\Services\DistribucionGastosGenerales;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -144,6 +145,17 @@ class ProcesoOrdenController extends Controller
         // El desglose de donde sale el total del proceso
         $costosDesglosados = $procesoOrden->costosDesglosados();
 
+        $distribucionGastos = app(DistribucionGastosGenerales::class)->paraOrden($ordenTrabajo);
+        $asignacionProceso = $distribucionGastos['por_proceso'][$procesoOrden->id] ?? null;
+        $gastosGeneralesAsignadosNio = (float) ($asignacionProceso['gasto_general_asignado_nio'] ?? 0);
+        $costoTotalConGeneralesNio = (float) ($asignacionProceso['costo_total_con_generales_nio'] ?? $procesoOrden->costo_total);
+        $costosDesglosados->push([
+            'nombre' => 'Gastos generales de la orden asignados',
+            'importe' => $gastosGeneralesAsignadosNio,
+            'origen' => 'Prorrateo informativo según el costo directo NIO de los procesos de esta orden. No crea otro movimiento de costo.',
+            'automatico' => true,
+        ]);
+
         // Registros históricos extranjeros sin tipo de cambio guardado.
         // No se convierten con la tasa actual: hay que cargar la tasa de su
         // fecha y corregir el registro para conservar su valor histórico.
@@ -203,6 +215,9 @@ class ProcesoOrdenController extends Controller
                 'productos',
                 'fechaPorDefecto',
                 'costosDesglosados',
+                'distribucionGastos',
+                'gastosGeneralesAsignadosNio',
+                'costoTotalConGeneralesNio',
                 'registrosSinEquivalenteNio'
             )
         );
@@ -568,9 +583,14 @@ class ProcesoOrdenController extends Controller
         );
     }
 
-    public function data(OrdenesTrabajo $ordenTrabajo, ProcesosOrdenDataTable $dataTable)
-    {
+    public function data(
+        OrdenesTrabajo $ordenTrabajo,
+        ProcesosOrdenDataTable $dataTable,
+        DistribucionGastosGenerales $distribuidor
+    ) {
         $dataTable->setOrdenTrabajoId($ordenTrabajo->id);
+        $distribucion = $distribuidor->paraOrden($ordenTrabajo);
+        $dataTable->setDistribucionGastos($distribucion['por_proceso']);
 
         return $dataTable->ajax();
     }
