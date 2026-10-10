@@ -19,8 +19,8 @@ class MovimientosCajaDataTable extends DataTable
         return new EloquentDataTable($query)
             ->addColumn('caja', fn(MovimientoCaja $movimiento) => e($movimiento->caja?->nombre ?? 'Caja eliminada'))
             ->addColumn('tipo_texto', fn(MovimientoCaja $movimiento) => $movimiento->tipo === MovimientoCaja::ENTRADA
-                ? '<span class="badge bg-success">Entrada</span>'
-                : '<span class="badge bg-danger">Salida</span>')
+                ? '<span class="badge bg-success">Ingreso</span>'
+                : '<span class="badge bg-danger">Egreso</span>')
             ->addColumn('referencia_texto', fn(MovimientoCaja $movimiento) => e($movimiento->referencia ?: '—'))
             ->editColumn('fecha', fn(MovimientoCaja $movimiento) => $movimiento->fecha->format('d/m/Y'))
             ->editColumn('monto', fn(MovimientoCaja $movimiento) => number_format((float) $movimiento->monto, 2, '.', ','))

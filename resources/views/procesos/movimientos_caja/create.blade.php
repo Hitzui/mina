@@ -18,9 +18,9 @@
                     <div class="col-12 col-md-6">
                         <label for="accion" class="form-label">Tipo de movimiento <span class="text-danger">*</span></label>
                         <select id="accion" name="accion" class="form-select" required>
-                            <option value="entrada" @selected(old('accion') === 'entrada')>Entrada manual</option>
-                            <option value="salida" @selected(old('accion') === 'salida')>Egreso</option>
-                            <option value="saldo_inicial" @selected(old('accion') === 'saldo_inicial')>Saldo inicial</option>
+                        <option value="entrada" @selected(old('accion') === 'entrada')>Ingreso</option>
+                        <option value="salida" @selected(old('accion') === 'salida')>Egreso</option>
+                        <option value="saldo_inicial" @selected(old('accion') === 'saldo_inicial')>Apertura de caja (saldo inicial)</option>
                             <option value="transferencia" @selected(old('accion') === 'transferencia')>Transferencia entre cajas</option>
                         </select>
                     </div>

@@ -1967,6 +1967,13 @@ class CobroTest extends TestCase
         $metodo = $this->metodoActivo();
 
         $this->actingAs($this->usuario())
+            ->get(route('procesos.movimientos_caja.create'))
+            ->assertOk()
+            ->assertSee('>Ingreso<', false)
+            ->assertSee('>Egreso<', false)
+            ->assertSee('Concepto');
+
+        $this->actingAs($this->usuario())
             ->post(route('procesos.movimientos_caja.store'), [
                 'accion' => 'saldo_inicial',
                 'fecha' => today()->format('Y-m-d'),

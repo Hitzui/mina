@@ -9,7 +9,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                     <div>
                         <h4 class="mb-1"><i class="bi bi-arrow-left-right me-2"></i>Movimientos de caja</h4>
-                        <p class="text-muted mb-0">Entradas, salidas y transferencias; los cobros finalizados se registran automáticamente.</p>
+                        <p class="text-muted mb-0">Ingresos, egresos y transferencias; los cobros finalizados se registran automáticamente.</p>
                     </div>
                     @can('movimientos_caja.create')
                         <a href="{{ route('procesos.movimientos_caja.create') }}" class="btn btn-primary">
