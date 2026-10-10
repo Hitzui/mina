@@ -1764,7 +1764,10 @@ class CobroTest extends TestCase
 
         $usuario = $this->usuario();
 
-        $this->actingAs($usuario)->get(route('procesos.cobros.index'))->assertOk();
+        $this->actingAs($usuario)
+            ->get(route('procesos.cobros.index'))
+            ->assertOk()
+            ->assertSee('<li class="menu active">', false);
         $this->actingAs($usuario)->get(route('procesos.cobros.create'))->assertOk();
         $this->actingAs($usuario)->get(route('procesos.cobros.show', $cobro))->assertOk();
         $this->actingAs($usuario)->get(route('procesos.cobros.edit', $cobro))->assertOk();

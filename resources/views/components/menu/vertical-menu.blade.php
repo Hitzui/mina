@@ -639,7 +639,7 @@
                 los cuatro apartados que faltan no tienen pantalla todavía.
             --}}
             @can('cobros.view')
-                <li class="{{ Request::routeIs('procesos.cobros.*') ? 'active' : '' }}">
+                <li class="menu {{ Request::routeIs('procesos.cobros.*') ? 'active' : '' }}">
                     <a href="{{ route('procesos.cobros.index') }}">
                         <div>
                             <i class="bi bi-cash-coin"></i>
