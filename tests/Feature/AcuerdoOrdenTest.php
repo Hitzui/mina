@@ -59,7 +59,8 @@ class AcuerdoOrdenTest extends TestCase
     {
         $this->get('/procesos/ordenes-trabajo/'.$this->ordenId)
             ->assertOk()
-            ->assertSee('Acuerdos de participación');
+            ->assertSee('Acuerdos de participación')
+            ->assertSee('plugins/sweetalerts2/sweetalerts2.min.js');
 
         $this->getJson('/procesos/ordenes-trabajo/'.$this->ordenId.'/acuerdos?draw=1&start=0&length=10', self::CABECERAS)
             ->assertOk()

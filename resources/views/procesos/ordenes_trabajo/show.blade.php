@@ -2,6 +2,7 @@
     <x-slot:pageTitle>{{ $title ?? 'Información de Orden de Trabajo' }}</x-slot:pageTitle>
     <x-breadcrumb :items="$breadcrumbs"/>
     <x-slot:headerFiles>
+        <link rel="stylesheet" href="{{ asset('plugins/sweetalerts2/sweetalerts2.css') }}">
     </x-slot>
 
     <div class="row layout-top-spacing">
@@ -367,6 +368,7 @@
             que no se pisan, pero cargarlos al reves obligaria a comprobar que
             el otro ya esta, y esa dependencia no existe.
             --}}
+        <script src="{{ asset('plugins/sweetalerts2/sweetalerts2.min.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/ingresos.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/acuerdos.js') }}"></script>
         <script src="{{ asset('js/ordenes_trabajo/costos.js') }}"></script>
