@@ -552,7 +552,7 @@
 
             const opcion = $ingreso.find('option:selected');
 
-            if (!$opcion.length || !$opcion.val()) {
+            if (!opcion.length || !opcion.val()) {
                 $resumen
                     .removeClass('text-secondary text-success text-danger text-warning')
                     .addClass('text-secondary')
@@ -871,6 +871,18 @@
             $buscarCliente.val('');
             filtrarClientes();
             $buscarCliente.trigger('focus');
+        });
+
+        $modalCliente[0].addEventListener('hide.bs.modal', function () {
+            const elementoEnfocado = document.activeElement;
+
+            if (elementoEnfocado && this.contains(elementoEnfocado)) {
+                elementoEnfocado.blur();
+            }
+        });
+
+        $modalCliente[0].addEventListener('hidden.bs.modal', function () {
+            $('#btnSeleccionarCliente').trigger('focus');
         });
 
         $modalCliente.on('click', '.cliente-opcion', function () {
