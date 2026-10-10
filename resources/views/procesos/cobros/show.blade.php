@@ -62,6 +62,26 @@
                     </div>
 
                     <div class="d-flex gap-2 flex-wrap">
+                        @can('cobros.edit')
+                            @if (! $cobro->esFinalizado() && ! $cobro->estaCancelado())
+                                <form
+                                    method="POST"
+                                    action="{{ route('procesos.cobros.finalizar', $cobro) }}"
+                                    class="d-inline"
+                                    data-confirm
+                                    data-confirm-title="¿Confirmar que se recibió el pago?"
+                                    data-confirm-text="El cobro quedará Finalizado y sus líneas empezarán a contar como dinero recibido."
+                                    data-confirm-button="Sí, confirmar pago"
+                                >
+                                    @csrf
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        Confirmar pago
+                                    </button>
+                                </form>
+                            @endif
+                        @endcan
+
                         <a href="{{ route('procesos.cobros.edit', $cobro) }}" class="btn btn-light">
                             <i class="bi bi-pencil me-1"></i>
                             Editar

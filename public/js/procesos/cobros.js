@@ -206,6 +206,13 @@
             return formateador.format(Math.round((valor + Number.EPSILON) * 100) / 100);
         }
 
+        /** Un input type=number acepta punto decimal, pero no separador de miles. */
+        function montoParaInput(valor) {
+            const numero = Number(valor);
+
+            return Number.isFinite(numero) ? numero.toFixed(2) : '';
+        }
+
         function aNumero(valor) {
             const n = parseFloat(valor);
 
@@ -472,7 +479,7 @@
 
             if (linea) {
                 $ingreso.val(String(linea.ingreso_id));
-                $fila.find('.monto-linea').val(dinero(linea.monto));
+                $fila.find('.monto-linea').val(montoParaInput(linea.monto));
                 $fila.find('.nota-linea').val(linea.observaciones || '');
             }
 

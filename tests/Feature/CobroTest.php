@@ -1890,6 +1890,42 @@ class CobroTest extends TestCase
             ->assertSee('cierres-caja-table');
     }
 
+    public function test_se_puede_confirmar_un_pago_desde_la_ficha_sin_perder_sus_lineas()
+    {
+        $cliente = $this->cliente();
+        $moneda = $this->monedaActiva();
+        $ingreso = $this->ingreso($this->orden($cliente), 500, $moneda);
+        [$cobro] = $this->cobroConUnaLinea(
+            $cliente,
+            $ingreso,
+            $moneda,
+            Cobro::ESTADO_PENDIENTE
+        );
+        $lineaAntes = $cobro->detalles()->first();
+
+        $this->actingAs($this->usuario())
+            ->get(route('procesos.cobros.edit', $cobro))
+            ->assertOk()
+            ->assertSee('"ingreso_id":' . $ingreso->id, false)
+            ->assertSee('"monto":100', false);
+
+        $this->actingAs($this->usuario())
+            ->get(route('procesos.cobros.show', $cobro))
+            ->assertOk()
+            ->assertSee('Confirmar pago');
+
+        $this->post(route('procesos.cobros.finalizar', $cobro))
+            ->assertRedirect(route('procesos.cobros.show', $cobro));
+
+        $cobro->refresh();
+        $lineaDespues = $cobro->detalles()->first();
+
+        $this->assertSame(Cobro::ESTADO_FINALIZADA, (int) $cobro->estado);
+        $this->assertSame(100.0, (float) $cobro->monto);
+        $this->assertSame($lineaAntes->id, $lineaDespues->id);
+        $this->assertSame(100.0, (float) $lineaDespues->monto);
+    }
+
     /**
      * Una linea que no cubre el ingreso entero dice cuanto falta.
      *

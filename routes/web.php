@@ -737,6 +737,11 @@ Route::post(
     [CobroController::class, 'ingresosDeCliente']
 )->name('procesos.cobros.ingresos-cliente');
 
+Route::post(
+    'procesos/cobros/{cobro}/finalizar',
+    [CobroController::class, 'finalizar']
+)->name('procesos.cobros.finalizar');
+
 Route::resource(
     'procesos/cobros',
     CobroController::class

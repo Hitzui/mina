@@ -70,6 +70,7 @@ class CobroController extends Controller
     public function __construct()
     {
         $this->authorizeModule('cobros');
+        $this->middleware('permission:cobros.edit')->only('finalizar');
     }
 
     public function index(CobrosDataTable $dataTable)
@@ -189,6 +190,42 @@ class CobroController extends Controller
         $cobro->load('detalles');
 
         return view('procesos.cobros.edit', $this->datosDeFormulario($cobro));
+    }
+
+    /**
+     * Confirma la recepción del dinero sin volver a enviar ni reconstruir el detalle.
+     */
+    public function finalizar(Cobro $cobro)
+    {
+        DB::transaction(function () use ($cobro) {
+            $cobroBloqueado = Cobro::query()
+                ->lockForUpdate()
+                ->findOrFail($cobro->id);
+
+            if ($cobroBloqueado->estado === Cobro::ESTADO_CANCELADA) {
+                throw ValidationException::withMessages([
+                    'estado' => 'Un cobro cancelado no se puede finalizar directamente. Edítelo primero para reactivarlo.',
+                ]);
+            }
+
+            $lineas = $cobroBloqueado->detalles()->get();
+
+            if ($lineas->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'estado' => 'No se puede confirmar un cobro sin líneas de ingreso.',
+                ]);
+            }
+
+            $cobroBloqueado->estado = Cobro::ESTADO_FINALIZADA;
+            $cobroBloqueado->monto = round((float) $lineas->sum('monto'), 2);
+            $cobroBloqueado->save();
+        });
+
+        Alert::toast('Pago confirmado. El cobro quedó Finalizado y sus líneas cuentan como recibidas.')
+            ->success()
+            ->flash();
+
+        return redirect()->route('procesos.cobros.show', $cobro);
     }
 
     public function update(Request $request, Cobro $cobro)
