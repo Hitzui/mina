@@ -30,7 +30,11 @@ class MovimientoCajaController extends Controller
             ->join('cajas', 'cajas.id', '=', 'movimientos_caja.caja_id')
             ->join('monedas', 'monedas.id', '=', 'movimientos_caja.moneda_id')
             ->groupBy('cajas.id', 'cajas.nombre', 'monedas.id', 'monedas.codigo')
-            ->selectRaw('cajas.nombre AS caja, monedas.codigo AS moneda, ROUND(SUM(CASE WHEN movimientos_caja.tipo = ? THEN movimientos_caja.monto ELSE -movimientos_caja.monto END), 2) AS saldo', [MovimientoCaja::ENTRADA])
+            ->selectRaw('cajas.nombre AS caja, monedas.codigo AS moneda')
+            ->selectRaw('ROUND(SUM(CASE WHEN movimientos_caja.origen = ? THEN movimientos_caja.monto ELSE 0 END), 2) AS saldo_inicial', [MovimientoCaja::ORIGEN_SALDO_INICIAL])
+            ->selectRaw('ROUND(SUM(CASE WHEN movimientos_caja.tipo = ? AND movimientos_caja.origen <> ? THEN movimientos_caja.monto ELSE 0 END), 2) AS entradas', [MovimientoCaja::ENTRADA, MovimientoCaja::ORIGEN_SALDO_INICIAL])
+            ->selectRaw('ROUND(SUM(CASE WHEN movimientos_caja.tipo = ? THEN movimientos_caja.monto ELSE 0 END), 2) AS salidas', [MovimientoCaja::SALIDA])
+            ->selectRaw('ROUND(SUM(CASE WHEN movimientos_caja.tipo = ? THEN movimientos_caja.monto ELSE -movimientos_caja.monto END), 2) AS saldo_final', [MovimientoCaja::ENTRADA])
             ->orderBy('cajas.nombre')->orderBy('monedas.codigo')->get();
 
         return $dataTable->render('procesos.movimientos_caja.index', [

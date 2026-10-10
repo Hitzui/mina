@@ -18,16 +18,33 @@
                     @endcan
                 </div>
 
-                <h5 class="mb-3">Saldo actual por caja y moneda</h5>
+                <h5 class="mb-3">Resumen de saldos por caja y moneda</h5>
                 @if ($saldos->isEmpty())
                     <div class="alert alert-info">Todavía no hay movimientos registrados.</div>
                 @else
                     <div class="row g-3 mb-4">
                         @foreach ($saldos as $saldo)
-                            <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="col-12 col-xl-6">
                                 <div class="border rounded p-3 h-100">
-                                    <div class="text-muted small">{{ $saldo->caja }} · {{ $saldo->moneda }}</div>
-                                    <div class="fs-5 fw-semibold">{{ number_format((float) $saldo->saldo, 2, '.', ',') }}</div>
+                                    <h6 class="text-muted mb-3">{{ $saldo->caja }} · {{ $saldo->moneda }}</h6>
+                                    <div class="row g-3">
+                                        <div class="col-6 col-xxl-3">
+                                            <div class="text-muted small">Saldo inicial</div>
+                                            <div class="fw-semibold">{{ number_format((float) $saldo->saldo_inicial, 2, '.', ',') }}</div>
+                                        </div>
+                                        <div class="col-6 col-xxl-3">
+                                            <div class="text-muted small">Entradas</div>
+                                            <div class="fw-semibold text-success">{{ number_format((float) $saldo->entradas, 2, '.', ',') }}</div>
+                                        </div>
+                                        <div class="col-6 col-xxl-3">
+                                            <div class="text-muted small">Salidas</div>
+                                            <div class="fw-semibold text-danger">{{ number_format((float) $saldo->salidas, 2, '.', ',') }}</div>
+                                        </div>
+                                        <div class="col-6 col-xxl-3">
+                                            <div class="text-muted small">Saldo final</div>
+                                            <div class="fs-5 fw-semibold">{{ number_format((float) $saldo->saldo_final, 2, '.', ',') }}</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         @endforeach

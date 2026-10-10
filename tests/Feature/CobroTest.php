@@ -1994,6 +1994,18 @@ class CobroTest extends TestCase
             'monto' => 125,
         ])->assertRedirect(route('procesos.movimientos_caja.index'));
 
+        foreach ([['entrada', 80, 'Ingreso de prueba'], ['salida', 30, 'Egreso de prueba']] as [$accion, $monto, $descripcion]) {
+            $this->post(route('procesos.movimientos_caja.store'), [
+                'accion' => $accion,
+                'fecha' => today()->format('Y-m-d'),
+                'caja_id' => $cajaOrigen->id,
+                'metodo_pago_id' => $metodo,
+                'moneda_id' => $moneda->id,
+                'monto' => $monto,
+                'descripcion' => $descripcion,
+            ])->assertRedirect(route('procesos.movimientos_caja.index'));
+        }
+
         $transferencias = MovimientoCaja::query()->where('origen', MovimientoCaja::ORIGEN_TRANSFERENCIA)
             ->where('referencia', 'like', 'MOV-%')->latest('id')->limit(2)->get();
 
@@ -2003,7 +2015,15 @@ class CobroTest extends TestCase
 
         $this->get(route('procesos.movimientos_caja.index'))
             ->assertOk()
-            ->assertSee('Saldo actual por caja y moneda')
+            ->assertSee('Resumen de saldos por caja y moneda')
+            ->assertSee('Saldo inicial')
+            ->assertSee('Entradas')
+            ->assertSee('Salidas')
+            ->assertSee('Saldo final')
+            ->assertSee('500.00')
+            ->assertSee('80.00')
+            ->assertSee('155.00')
+            ->assertSee('425.00')
             ->assertSee('movimientos-caja-table');
     }
 
