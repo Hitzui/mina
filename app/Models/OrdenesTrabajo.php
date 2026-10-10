@@ -128,6 +128,11 @@ class OrdenesTrabajo extends BaseOrdenesTrabajo
         return $this->hasMany(ProcesosOrden::class, ProcesosOrden::ORDEN_TRABAJO_ID);
     }
 
+    public function cotizacion()
+    {
+        return $this->hasOne(Cotizacion::class, 'orden_trabajo_id');
+    }
+
     /**
      * Los trabajos de los empleados de esta orden, alcanzados a traves de
      * sus procesos: el trabajo ya no guarda orden_trabajo_id.

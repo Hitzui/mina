@@ -635,13 +635,26 @@
                 </div>
             </li>
 
-            <li class="menu">
-                <a href="javascript:void(0);" aria-expanded="false" class="dropdown-toggle disabled">
+            @php($comercialActivo = Request::routeIs('comercial.cotizaciones.*'))
+            <li class="menu {{ $comercialActivo ? 'active' : '' }}">
+                <a href="#gestion-comercial" data-bs-toggle="collapse"
+                   aria-expanded="{{ $comercialActivo ? 'true' : 'false' }}" class="dropdown-toggle">
                     <div>
                         <i class="bi bi-graph-up-arrow"></i>
                         <span>Gestión Comercial</span>
                     </div>
+                    <div><i class="bi bi-chevron-right"></i></div>
                 </a>
+                <ul class="collapse submenu list-unstyled {{ $comercialActivo ? 'show' : '' }}"
+                    id="gestion-comercial" data-bs-parent="#accordionExample">
+                    @can('cotizaciones.view')
+                        <li class="{{ Request::routeIs('comercial.cotizaciones.*') ? 'active' : '' }}">
+                            <a href="{{ route('comercial.cotizaciones.index') }}">
+                                <div><i class="bi bi-file-earmark-text"></i><span>Cotizaciones</span></div>
+                            </a>
+                        </li>
+                    @endcan
+                </ul>
             </li>
 
             {{-- =====================================================

@@ -24,6 +24,7 @@ use App\Http\Controllers\Inventario\ProveedorController;
 use App\Http\Controllers\Procesos\CierreCajaController;
 use App\Http\Controllers\Procesos\CobroController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
+use App\Http\Controllers\Procesos\CotizacionController;
 use App\Http\Controllers\Procesos\IngresoController;
 use App\Http\Controllers\Procesos\MovimientoCajaController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\AcuerdoOrdenController;
@@ -183,6 +184,16 @@ Route::middleware('auth')->group(function () {
             'ordenes-trabajo' => 'ordenTrabajo',
         ])
         ->names('procesos.ordenes_trabajo');
+
+    Route::post('comercial/cotizaciones/{cotizacion}/enviar', [CotizacionController::class, 'enviar'])
+        ->name('comercial.cotizaciones.enviar');
+    Route::post('comercial/cotizaciones/{cotizacion}/aceptar', [CotizacionController::class, 'aceptar'])
+        ->name('comercial.cotizaciones.aceptar');
+    Route::post('comercial/cotizaciones/{cotizacion}/rechazar', [CotizacionController::class, 'rechazar'])
+        ->name('comercial.cotizaciones.rechazar');
+    Route::resource('comercial/cotizaciones', CotizacionController::class)
+        ->parameters(['cotizaciones' => 'cotizacion'])
+        ->names('comercial.cotizaciones');
 
     Route::prefix('procesos/ordenes-trabajo/{ordenTrabajo}')
         ->name('procesos.ordenes_trabajo.procesos.')

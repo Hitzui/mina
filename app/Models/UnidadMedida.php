@@ -22,6 +22,7 @@ class UnidadMedida extends Model
         foreach ([
             ['productos', 'unidad_medida_id'],
             ['ordenes_trabajo', 'unidad_peso_id'],
+            ['cotizaciones', 'unidad_peso_id'],
             ['producciones', 'unidad_medida_id'],
             ['ingresos', 'unidad_medida_id'],
             ['precios_oro', 'unidad_id'],

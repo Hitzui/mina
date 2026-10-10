@@ -50,6 +50,7 @@ class Moneda extends BaseMoneda
 		'valoraciones_oro' => 'valoraciones del oro',
 		'precios_oro' => 'precios del oro',
 		'acuerdos_orden' => 'acuerdos de órdenes',
+		'cotizaciones' => 'cotizaciones',
 		'ingresos' => 'ingresos',
 		'cobros' => 'cobros',
 		'movimientos_caja' => 'movimientos de caja',

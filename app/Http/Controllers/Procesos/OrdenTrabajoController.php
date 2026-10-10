@@ -17,6 +17,7 @@ use App\Models\OrdenesTrabajo;
 use App\Models\TiposIngreso;
 use App\Models\TiposParticipacion;
 use App\Models\UnidadMedida;
+use App\Services\CodigoOrdenTrabajo;
 use App\Services\DistribucionGastosGenerales;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -186,7 +187,7 @@ class OrdenTrabajoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request, CodigoOrdenTrabajo $codigoOrden)
     {
         $this->normalizarUnidadPeso($request);
         $validated = $request->validate([
@@ -223,7 +224,7 @@ class OrdenTrabajoController extends Controller
         $unidad = UnidadMedida::findOrFail($validated['unidad_peso_id']);
         $validated['unidad_peso'] = $unidad->nombre;
 
-        $validated['codigo'] = $this->generarCodigo();
+        $validated['codigo'] = $codigoOrden->generar();
         $validated['estado'] = 1;
 
         $ordenTrabajo = OrdenesTrabajo::create($validated);
@@ -484,6 +485,9 @@ class OrdenTrabajoController extends Controller
             'cierres de orden' => DB::table('cierres_orden')
                 ->where('orden_trabajo_id', $ordenTrabajo->id)
                 ->count(),
+            'cotizaciones aceptadas' => DB::table('cotizaciones')
+                ->where('orden_trabajo_id', $ordenTrabajo->id)
+                ->count(),
             'costos' => DB::table('movimientos_costos')
                 ->where('orden_trabajo_id', $ordenTrabajo->id)
                 ->count(),
@@ -534,26 +538,4 @@ class OrdenTrabajoController extends Controller
         );
     }
 
-    private function generarCodigo(): string
-    {
-        $anio = now()->year;
-
-        $ultimo = OrdenesTrabajo::withTrashed()
-            ->where('codigo', 'like', "OT-{$anio}-%")
-            ->orderByDesc('id')
-            ->first();
-
-        $numero = 1;
-
-        if ($ultimo) {
-            $partes = explode('-', $ultimo->codigo);
-            $numero = ((int) end($partes)) + 1;
-        }
-
-        return sprintf(
-            'OT-%d-%04d',
-            $anio,
-            $numero
-        );
-    }
 }

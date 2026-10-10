@@ -74,7 +74,7 @@ class TipoParticipacionController extends Controller
         if (! $tipoParticipacion->sePuedeBorrar()) {
             throw ValidationException::withMessages([
                 TiposParticipacion::NOMBRE => 'No se puede borrar: este tipo de participación está en uso, en '
-                    .$tipoParticipacion->fraseDeUsos().'. Se puede desactivar para retirarlo de los nuevos acuerdos.',
+                    .$tipoParticipacion->fraseDeUsos().'. Se puede desactivar para retirarlo de nuevas cotizaciones y acuerdos.',
             ]);
         }
 
