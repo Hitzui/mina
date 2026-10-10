@@ -143,9 +143,9 @@ class CajaController extends Controller
          */
         if (! $caja->sePuedeBorrar()) {
             throw ValidationException::withMessages([
-                Cajas::NOMBRE => 'No se puede borrar: esta caja tiene cobros, en '
+                Cajas::NOMBRE => 'No se puede borrar: esta caja conserva registros, en '
                     . $caja->fraseDeUsos() . '. Se puede desactivar, que la saca de los '
-                    . 'desplegables sin tocar los cobros que ya se registraron en ella.',
+                    . 'desplegables sin alterar los movimientos ya registrados.',
             ]);
         }
 

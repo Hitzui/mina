@@ -63,6 +63,7 @@ use App\Models\Cobro;
 use App\Models\DetalleCobro;
 use App\Models\Ingreso;
 use App\Models\Moneda;
+use App\Models\MovimientoCaja;
 use App\Models\OrdenesTrabajo;
 use App\Models\TiposIngreso;
 use App\Models\User;
@@ -121,6 +122,8 @@ class CobroTest extends TestCase
 
         Permission::findOrCreate('cierres_caja.view', 'web');
         Permission::findOrCreate('cierres_caja.create', 'web');
+        Permission::findOrCreate('movimientos_caja.view', 'web');
+        Permission::findOrCreate('movimientos_caja.create', 'web');
 
         $this->usuario = User::create([
             'name' => 'Prueba cobros',
@@ -136,6 +139,8 @@ class CobroTest extends TestCase
             'cobros.delete',
             'cierres_caja.view',
             'cierres_caja.create',
+            'movimientos_caja.view',
+            'movimientos_caja.create',
         ]);
 
         return $this->usuario;
@@ -298,12 +303,13 @@ class CobroTest extends TestCase
         Cliente $cliente,
         Ingreso $ingreso,
         Moneda $moneda,
-        int $estado = Cobro::ESTADO_FINALIZADA
+        int $estado = Cobro::ESTADO_FINALIZADA,
+        ?int $cajaId = null
     ): array {
         $respuesta = $this->actingAs($this->usuario())
             ->post(route('procesos.cobros.store'), [
                 'cliente_id' => $cliente->id,
-                'caja_id' => $this->cajaActiva()->id,
+                'caja_id' => $cajaId ?? $this->cajaActiva()->id,
                 'metodo_pago_id' => $this->metodoActivo(),
                 'fecha' => today()->format('Y-m-d'),
                 'moneda_id' => $moneda->id,
@@ -1213,12 +1219,11 @@ class CobroTest extends TestCase
             'No queda ninguna línea de este cobro.'
         );
 
-        // Y ya no hay ningun cobro que cuente para ese ingreso.
-        $otro = Cobro::query()->latest('id')->first();
-
-        $this->assertSame(
-            [],
-            $otro?->cobradoPorIngreso() ?? [],
+        // Puede haber datos reales de otros clientes en la base de pruebas;
+        // lo que se comprueba es que ESTE ingreso ya no aparece cobrado.
+        $this->assertArrayNotHasKey(
+            (int) $ingreso->id,
+            $cobro->cobradoPorIngreso(),
             'Con el cobro borrado, su ingreso ya no lleva nada cobrado.'
         );
     }
@@ -1557,8 +1562,8 @@ class CobroTest extends TestCase
 
         $this->assertTrue($cobro->estaCancelado());
 
-        $this->assertSame(
-            [],
+        $this->assertArrayNotHasKey(
+            (int) $ingreso->id,
             $cobro->cobradoPorIngreso(),
             'Las líneas de un cobro cancelado no cuentan como dinero cobrado.'
         );
@@ -1590,8 +1595,8 @@ class CobroTest extends TestCase
 
         $cobradores = $cobro->cobradoPorIngreso();
 
-        $this->assertSame(
-            [],
+        $this->assertArrayNotHasKey(
+            (int) $ingreso->id,
             $cobradores,
             'Pendiente no cuenta como dinero recibido: solo cuenta al pasar a Finalizada.'
         );
@@ -1618,7 +1623,7 @@ class CobroTest extends TestCase
             Cobro::ESTADO_EN_PROCESO
         );
 
-        $this->assertSame([], $cobro->cobradoPorIngreso());
+        $this->assertArrayNotHasKey((int) $ingreso->id, $cobro->cobradoPorIngreso());
     }
 
     /**
@@ -1837,19 +1842,20 @@ class CobroTest extends TestCase
             ->assertDontSee('<select id="cliente_id"', false);
     }
 
-    public function test_el_cierre_guarda_importe_esperado_contado_y_diferencia_solo_de_cobros_finalizados()
+    public function test_el_cierre_guarda_importe_esperado_contado_y_diferencia_del_libro_de_caja()
     {
+        $caja = Caja::create(['nombre' => 'Caja cierre prueba ' . uniqid(), 'estado' => true]);
         $cliente = $this->cliente();
         $moneda = $this->monedaActiva();
         $ingreso1 = $this->ingreso($this->orden($cliente), 500, $moneda);
         $ingreso2 = $this->ingreso($this->orden($cliente), 500, $moneda);
-        [$cobroFinalizado] = $this->cobroConUnaLinea($cliente, $ingreso1, $moneda, Cobro::ESTADO_FINALIZADA);
-        $this->cobroConUnaLinea($cliente, $ingreso2, $moneda, Cobro::ESTADO_PENDIENTE);
-        $caja = $cobroFinalizado->caja_id;
+        [$cobroFinalizado] = $this->cobroConUnaLinea($cliente, $ingreso1, $moneda, Cobro::ESTADO_FINALIZADA, $caja->id);
+        $this->cobroConUnaLinea($cliente, $ingreso2, $moneda, Cobro::ESTADO_PENDIENTE, $caja->id);
+        $cajaId = $caja->id;
         $metodo = $cobroFinalizado->metodo_pago_id;
 
         $respuesta = $this->actingAs($this->usuario())->get(route('procesos.cierres_caja.create', [
-            'caja_id' => $caja,
+            'caja_id' => $cajaId,
             'fecha_desde' => today()->format('Y-m-d'),
             'fecha_hasta' => today()->format('Y-m-d'),
         ]));
@@ -1859,21 +1865,23 @@ class CobroTest extends TestCase
             ->assertSee('100.00');
 
         $respuesta = $this->actingAs($this->usuario())->post(route('procesos.cierres_caja.store'), [
-            'caja_id' => $caja,
+            'caja_id' => $cajaId,
             'fecha_desde' => today()->format('Y-m-d'),
             'fecha_hasta' => today()->format('Y-m-d'),
             'conteos' => [$metodo . '|' . $moneda->id => 95],
         ]);
 
-        $respuesta->assertRedirect();
-        $detalle = DB::table('detalle_cierres_caja')->where('metodo_pago_id', $metodo)->latest('id')->first();
+        $respuesta->assertRedirect()->assertSessionHasNoErrors();
+        $detalle = DB::table('detalle_cierres_caja')
+            ->where('cierre_caja_id', DB::table('cierres_caja')->latest('id')->value('id'))
+            ->where('metodo_pago_id', $metodo)->latest('id')->first();
         $this->assertSame('100.00', number_format((float) $detalle->monto_esperado, 2, '.', ''));
         $this->assertSame('95.00', number_format((float) $detalle->monto_contado, 2, '.', ''));
         $this->assertSame('-5.00', number_format((float) $detalle->diferencia, 2, '.', ''));
 
         $this->actingAs($this->usuario())
             ->post(route('procesos.cierres_caja.store'), [
-                'caja_id' => $caja,
+                'caja_id' => $cajaId,
                 'fecha_desde' => today()->format('Y-m-d'),
                 'fecha_hasta' => today()->format('Y-m-d'),
                 'conteos' => [$metodo . '|' . $moneda->id => 100],
@@ -1888,6 +1896,137 @@ class CobroTest extends TestCase
             ->assertOk()
             ->assertSee('Cierres de caja')
             ->assertSee('cierres-caja-table');
+    }
+
+    public function test_los_cobros_finalizados_generan_movimiento_y_los_reversos_conservan_el_historial()
+    {
+        $cliente = $this->cliente();
+        $moneda = $this->monedaActiva();
+        $ingreso = $this->ingreso($this->orden($cliente), 500, $moneda);
+        [$cobro] = $this->cobroConUnaLinea($cliente, $ingreso, $moneda);
+
+        $movimiento = MovimientoCaja::query()
+            ->where('origen', MovimientoCaja::ORIGEN_COBRO)
+            ->where('cobro_id', $cobro->id)
+            ->firstOrFail();
+
+        $this->assertSame(MovimientoCaja::ENTRADA, $movimiento->tipo);
+        $this->assertSame(100.0, (float) $movimiento->monto);
+
+        $this->actingAs($this->usuario())
+            ->put(route('procesos.cobros.update', $cobro), [
+                'cliente_id' => $cliente->id,
+                'caja_id' => $cobro->caja_id,
+                'metodo_pago_id' => $cobro->metodo_pago_id,
+                'fecha' => today()->format('Y-m-d'),
+                'moneda_id' => $moneda->id,
+                'estado' => Cobro::ESTADO_CANCELADA,
+                'ingresos' => [['ingreso_id' => $ingreso->id, 'monto' => 100, 'observaciones' => null]],
+            ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('movimientos_caja', [
+            'reversa_de_id' => $movimiento->id,
+            'tipo' => MovimientoCaja::SALIDA,
+            'monto' => 100,
+        ]);
+        $this->assertSame(2, MovimientoCaja::query()->where('cobro_id', $cobro->id)->count());
+    }
+
+    public function test_corregir_un_cobro_finalizado_reversa_el_importe_anterior_y_registra_el_nuevo()
+    {
+        $cliente = $this->cliente();
+        $moneda = $this->monedaActiva();
+        $ingreso = $this->ingreso($this->orden($cliente), 500, $moneda);
+        [$cobro] = $this->cobroConUnaLinea($cliente, $ingreso, $moneda);
+
+        $this->actingAs($this->usuario())
+            ->put(route('procesos.cobros.update', $cobro), [
+                'cliente_id' => $cliente->id,
+                'caja_id' => $cobro->caja_id,
+                'metodo_pago_id' => $cobro->metodo_pago_id,
+                'fecha' => today()->format('Y-m-d'),
+                'moneda_id' => $moneda->id,
+                'estado' => Cobro::ESTADO_FINALIZADA,
+                'ingresos' => [['ingreso_id' => $ingreso->id, 'monto' => 200, 'observaciones' => null]],
+            ])->assertSessionHasNoErrors();
+
+        $filas = MovimientoCaja::query()->where('cobro_id', $cobro->id)->orderBy('id')->get();
+        $saldo = $filas->sum(fn(MovimientoCaja $fila) => $fila->tipo === MovimientoCaja::ENTRADA
+            ? (float) $fila->monto
+            : -(float) $fila->monto);
+
+        $this->assertCount(3, $filas);
+        $this->assertSame(200.0, $saldo);
+    }
+
+    public function test_los_movimientos_manuales_y_transferencias_se_registran_en_pares()
+    {
+        $cajaOrigen = Caja::create(['nombre' => 'Caja origen test ' . uniqid(), 'estado' => true]);
+        $cajaDestino = Caja::create(['nombre' => 'Caja destino test ' . uniqid(), 'estado' => true]);
+        $moneda = $this->monedaActiva();
+        $metodo = $this->metodoActivo();
+
+        $this->actingAs($this->usuario())
+            ->post(route('procesos.movimientos_caja.store'), [
+                'accion' => 'saldo_inicial',
+                'fecha' => today()->format('Y-m-d'),
+                'caja_id' => $cajaOrigen->id,
+                'metodo_pago_id' => $metodo,
+                'moneda_id' => $moneda->id,
+                'monto' => 500,
+                'descripcion' => 'Saldo inicial',
+            ])->assertRedirect(route('procesos.movimientos_caja.index'));
+
+        $this->post(route('procesos.movimientos_caja.store'), [
+            'accion' => 'transferencia',
+            'fecha' => today()->format('Y-m-d'),
+            'caja_origen_id' => $cajaOrigen->id,
+            'caja_destino_id' => $cajaDestino->id,
+            'metodo_pago_id' => $metodo,
+            'moneda_id' => $moneda->id,
+            'monto' => 125,
+        ])->assertRedirect(route('procesos.movimientos_caja.index'));
+
+        $transferencias = MovimientoCaja::query()->where('origen', MovimientoCaja::ORIGEN_TRANSFERENCIA)
+            ->where('referencia', 'like', 'MOV-%')->latest('id')->limit(2)->get();
+
+        $this->assertCount(2, $transferencias);
+        $this->assertNotSame($transferencias[0]->tipo, $transferencias[1]->tipo);
+        $this->assertSame($transferencias[0]->transferencia_id, $transferencias[1]->id);
+
+        $this->get(route('procesos.movimientos_caja.index'))
+            ->assertOk()
+            ->assertSee('Saldo actual por caja y moneda')
+            ->assertSee('movimientos-caja-table');
+    }
+
+    public function test_el_cierre_calcula_el_neto_de_entradas_y_salidas_por_metodo_y_moneda()
+    {
+        $caja = Caja::create(['nombre' => 'Caja cierre neto ' . uniqid(), 'estado' => true]);
+        $cliente = $this->cliente();
+        $moneda = $this->monedaActiva();
+        $ingreso = $this->ingreso($this->orden($cliente), 500, $moneda);
+        [$cobro] = $this->cobroConUnaLinea($cliente, $ingreso, $moneda, Cobro::ESTADO_FINALIZADA, $caja->id);
+
+        $this->actingAs($this->usuario())
+            ->post(route('procesos.movimientos_caja.store'), [
+                'accion' => 'salida',
+                'fecha' => today()->format('Y-m-d'),
+                'caja_id' => $caja->id,
+                'metodo_pago_id' => $cobro->metodo_pago_id,
+                'moneda_id' => $moneda->id,
+                'monto' => 25,
+                'descripcion' => 'Egreso de prueba',
+            ])->assertRedirect();
+
+        $filtros = [
+            'caja_id' => $caja->id,
+            'fecha_desde' => today()->format('Y-m-d'),
+            'fecha_hasta' => today()->format('Y-m-d'),
+        ];
+        $this->get(route('procesos.cierres_caja.create', $filtros))
+            ->assertOk()
+            ->assertSee('75.00');
     }
 
     public function test_se_puede_confirmar_un_pago_desde_la_ficha_sin_perder_sus_lineas()

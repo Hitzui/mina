@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Cajas;
 use App\Models\CierreCaja;
+use App\Models\MovimientoCaja;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -43,7 +44,7 @@ class CierreCajaController extends Controller
 
         $preview = collect();
         if (! empty($filtros['caja_id']) && ! empty($filtros['fecha_desde']) && ! empty($filtros['fecha_hasta'])) {
-            $preview = $this->resumenCobros($filtros['caja_id'], $filtros['fecha_desde'], $filtros['fecha_hasta']);
+            $preview = $this->saldoEsperado($filtros['caja_id'], $filtros['fecha_hasta']);
         }
 
         return view('procesos.cierres_caja.create', [
@@ -86,7 +87,7 @@ class CierreCajaController extends Controller
                 ]);
             }
 
-            $resumen = $this->resumenCobros($datos['caja_id'], $datos['fecha_desde'], $datos['fecha_hasta']);
+            $resumen = $this->saldoEsperado($datos['caja_id'], $datos['fecha_hasta']);
             $clavesEsperadas = $resumen->map(fn($fila) => $fila->metodo_pago_id . '|' . $fila->moneda_id)->all();
             if ($clavesEsperadas === [] || array_diff($clavesEsperadas, array_keys($datos['conteos'])) !== []) {
                 throw ValidationException::withMessages([
@@ -138,23 +139,18 @@ class CierreCajaController extends Controller
         ]);
     }
 
-    private function resumenCobros(int|string $cajaId, string $desde, string $hasta)
+    private function saldoEsperado(int|string $cajaId, string $hasta)
     {
-        return DB::table('cobros')
-            ->join('detalle_cobros', function ($join) {
-                $join->on('detalle_cobros.cobro_id', '=', 'cobros.id')
-                    ->whereNull('detalle_cobros.deleted_at');
-            })
-            ->join('metodos_pago', 'metodos_pago.id', '=', 'cobros.metodo_pago_id')
-            ->join('monedas', 'monedas.id', '=', 'cobros.moneda_id')
-            ->whereNull('cobros.deleted_at')
-            ->where('cobros.estado', 3)
-            ->where('cobros.caja_id', $cajaId)
-            ->whereBetween('cobros.fecha', [$desde, $hasta])
-            ->groupBy('cobros.metodo_pago_id', 'cobros.moneda_id', 'metodos_pago.nombre', 'monedas.codigo')
-            ->selectRaw('cobros.metodo_pago_id, cobros.moneda_id, metodos_pago.nombre AS metodo, monedas.codigo AS moneda, ROUND(SUM(detalle_cobros.monto), 2) AS monto_esperado')
-            ->orderBy('metodos_pago.nombre')
-            ->orderBy('monedas.codigo')
+        return DB::table('movimientos_caja')
+            ->join('metodos_pago', 'metodos_pago.id', '=', 'movimientos_caja.metodo_pago_id')
+            ->join('monedas', 'monedas.id', '=', 'movimientos_caja.moneda_id')
+            ->where('movimientos_caja.caja_id', $cajaId)
+            // El cierre cuenta el saldo acumulado hasta el último día: los
+            // movimientos anteriores son el saldo de apertura del período.
+            ->where('movimientos_caja.fecha', '<=', $hasta)
+            ->groupBy('movimientos_caja.metodo_pago_id', 'movimientos_caja.moneda_id', 'metodos_pago.nombre', 'monedas.codigo')
+            ->selectRaw('movimientos_caja.metodo_pago_id, movimientos_caja.moneda_id, metodos_pago.nombre AS metodo, monedas.codigo AS moneda, ROUND(SUM(CASE WHEN movimientos_caja.tipo = ? THEN movimientos_caja.monto ELSE -movimientos_caja.monto END), 2) AS monto_esperado', [MovimientoCaja::ENTRADA])
+            ->orderBy('metodos_pago.nombre')->orderBy('monedas.codigo')
             ->get();
     }
 }

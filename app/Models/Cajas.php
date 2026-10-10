@@ -63,13 +63,14 @@ class Cajas extends BaseCaja
 	}
 
 	/**
-	 * Los cobros de esta caja, y cuantos hay.
+	 * Los cobros, movimientos y cierres que conservan la clave de esta caja.
 	 *
 	 * Se cuentan TODAS las filas de cobros, incluidas las dadas de baja, y no
 	 * solo las vivas, porque la clave foranea sigue escribiendo el numero en las
 	 * borradas. La FK es restrict —"no lleva ON DELETE, y el valor por defecto de
 	 * MySQL es restringir"— de modo que borrar la caja con un cobro dado de baja
-	 * tambien lo impide. Si aqui se contaran solo los vivos, el boton dejaria
+	 * tambien lo impide. Los movimientos y cierres también son históricos y
+	 * bloquean el borrado, aunque el cobro original haya desaparecido. Si aqui se contaran solo los vivos, el boton dejaria
 	 * pulsar el borrar y reventaria con un error de MySQL en vez de con un aviso
 	 * que dice lo que hay que hacer.
 	 *
@@ -91,18 +92,38 @@ class Cajas extends BaseCaja
 			return [];
 		}
 
-		if (! $filas || (int) $filas->cuantas === 0) {
-			return [];
-		}
+		$usos = [];
 
-		return [
-			[
+		if ($filas && (int) $filas->cuantas > 0) {
+			$usos[] = [
 				'tabla' => 'cobros',
 				'donde' => 'cobros',
 				'cuantas' => (int) $filas->cuantas,
 				'dadasDeBaja' => (int) $filas->dadas,
-			],
-		];
+			];
+		}
+
+		foreach ([
+			'movimientos_caja' => 'movimiento',
+			'cierres_caja' => 'cierre',
+		] as $tabla => $donde) {
+			try {
+				$cuantas = DB::table($tabla)->where('caja_id', $this->id)->count();
+			} catch (\Throwable $e) {
+				continue;
+			}
+
+			if ($cuantas > 0) {
+				$usos[] = [
+					'tabla' => $tabla,
+					'donde' => $donde,
+					'cuantas' => $cuantas,
+					'dadasDeBaja' => 0,
+				];
+			}
+		}
+
+		return $usos;
 	}
 
 	/**

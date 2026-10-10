@@ -30,7 +30,7 @@
                     </table>
                 </div>
                 @if ($cierre->observaciones)<div class="border-top pt-3"><strong>Observaciones:</strong><p class="mb-0">{{ $cierre->observaciones }}</p></div>@endif
-                <p class="text-muted small mb-0">Los importes son una captura del momento del cierre; se conservan aunque después se corrija un cobro.</p>
+                <p class="text-muted small mb-0">Los importes son una captura histórica del saldo esperado hasta el final del período; las correcciones posteriores no alteran este cierre.</p>
             </div>
         </div>
     </div>

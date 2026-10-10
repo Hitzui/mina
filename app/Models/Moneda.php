@@ -52,6 +52,8 @@ class Moneda extends BaseMoneda
 		'acuerdos_orden' => 'acuerdos de órdenes',
 		'ingresos' => 'ingresos',
 		'cobros' => 'cobros',
+		'movimientos_caja' => 'movimientos de caja',
+		'detalle_cierres_caja' => 'cierres de caja',
 	];
 
 	protected $fillable = [
@@ -96,7 +98,7 @@ class Moneda extends BaseMoneda
 	/**
 	 * Donde se usa esta moneda, y cuantas veces.
 	 *
-	 * Son once consultas, y solo se hacen al abrir la ficha de una moneda o
+	 * Son trece consultas, y solo se hacen al abrir la ficha de una moneda o
 	 * al intentar borrarla. En la lista no se necesitan, y cargarlas por cada
 	 * fila de la tabla seria hacer once veces el trabajo que nadie mira.
 	 *

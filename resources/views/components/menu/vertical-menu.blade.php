@@ -622,7 +622,7 @@
                 </div>
             </li>
 
-            {{-- Los cobros y sus cierres comparten esta sección: dinero recibido y conciliación de caja. --}}
+            {{-- Registro y conciliación del dinero que entra, sale y se cuenta en cada caja. --}}
             @can('cobros.view')
                 <li class="menu {{ Request::routeIs('procesos.cobros.*') ? 'active' : '' }}">
                     <a href="{{ route('procesos.cobros.index') }}" aria-expanded="false" class="dropdown-toggle">
@@ -632,6 +632,17 @@
                         </div>
                     </a>
                 </li>
+            @endcan
+
+            @can('movimientos_caja.view')
+            <li class="menu {{ Request::routeIs('procesos.movimientos_caja.*') ? 'active' : '' }}">
+                <a href="{{ route('procesos.movimientos_caja.index') }}" aria-expanded="false" class="dropdown-toggle">
+                    <div>
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span>Movimientos de caja</span>
+                    </div>
+                </a>
+            </li>
             @endcan
 
             @can('cierres_caja.view')

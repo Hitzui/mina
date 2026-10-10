@@ -7,7 +7,7 @@
         <div class="col-xl-10 col-lg-12">
             <div class="widget-content widget-content-area br-8">
                 <h4 class="mb-1"><i class="bi bi-safe2 me-2"></i>Nuevo cierre de caja</h4>
-                <p class="text-muted mb-4">Se suman únicamente los cobros Finalizados. Las monedas se cuentan por separado y la diferencia es contado menos esperado.</p>
+                <p class="text-muted mb-4">El esperado es el saldo acumulado hasta el último día del período, incluidos saldos iniciales, cobros, entradas, egresos y transferencias. Cada método y moneda se calcula por separado; la diferencia es contado menos esperado.</p>
 
                 @if ($errors->any())
                     <div class="alert alert-danger"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -42,7 +42,7 @@
                         <input type="hidden" name="caja_id" value="{{ $filtros['caja_id'] }}">
                         <input type="hidden" name="fecha_desde" value="{{ $filtros['fecha_desde'] }}">
                         <input type="hidden" name="fecha_hasta" value="{{ $filtros['fecha_hasta'] }}">
-                        <h5 class="mb-3">Cobros Finalizados del período</h5>
+                        <h5 class="mb-3">Saldo esperado al cierre del período</h5>
                         <div class="table-responsive">
                             <table class="table table-hover table-bordered align-middle">
                                 <thead><tr><th>Método de pago</th><th>Moneda</th><th class="text-end">Esperado</th><th class="text-end">Contado</th></tr></thead>
@@ -69,7 +69,7 @@
                         </div>
                     </form>
                 @elseif (!empty($filtros['caja_id']) && !empty($filtros['fecha_desde']) && !empty($filtros['fecha_hasta']))
-                    <div class="alert alert-info mb-0">No hay cobros Finalizados en esta caja durante el período indicado; no hay importes que cerrar.</div>
+                    <div class="alert alert-info mb-0">No hay movimientos registrados hasta el final del período; no hay importes que cerrar.</div>
                 @endif
             </div>
         </div>

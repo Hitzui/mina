@@ -153,7 +153,7 @@ class MetodoPagoController extends Controller
             throw ValidationException::withMessages([
                 MetodosPagos::NOMBRE => 'No se puede borrar: este método de pago está en uso, en '
                     . $metodoPago->fraseDeUsos() . '. Se puede desactivar, que lo saca de los '
-                    . 'desplegables sin tocar los cobros que ya se registraron con él.',
+                    . 'desplegables sin alterar los movimientos y cierres ya registrados.',
             ]);
         }
 

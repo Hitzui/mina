@@ -12,6 +12,7 @@ use App\Models\DetalleCobro;
 use App\Models\Ingreso;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
+use App\Services\MovimientoCajaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -124,12 +125,12 @@ class CobroController extends Controller
         return view('procesos.cobros.create', $this->datosDeFormulario($cobro));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, MovimientoCajaService $movimientos)
     {
         $datos = $this->validarCabecera($request);
         $lineas = $this->validarLineas($request);
 
-        $cobro = DB::transaction(function () use ($datos, $lineas) {
+        $cobro = DB::transaction(function () use ($datos, $lineas, $movimientos) {
             /*
              * crearConCodigo y no create() mas el codigo a mano, porque el codigo
              * tiene indice unico y dos altas a la vez —dos personas, o la misma en
@@ -144,6 +145,7 @@ class CobroController extends Controller
             $this->guardarLineas($cobro, $lineas);
 
             $this->actualizarMonto($cobro);
+            $movimientos->sincronizarCobro($cobro);
 
             return $cobro;
         });
@@ -195,9 +197,9 @@ class CobroController extends Controller
     /**
      * Confirma la recepción del dinero sin volver a enviar ni reconstruir el detalle.
      */
-    public function finalizar(Cobro $cobro)
+    public function finalizar(Cobro $cobro, MovimientoCajaService $movimientos)
     {
-        DB::transaction(function () use ($cobro) {
+        DB::transaction(function () use ($cobro, $movimientos) {
             $cobroBloqueado = Cobro::query()
                 ->lockForUpdate()
                 ->findOrFail($cobro->id);
@@ -219,6 +221,7 @@ class CobroController extends Controller
             $cobroBloqueado->estado = Cobro::ESTADO_FINALIZADA;
             $cobroBloqueado->monto = round((float) $lineas->sum('monto'), 2);
             $cobroBloqueado->save();
+            $movimientos->sincronizarCobro($cobroBloqueado);
         });
 
         Alert::toast('Pago confirmado. El cobro quedó Finalizado y sus líneas cuentan como recibidas.')
@@ -228,12 +231,12 @@ class CobroController extends Controller
         return redirect()->route('procesos.cobros.show', $cobro);
     }
 
-    public function update(Request $request, Cobro $cobro)
+    public function update(Request $request, Cobro $cobro, MovimientoCajaService $movimientos)
     {
         $datos = $this->validarCabecera($request);
         $lineas = $this->validarLineas($request);
 
-        $cobro = DB::transaction(function () use ($cobro, $datos, $lineas) {
+        $cobro = DB::transaction(function () use ($cobro, $datos, $lineas, $movimientos) {
             $cobro->update($datos);
 
             $this->validaNoSobrecobra($cobro, $lineas);
@@ -241,6 +244,7 @@ class CobroController extends Controller
             $this->guardarLineas($cobro, $lineas);
 
             $this->actualizarMonto($cobro);
+            $movimientos->sincronizarCobro($cobro);
 
             return $cobro;
         });
@@ -308,9 +312,13 @@ class CobroController extends Controller
      * servicio que da de baja los movimientos antes: alli el material ya estaba en
      * el almacen y un borrado logico lo reactivaria al restaurar la compra.
      */
-    public function destroy(Cobro $cobro)
+    public function destroy(Cobro $cobro, MovimientoCajaService $movimientos)
     {
-        DB::transaction(function () use ($cobro) {
+        DB::transaction(function () use ($cobro, $movimientos) {
+            // Se solicita la reversa de la entrada existente, no una nueva entrada
+            // del cobro que se va a eliminar.
+            $cobro->estado = Cobro::ESTADO_CANCELADA;
+            $movimientos->sincronizarCobro($cobro);
             $cobro->forceDelete();
         });
 

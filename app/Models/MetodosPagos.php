@@ -62,7 +62,7 @@ class MetodosPagos extends BaseMetodosPago
 	}
 
 	/**
-	 * Los cobros de este metodo, y cuantos hay.
+	 * Los cobros, movimientos y cierres que usan este método.
 	 *
 	 * Se cuentan TODAS las filas de cobros, incluidas las dadas de baja, y no
 	 * solo las vivas, porque la clave foranea sigue escribiendo el numero en las
@@ -90,18 +90,38 @@ class MetodosPagos extends BaseMetodosPago
 			return [];
 		}
 
-		if (! $filas || (int) $filas->cuantas === 0) {
-			return [];
-		}
+		$usos = [];
 
-		return [
-			[
+		if ($filas && (int) $filas->cuantas > 0) {
+			$usos[] = [
 				'tabla' => 'cobros',
 				'donde' => 'cobros',
 				'cuantas' => (int) $filas->cuantas,
 				'dadasDeBaja' => (int) $filas->dadas,
-			],
-		];
+			];
+		}
+
+		foreach ([
+			'movimientos_caja' => 'movimiento',
+			'detalle_cierres_caja' => 'detalle de cierre',
+		] as $tabla => $donde) {
+			try {
+				$cuantas = DB::table($tabla)->where('metodo_pago_id', $this->id)->count();
+			} catch (\Throwable $e) {
+				continue;
+			}
+
+			if ($cuantas > 0) {
+				$usos[] = [
+					'tabla' => $tabla,
+					'donde' => $donde,
+					'cuantas' => $cuantas,
+					'dadasDeBaja' => 0,
+				];
+			}
+		}
+
+		return $usos;
 	}
 
 	/**
