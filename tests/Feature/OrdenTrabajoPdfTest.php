@@ -73,10 +73,11 @@ class OrdenTrabajoPdfTest extends TestCase
         $html = view('procesos.ordenes_trabajo.pdf', [
             'ordenTrabajo' => $orden->fresh()->load('cliente'),
             'procesos' => $procesos,
-            'renglonesEnBlanco' => 0,
+            'renglonesEnBlanco' => 5,
         ])->render();
         $this->assertStringContainsString($etapa->nombre, $html);
         $this->assertStringContainsString('Proceso validado con el cliente', $html);
+        $this->assertSame(6, substr_count($html, '<td class="check">□</td>'));
     }
 
     private function crearOrden(): OrdenesTrabajo

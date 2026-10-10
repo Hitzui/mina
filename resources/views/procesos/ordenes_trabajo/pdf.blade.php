@@ -84,23 +84,22 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($procesos as $proceso)
+            @foreach($procesos as $proceso)
                 <tr>
                     <td class="check">□</td>
                     <td class="numero">{{ $loop->iteration }}</td>
                     <td><strong>{{ $proceso->etapa?->nombre ?? 'Etapa no disponible' }}</strong><br>{{ $proceso->codigo }}</td>
                     <td>{{ $proceso->observaciones }}</td>
                 </tr>
-            @empty
-                @for($i = 1; $i <= $renglonesEnBlanco; $i++)
-                    <tr>
-                        <td class="check">□</td>
-                        <td class="numero">{{ $i }}</td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                @endfor
-            @endforelse
+            @endforeach
+            @for($i = 1; $i <= $renglonesEnBlanco; $i++)
+                <tr>
+                    <td class="check">□</td>
+                    <td class="numero">{{ $procesos->count() + $i }}</td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            @endfor
         </tbody>
     </table>
 

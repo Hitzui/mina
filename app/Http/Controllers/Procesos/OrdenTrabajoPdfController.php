@@ -23,7 +23,7 @@ class OrdenTrabajoPdfController extends Controller
         return Pdf::loadView('procesos.ordenes_trabajo.pdf', [
             'ordenTrabajo' => $ordenTrabajo,
             'procesos' => $procesos,
-            'renglonesEnBlanco' => $procesos->isEmpty() ? 8 : 0,
+            'renglonesEnBlanco' => $procesos->isEmpty() ? 8 : 5,
         ])
             ->setPaper('letter', 'portrait')
             ->download('orden-trabajo-'.$ordenTrabajo->codigo.'.pdf');
