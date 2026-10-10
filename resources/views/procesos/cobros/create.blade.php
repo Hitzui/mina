@@ -15,12 +15,11 @@
 
     <x-slot:headerFiles>
         {{--
-            Select2: los estilos.
+            Select2: los estilos de los ingresos de cada línea.
 
-            Sin esto el cliente era un <select> nativo, o sea una lista desplegable
-            del sistema sin buscador. Con el catalogo de clientes encima, buscar a
-            uno a mano era recorrerla entera. El select2 lo pone el javascript del
-            formulario; aqui solo su cascara.
+            El cliente se elige en un modal; Select2 se usa en los ingresos de la
+            rejilla. El javascript del formulario lo inicializa en cada fila que
+            aparece, y aquí se carga la cascara visual.
         --}}
         @vite(['resources/scss/light/plugins/select2/custom-select2.scss'])
     </x-slot>
@@ -80,9 +79,9 @@
     <x-slot:footerFiles>
 
         {{--
-            Select2: el javascript, y antes que nada porque el script de la rejilla
-            lo busca en window.iniciarSelect2 para engancharle el desplegable a
-            cada fila que anade.
+            Select2: el javascript, antes que nada porque el script de la rejilla
+            lo busca en window.iniciarSelect2 para engancharle el desplegable de
+            ingresos a cada fila que añade.
 
             Va antes a proposito. El @vite carga un modulo, que el navegador aplaza
             hasta despues de leer toda la pagina, mientras que el script de la

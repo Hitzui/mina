@@ -1813,6 +1813,25 @@ class CobroTest extends TestCase
     }
 
     /**
+     * El cliente se escoge en el modal y el formulario envía su id oculto.
+     */
+    public function test_el_cliente_se_selecciona_desde_un_modal_con_busqueda()
+    {
+        $cliente = $this->cliente();
+
+        $this->actingAs($this->usuario())
+            ->get(route('procesos.cobros.create'))
+            ->assertOk()
+            ->assertSee('id="modalSeleccionCliente"', false)
+            ->assertSee('id="buscarCliente"', false)
+            ->assertSee('id="cliente_id"', false)
+            ->assertSee('name="cliente_id"', false)
+            ->assertSee('data-cliente-id="' . $cliente->id . '"', false)
+            ->assertSee($cliente->nombre)
+            ->assertDontSee('<select id="cliente_id"', false);
+    }
+
+    /**
      * Una linea que no cubre el ingreso entero dice cuanto falta.
      *
      * Y no es un adorno: sin ese aviso, el taller ve un ingreso con una linea de

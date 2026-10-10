@@ -82,6 +82,13 @@
 
                 <div class="row g-3">
 
+                    @php
+                        $clienteSeleccionado = $clientes->firstWhere(
+                            'id',
+                            old('cliente_id', $cobro->cliente_id)
+                        );
+                    @endphp
+
                     {{-- El codigo no se pide: lo pone el sistema. --}}
                     @if ($esEdicion)
                         <div class="col-12 col-md-3">
@@ -94,26 +101,35 @@
                     @endif
 
                     <div class="col-12 {{ $esEdicion ? 'col-md-3' : 'col-md-4' }}">
-                        <label for="cliente_id" class="form-label">Cliente <span class="text-danger">*</span></label>
-                        <select
+                        <label for="clienteNombre" class="form-label">Cliente <span class="text-danger">*</span></label>
+                        <input
+                            type="hidden"
                             id="cliente_id"
                             name="cliente_id"
-                            class="form-select select2"
-                            data-select2-opciones='{"placeholder":"Escriba para buscar el cliente","allowClear":false}'
-                            required
+                            value="{{ old('cliente_id', $cobro->cliente_id) }}"
                         >
-                            <option value="">Seleccione el cliente</option>
-                            @foreach ($clientes as $cliente)
-                                <option
-                                    value="{{ $cliente->id }}"
-                                    @selected(old('cliente_id', $cobro->cliente_id) == $cliente->id)
-                                >
-                                    {{ $cliente->nombre }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="input-group">
+                            <input
+                                type="text"
+                                id="clienteNombre"
+                                class="form-control"
+                                value="{{ $clienteSeleccionado?->nombre }}"
+                                placeholder="Seleccione un cliente"
+                                readonly
+                            >
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary"
+                                id="btnSeleccionarCliente"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalSeleccionCliente"
+                            >
+                                <i class="bi bi-search me-1"></i>
+                                Elegir
+                            </button>
+                        </div>
                         <div class="form-text">
-                            Las líneas son los ingresos de este cliente.
+                            Las líneas son los ingresos del cliente elegido.
                         </div>
                     </div>
 
@@ -427,6 +443,67 @@
             </div>
         </div>
 
+    </div>
+
+    {{-- Selector de cliente con buscador: evita comprimir la cabecera con una lista larga. --}}
+    <div
+        class="modal fade"
+        id="modalSeleccionCliente"
+        tabindex="-1"
+        aria-labelledby="tituloModalSeleccionCliente"
+        aria-hidden="true"
+    >
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="tituloModalSeleccionCliente">Seleccionar cliente</h5>
+                        <p class="text-muted small mb-0">Busque por nombre o teléfono y elija a quién se le cobra.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <label for="buscarCliente" class="form-label">Buscar cliente</label>
+                    <input
+                        type="search"
+                        id="buscarCliente"
+                        class="form-control mb-3"
+                        placeholder="Escriba un nombre o teléfono"
+                        autocomplete="off"
+                    >
+
+                    <div class="list-group" id="listaClientes">
+                        @forelse ($clientes as $cliente)
+                            <button
+                                type="button"
+                                class="list-group-item list-group-item-action text-start cliente-opcion"
+                                data-cliente-id="{{ $cliente->id }}"
+                                data-cliente-nombre="{{ $cliente->nombre }}"
+                                data-cliente-busqueda="{{ $cliente->nombre }} {{ $cliente->telefono }}"
+                            >
+                                <span class="d-flex justify-content-between align-items-center gap-3">
+                                    <span>{{ $cliente->nombre }}</span>
+                                    @if ($cliente->telefono)
+                                        <small class="text-muted">{{ $cliente->telefono }}</small>
+                                    @endif
+                                </span>
+                            </button>
+                        @empty
+                            <p class="text-muted mb-0">No hay clientes registrados.</p>
+                        @endforelse
+                    </div>
+
+                    <p class="text-muted mb-0 d-none" id="sinClientesEncontrados">
+                        No se encontraron clientes con esa búsqueda.
+                    </p>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- ================================================================

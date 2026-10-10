@@ -75,6 +75,9 @@
         const $botonAgregar = $('#btnAgregarLinea');
         const $botonGuardar = $('#btnGuardarCobro');
         const $cliente = $('#cliente_id');
+        const $clienteNombre = $('#clienteNombre');
+        const $modalCliente = $('#modalSeleccionCliente');
+        const $buscarCliente = $('#buscarCliente');
         const $estado = $('#estado');
         const $ayudaEstado = $('#ayudaEstado');
         const $moneda = $('#moneda_id');
@@ -211,6 +214,29 @@
 
         function limpiarError() {
             $error.addClass('d-none').empty();
+        }
+
+        /** Filtra los clientes del modal por nombre o teléfono. */
+        function filtrarClientes() {
+            const busqueda = String($buscarCliente.val() || '').trim().toLocaleLowerCase();
+            const $opciones = $modalCliente.find('.cliente-opcion');
+            let visibles = 0;
+
+            $opciones.each(function () {
+                const texto = String($(this).attr('data-cliente-busqueda') || '').toLocaleLowerCase();
+                const coincide = texto.includes(busqueda);
+
+                $(this).toggleClass('d-none', !coincide);
+
+                if (coincide) {
+                    visibles++;
+                }
+            });
+
+            $('#sinClientesEncontrados').toggleClass(
+                'd-none',
+                busqueda === '' || visibles > 0 || $opciones.length === 0
+            );
         }
 
         function mostrarError(mensaje) {
@@ -839,22 +865,42 @@
          * cambiar de cliente sin querer se lleva por delante el reparto que llevaba
          * medio hecho, y en un formulario largo eso es trabajo repetido.
          */
-        $cliente.on('change', function () {
-            const conLineas = $cuerpo.find('.linea-dato').filter(function () {
-                return $(this).find('.ingreso-linea').val() !== '';
-            }).length > 0;
+        $buscarCliente.on('input', filtrarClientes);
 
-            if (conLineas && !window.confirm(
-                'Ha cambiado el cliente y las líneas se van a quedar sin ingresos.\n\n'
-                + '¿Quiere continuar? Lo que haya escrito en los importes se pierde.'
-            )) {
-                $cliente.val($cliente.data('anterior') || '');
+        $modalCliente.on('shown.bs.modal', function () {
+            $buscarCliente.val('');
+            filtrarClientes();
+            $buscarCliente.trigger('focus');
+        });
 
-                return;
+        $modalCliente.on('click', '.cliente-opcion', function () {
+            const nuevoId = String($(this).attr('data-cliente-id') || '');
+            const nuevoNombre = String($(this).attr('data-cliente-nombre') || '');
+            const clienteActual = String($cliente.val() || '');
+
+            if (nuevoId !== clienteActual) {
+                const conLineas = $cuerpo.find('.linea-dato').filter(function () {
+                    return $(this).find('.ingreso-linea').val() !== '';
+                }).length > 0;
+
+                if (conLineas && !window.confirm(
+                    'Ha cambiado el cliente y las líneas se van a quedar sin ingresos.\n\n'
+                    + '¿Quiere continuar? Lo que haya escrito en los importes se pierde.'
+                )) {
+                    return;
+                }
+
+                $cliente.val(nuevoId);
+                $clienteNombre.val(nuevoNombre);
+                $cliente.trigger('change');
             }
 
-            $cliente.data('anterior', $cliente.val());
+            if (window.bootstrap && window.bootstrap.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance($modalCliente[0]).hide();
+            }
+        });
 
+        $cliente.on('change', function () {
             cargarIngresos($cliente.val());
         });
 
@@ -913,12 +959,6 @@
 
         dejarPlantillaLimpia();
 
-        /*
-         * El valor anterior del cliente se guarda ANTES de cargar nada, para que el
-         * boton de cancelar el cambio de cliente pueda volver a el.
-         */
-        $cliente.data('anterior', $cliente.val());
-
         if (datos.lineas.length > 0) {
             datos.lineas.forEach(function (linea) {
                 agregarLinea(linea);
@@ -936,6 +976,12 @@
              * cobro.
              */
             agregarLinea();
+        }
+
+        // Si el alta volvió con un cliente elegido y un error de servidor, recupera
+        // por Ajax sus ingresos igual que si se acabara de seleccionar en el modal.
+        if ($cliente.val() && datos.ingresos.length === 0) {
+            cargarIngresos($cliente.val());
         }
 
         recalcular();
