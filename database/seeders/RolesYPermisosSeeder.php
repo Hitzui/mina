@@ -34,6 +34,7 @@ class RolesYPermisosSeeder extends Seeder
         'trabajos_empleado',
         'ingresos',
         'cobros',
+        'cierres_caja',
         'tipos_cambio',
         'configuracion.monedas',
         'configuracion.precios_oro',
@@ -139,6 +140,7 @@ class RolesYPermisosSeeder extends Seeder
              * se hizo mal.
              */
             'cobros.view', 'cobros.create', 'cobros.edit',
+            'cierres_caja.view', 'cierres_caja.create',
             // El almacen lo lleva administracion: el material entra por ahi y
             // el catalogo es un dato maestro, no trabajo de campo
             'movimientos_inventario.view', 'movimientos_inventario.create',

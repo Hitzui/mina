@@ -19,6 +19,7 @@ use App\Http\Controllers\Inventario\ProductoController;
 use App\Http\Controllers\Inventario\ProveedorController;
 use App\Http\Controllers\Configuracion\TipoCambioController;
 use App\Http\Controllers\Procesos\CobroController;
+use App\Http\Controllers\Procesos\CierreCajaController;
 use App\Http\Controllers\Procesos\CostosOrdenController;
 use App\Http\Controllers\Procesos\IngresoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\CostosProcesoController;
@@ -750,6 +751,11 @@ Route::resource(
         'cobros' => 'cobro',
     ])
     ->names('procesos.cobros');
+
+Route::resource('procesos/cierres-caja', CierreCajaController::class)
+    ->only(['index', 'create', 'store', 'show'])
+    ->parameters(['cierres-caja' => 'cierreCaja'])
+    ->names('procesos.cierres_caja');
 
 
 }); // fin del grupo middleware('auth')

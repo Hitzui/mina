@@ -69,6 +69,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -118,6 +119,9 @@ class CobroTest extends TestCase
 
         $nombre = 'cobros-test-' . uniqid();
 
+        Permission::findOrCreate('cierres_caja.view', 'web');
+        Permission::findOrCreate('cierres_caja.create', 'web');
+
         $this->usuario = User::create([
             'name' => 'Prueba cobros',
             'email' => $nombre . '@taller.test',
@@ -130,6 +134,8 @@ class CobroTest extends TestCase
             'cobros.create',
             'cobros.edit',
             'cobros.delete',
+            'cierres_caja.view',
+            'cierres_caja.create',
         ]);
 
         return $this->usuario;
@@ -1829,6 +1835,59 @@ class CobroTest extends TestCase
             ->assertSee('data-cliente-id="' . $cliente->id . '"', false)
             ->assertSee($cliente->nombre)
             ->assertDontSee('<select id="cliente_id"', false);
+    }
+
+    public function test_el_cierre_guarda_importe_esperado_contado_y_diferencia_solo_de_cobros_finalizados()
+    {
+        $cliente = $this->cliente();
+        $moneda = $this->monedaActiva();
+        $ingreso1 = $this->ingreso($this->orden($cliente), 500, $moneda);
+        $ingreso2 = $this->ingreso($this->orden($cliente), 500, $moneda);
+        [$cobroFinalizado] = $this->cobroConUnaLinea($cliente, $ingreso1, $moneda, Cobro::ESTADO_FINALIZADA);
+        $this->cobroConUnaLinea($cliente, $ingreso2, $moneda, Cobro::ESTADO_PENDIENTE);
+        $caja = $cobroFinalizado->caja_id;
+        $metodo = $cobroFinalizado->metodo_pago_id;
+
+        $respuesta = $this->actingAs($this->usuario())->get(route('procesos.cierres_caja.create', [
+            'caja_id' => $caja,
+            'fecha_desde' => today()->format('Y-m-d'),
+            'fecha_hasta' => today()->format('Y-m-d'),
+        ]));
+
+        $respuesta->assertOk()
+            ->assertSee('name="conteos[' . $metodo . '|' . $moneda->id . ']"', false)
+            ->assertSee('100.00');
+
+        $respuesta = $this->actingAs($this->usuario())->post(route('procesos.cierres_caja.store'), [
+            'caja_id' => $caja,
+            'fecha_desde' => today()->format('Y-m-d'),
+            'fecha_hasta' => today()->format('Y-m-d'),
+            'conteos' => [$metodo . '|' . $moneda->id => 95],
+        ]);
+
+        $respuesta->assertRedirect();
+        $detalle = DB::table('detalle_cierres_caja')->where('metodo_pago_id', $metodo)->latest('id')->first();
+        $this->assertSame('100.00', number_format((float) $detalle->monto_esperado, 2, '.', ''));
+        $this->assertSame('95.00', number_format((float) $detalle->monto_contado, 2, '.', ''));
+        $this->assertSame('-5.00', number_format((float) $detalle->diferencia, 2, '.', ''));
+
+        $this->actingAs($this->usuario())
+            ->post(route('procesos.cierres_caja.store'), [
+                'caja_id' => $caja,
+                'fecha_desde' => today()->format('Y-m-d'),
+                'fecha_hasta' => today()->format('Y-m-d'),
+                'conteos' => [$metodo . '|' . $moneda->id => 100],
+            ])
+            ->assertSessionHasErrors('fecha_desde');
+    }
+
+    public function test_la_lista_de_cierres_de_caja_se_abre_con_tabla_responsiva()
+    {
+        $this->actingAs($this->usuario())
+            ->get(route('procesos.cierres_caja.index'))
+            ->assertOk()
+            ->assertSee('Cierres de caja')
+            ->assertSee('cierres-caja-table');
     }
 
     /**

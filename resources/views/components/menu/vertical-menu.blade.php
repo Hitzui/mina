@@ -622,22 +622,7 @@
                 </div>
             </li>
 
-            {{--
-                Y los cobros van aqui, y no dentro de "Gestión Comercial", que es
-                donde los pondria quien pensara que un cobro es de una orden.
-
-                La razón es de la pantalla y no de la sección: los ingresos son una
-                pantalla DENTRO de una orden —entran y salen con ella— y los cobros
-                no. Un cobro es por cliente y puede tocar ingresos de tres órdenes
-                distintas, así que no cuelga de ninguna. Meterlo en comercial lo
-                haría parecer una cuarta pantalla de órdenes, que es justo lo que no
-                es.
-
-                Y va en "Caja e Ingresos" porque es la otra cara del ingreso: el
-                ingreso es lo que se factura, el cobro es lo que se recibe, y quien
-                usa uno está usando el otro. El separador sigue deshabilitado porque
-                los cuatro apartados que faltan no tienen pantalla todavía.
-            --}}
+            {{-- Los cobros y sus cierres comparten esta sección: dinero recibido y conciliación de caja. --}}
             @can('cobros.view')
                 <li class="menu {{ Request::routeIs('procesos.cobros.*') ? 'active' : '' }}">
                     <a href="{{ route('procesos.cobros.index') }}" aria-expanded="false" class="dropdown-toggle">
@@ -649,14 +634,16 @@
                 </li>
             @endcan
 
-            <li class="menu">
-                <a href="javascript:void(0);" aria-expanded="false" class="dropdown-toggle disabled">
+            @can('cierres_caja.view')
+            <li class="menu {{ Request::routeIs('procesos.cierres_caja.*') ? 'active' : '' }}">
+                <a href="{{ route('procesos.cierres_caja.index') }}" aria-expanded="false" class="dropdown-toggle">
                     <div>
                         <i class="bi bi-safe2"></i>
-                        <span>Caja e Ingresos</span>
+                        <span>Cierres de caja</span>
                     </div>
                 </a>
             </li>
+            @endcan
 
             {{-- =====================================================
                 REPORTES

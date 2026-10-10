@@ -24,7 +24,7 @@ use Tests\TestCase;
 class TablasResponsivasTest extends TestCase
 {
     /**
-     * Las 27 tablas de la app.
+     * Las tablas de la app.
      *
      * Se escribe la lista a mano y no se recorre la carpeta a proposito:
      * si alguien anade una tabla nueva y no la apunta aqui, este test
@@ -51,6 +51,7 @@ class TablasResponsivasTest extends TestCase
         'MaterialesProcesoDataTable',
         'MetodosPagoDataTable',
         'CobrosDataTable',
+        'CierresCajaDataTable',
         'MonedasDataTable',
         'MovimientosInventarioDataTable',
         'OrdenesTrabajoDataTable',
