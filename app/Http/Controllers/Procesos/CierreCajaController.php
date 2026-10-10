@@ -42,6 +42,10 @@ class CierreCajaController extends Controller
             'fecha_hasta' => ['nullable', 'date', 'after_or_equal:fecha_desde'],
         ]);
 
+        if (session('caja_seleccionada_id')) {
+            $filtros['caja_id'] = (int) session('caja_seleccionada_id');
+        }
+
         $preview = collect();
         if (! empty($filtros['caja_id']) && ! empty($filtros['fecha_desde']) && ! empty($filtros['fecha_hasta'])) {
             $preview = $this->saldoEsperado($filtros['caja_id'], $filtros['fecha_hasta']);
@@ -54,7 +58,9 @@ class CierreCajaController extends Controller
                 ['label' => 'Cierres de caja', 'url' => route('procesos.cierres_caja.index')],
                 ['label' => 'Nuevo'],
             ],
-            'cajas' => Cajas::query()->orderBy('nombre')->get(),
+            'cajas' => session('caja_seleccionada_id')
+                ? Cajas::query()->whereKey(session('caja_seleccionada_id'))->get()
+                : Cajas::query()->orderBy('nombre')->get(),
             'filtros' => $filtros,
             'preview' => $preview,
         ]);
@@ -70,6 +76,13 @@ class CierreCajaController extends Controller
             'conteos' => ['required', 'array'],
             'conteos.*' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
         ]);
+
+        if (session('caja_seleccionada_id')
+            && (int) $datos['caja_id'] !== (int) session('caja_seleccionada_id')) {
+            throw ValidationException::withMessages([
+                'caja_id' => 'El cierre debe corresponder a la caja seleccionada al iniciar sesión.',
+            ]);
+        }
 
         $cierre = DB::transaction(function () use ($datos) {
             // Serializa los cierres simultáneos de una caja antes de comprobar solapamientos.

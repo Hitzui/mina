@@ -120,6 +120,7 @@ class CobroController extends Controller
         $cobro = new Cobro([
             Cobro::FECHA => today(),
             Cobro::ESTADO => Cobro::ESTADO_PENDIENTE,
+            Cobro::CAJA_ID => session('caja_seleccionada_id'),
         ]);
 
         return view('procesos.cobros.create', $this->datosDeFormulario($cobro));
@@ -127,7 +128,7 @@ class CobroController extends Controller
 
     public function store(Request $request, MovimientoCajaService $movimientos)
     {
-        $datos = $this->validarCabecera($request);
+        $datos = $this->validarCabecera($request, true);
         $lineas = $this->validarLineas($request);
 
         $cobro = DB::transaction(function () use ($datos, $lineas, $movimientos) {
@@ -422,6 +423,10 @@ class CobroController extends Controller
 
         $esEdicion = $cobro->exists;
 
+        if (! $esEdicion && session('caja_seleccionada_id')) {
+            $cajas = $cajas->where('id', (int) session('caja_seleccionada_id'))->values();
+        }
+
         /*
          * Las lineas existentes se mandan con numeros y no con texto formateado. Un
          * "1,000" dentro de un input de numero no se lee, y el separador de miles
@@ -547,9 +552,9 @@ class CobroController extends Controller
      * desactivara la caja, el cobro se guardaria con una caja que ya no se ofrece en
      * ninguna parte.
      */
-    private function validarCabecera(Request $request): array
+    private function validarCabecera(Request $request, bool $aplicarCajaSeleccionada = false): array
     {
-        return $request->validate([
+        $datos = $request->validate([
             'cliente_id' => ['required', 'exists:clientes,id'],
             'caja_id' => ['required', 'exists:cajas,id'],
             'metodo_pago_id' => ['required', 'exists:metodos_pago,id'],
@@ -568,6 +573,15 @@ class CobroController extends Controller
             'estado.in' => 'Ese estado de cobro no existe.',
             'observaciones.max' => 'Las observaciones no pueden pasar de 1000 caracteres.',
         ]);
+
+        $cajaSeleccionada = session('caja_seleccionada_id');
+        if ($aplicarCajaSeleccionada && $cajaSeleccionada && (int) $datos['caja_id'] !== (int) $cajaSeleccionada) {
+            throw ValidationException::withMessages([
+                'caja_id' => 'Este cobro debe registrarse en la caja seleccionada al iniciar sesión.',
+            ]);
+        }
+
+        return $datos;
     }
 
     /**

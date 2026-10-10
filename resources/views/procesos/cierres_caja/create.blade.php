@@ -19,7 +19,7 @@
                         <select name="caja_id" id="caja_id" class="form-select" required>
                             <option value="">Seleccione una caja</option>
                             @foreach ($cajas as $caja)
-                                <option value="{{ $caja->id }}" @selected(($filtros['caja_id'] ?? '') == $caja->id)>{{ $caja->nombre }}{{ $caja->estado ? '' : ' (inactiva)' }}</option>
+                                <option value="{{ $caja->id }}" @selected(($filtros['caja_id'] ?? session('caja_seleccionada_id', '')) == $caja->id)>{{ $caja->nombre }}{{ $caja->estado ? '' : ' (inactiva)' }}</option>
                             @endforeach
                         </select>
                     </div>

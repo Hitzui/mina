@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\Cajas;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
@@ -41,6 +42,20 @@ class LoginTest extends TestCase
         return $user->fresh();
     }
 
+    private function cajaActivaId(): int
+    {
+        $id = Cajas::paraRegistrar()->value('id');
+
+        if ($id) {
+            return (int) $id;
+        }
+
+        return (int) Cajas::create([
+            'nombre' => 'Caja Login Test ' . uniqid(),
+            'estado' => true,
+        ])->id;
+    }
+
     public function test_el_formulario_de_login_es_un_formulario_real(): void
     {
         $r = $this->get('/login');
@@ -52,6 +67,7 @@ class LoginTest extends TestCase
         $r->assertSee('name="_token"', false);
         $r->assertSee('name="email"', false);
         $r->assertSee('name="password"', false);
+        $r->assertSee('name="caja_id"', false);
         $r->assertSee('type="password"', false);
         $r->assertSee('name="remember"', false);
 
@@ -82,14 +98,21 @@ class LoginTest extends TestCase
     public function test_el_administrador_puede_iniciar_sesion_y_entrar_al_panel(): void
     {
         $admin = $this->crearAdmin();
+        $cajaElegida = Cajas::create([
+            'nombre' => 'Caja elegida ' . uniqid(),
+            'estado' => true,
+        ]);
 
         $response = $this->post('/login', [
             'email' => $admin->email,
             'password' => 'contrasena-de-prueba',
+            'caja_id' => $cajaElegida->id,
         ]);
 
         $response->assertRedirect('/');
         $this->assertAuthenticated();
+        $this->assertSame((int) $cajaElegida->id, (int) session('caja_seleccionada_id'));
+        $this->assertSame($cajaElegida->nombre, session('caja_seleccionada_nombre'));
 
         // Con la sesion iniciada debe entrar a las areas protegidas
         $this->get('/admin/clientes')->assertOk();
@@ -107,9 +130,11 @@ class LoginTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'esta-es-la-equivocada',
+            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $this->assertGuest();
+        $this->assertNull(session('caja_seleccionada_id'));
 
         $this->get('/admin/clientes')->assertRedirect('/login');
     }
@@ -121,6 +146,7 @@ class LoginTest extends TestCase
         $this->from('/login')->post('/login', [
             'email' => $admin->email,
             'password' => 'incorrecta',
+            'caja_id' => $this->cajaActivaId(),
         ])->assertRedirect('/login');
 
         // Al volver al formulario, el correo debe seguir puesto
@@ -136,6 +162,7 @@ class LoginTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'contrasena-de-prueba',
+            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $this->assertAuthenticated();
@@ -179,6 +206,7 @@ class LoginTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'contrasena-de-prueba',
+            'caja_id' => $this->cajaActivaId(),
         ]);
 
         $r = $this->get('/admin/clientes');

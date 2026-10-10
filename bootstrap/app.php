@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
          */
         $middleware->web(append: [
             \RealRashid\SweetAlert\Http\Middleware\ToSweetAlert::class,
+            \App\Http\Middleware\SeleccionaCajaAlIniciarSesion::class,
         ]);
 
         /*

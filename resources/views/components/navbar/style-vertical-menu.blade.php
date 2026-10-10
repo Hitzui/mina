@@ -188,6 +188,9 @@
                                             {{ auth()->user()->getRoleNames()->implode(', ') ?: 'Sin rol' }}
                                         @endif
                                     </p>
+                                    @if (session('caja_seleccionada_nombre'))
+                                        <p class="mb-0 small text-primary">Caja: {{ session('caja_seleccionada_nombre') }}</p>
+                                    @endif
                                 </div>
                             </div>
                         </div>

@@ -34,7 +34,9 @@
                         <select id="caja_id" name="caja_id" class="form-select">
                             <option value="">Seleccione una caja activa</option>
                             @foreach ($cajas->where('estado', true) as $caja)
-                                <option value="{{ $caja->id }}" @selected(old('caja_id') == $caja->id)>{{ $caja->nombre }}</option>
+                                @if (!session('caja_seleccionada_id') || (int) session('caja_seleccionada_id') === (int) $caja->id)
+                                    <option value="{{ $caja->id }}" @selected(old('caja_id', session('caja_seleccionada_id')) == $caja->id)>{{ $caja->nombre }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>
@@ -43,7 +45,9 @@
                         <select id="caja_origen_id" name="caja_origen_id" class="form-select" disabled>
                             <option value="">Seleccione caja origen</option>
                             @foreach ($cajas->where('estado', true) as $caja)
-                                <option value="{{ $caja->id }}" @selected(old('caja_origen_id') == $caja->id)>{{ $caja->nombre }}</option>
+                                @if (!session('caja_seleccionada_id') || (int) session('caja_seleccionada_id') === (int) $caja->id)
+                                    <option value="{{ $caja->id }}" @selected(old('caja_origen_id', session('caja_seleccionada_id')) == $caja->id)>{{ $caja->nombre }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>

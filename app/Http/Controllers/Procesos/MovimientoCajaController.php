@@ -73,6 +73,21 @@ class MovimientoCajaController extends Controller
             'descripcion' => ['required_unless:accion,transferencia', 'nullable', 'string', 'max:255'],
         ]);
 
+        $cajaSeleccionada = session('caja_seleccionada_id');
+        if ($cajaSeleccionada) {
+            $cajaEnUso = $datos['accion'] === 'transferencia'
+                ? ($datos['caja_origen_id'] ?? null)
+                : ($datos['caja_id'] ?? null);
+
+            if ((int) $cajaEnUso !== (int) $cajaSeleccionada) {
+                $campo = $datos['accion'] === 'transferencia' ? 'caja_origen_id' : 'caja_id';
+
+                throw ValidationException::withMessages([
+                    $campo => 'Use la caja seleccionada al iniciar sesión para registrar este movimiento.',
+                ]);
+            }
+        }
+
         DB::transaction(function () use ($datos, $movimientos) {
             $metodoActivo = MetodosPagos::query()->whereKey($datos['metodo_pago_id'])
                 ->where('estado', true)->exists();
