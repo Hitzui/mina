@@ -94,6 +94,7 @@
         const moneda = formulario.querySelector('#moneda_id');
         const monto = formulario.querySelector('#monto');
         const saldoDisponible = formulario.querySelector('#saldoDisponibleMovimiento');
+        const botonGuardar = formulario.querySelector('button[type="submit"]');
         const saldos = @json($saldosDisponibles);
 
         function actualizarFormulario() {
@@ -115,17 +116,34 @@
             if (egreso && metodo.value && moneda.value) {
                 const clave = metodo.value + ':' + moneda.value;
                 const saldo = Number(saldos[clave] ?? 0);
+                const importe = Number(monto.value);
                 const codigo = moneda.selectedOptions[0]?.dataset.codigo ?? '';
-                monto.max = Math.max(saldo, 0).toFixed(2);
-                saldoDisponible.textContent = 'Saldo disponible en la caja asignada: '
-                    + codigo + ' ' + saldo.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            } else {
+                const saldoTexto = codigo + ' ' + Math.max(saldo, 0).toLocaleString('es-NI', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+
+                if (saldo <= 0) {
+                    saldoDisponible.textContent = 'No hay saldo disponible en la caja para este método de pago y moneda (' + saldoTexto + '). Registre un ingreso primero.';
+                } else if (monto.value && importe > saldo) {
+                    saldoDisponible.textContent = 'El egreso supera el saldo disponible de ' + saldoTexto + '.';
+                } else {
+                    saldoDisponible.textContent = 'Saldo disponible en la caja asignada: ' + saldoTexto;
+                }
+
+                // Evita el aviso nativo de number/max, que solo decía que 0
+                // no admite el mínimo 0.01 y no explicaba el saldo de caja.
                 monto.removeAttribute('max');
+                botonGuardar.disabled = saldo <= 0 || (Boolean(monto.value) && importe > saldo);
+            } else {
                 saldoDisponible.textContent = '';
+                botonGuardar.disabled = false;
             }
         }
 
         [accion, metodo, moneda].forEach(elemento => elemento.addEventListener('change', actualizarFormulario));
+        monto.addEventListener('input', actualizarFormulario);
+        monto.addEventListener('change', actualizarFormulario);
         actualizarFormulario();
 
         @if($errors->any())
