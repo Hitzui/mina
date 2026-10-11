@@ -24,6 +24,7 @@ use App\Models\TiposPagoEmpleado;
 use App\Models\TrabajosEmpleado;
 use App\Models\UnidadMedida;
 use App\Services\DistribucionGastosGenerales;
+use App\Services\CodigoProcesoOrden;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -276,7 +277,8 @@ class ProcesoOrdenController extends Controller
 
     public function store(
         Request $request,
-        OrdenesTrabajo $ordenTrabajo
+        OrdenesTrabajo $ordenTrabajo,
+        CodigoProcesoOrden $codigoProceso
     ) {
         if ($bloqueo = $this->bloquearOrdenCerrada($ordenTrabajo, 'un proceso')) {
             return $bloqueo;
@@ -333,7 +335,7 @@ class ProcesoOrdenController extends Controller
         ]);
 
         $validated['orden_trabajo_id'] = $ordenTrabajo->id;
-        $validated['codigo'] = $this->generarCodigo($ordenTrabajo);
+        $validated['codigo'] = $codigoProceso->generar($ordenTrabajo);
 
         /*
          * El estado no se deduce aqui: se deduce cuando se lee. Lo unico que
@@ -556,31 +558,6 @@ class ProcesoOrdenController extends Controller
             || Produccione::withTrashed()
                 ->where(Produccione::PROCESO_ORDEN_ID, $procesoOrden->id)
                 ->exists();
-    }
-
-    private function generarCodigo(
-        OrdenesTrabajo $ordenTrabajo
-    ): string {
-        $ultimo = ProcesosOrden::withTrashed()
-            ->where(
-                'orden_trabajo_id',
-                $ordenTrabajo->id
-            )
-            ->orderByDesc('id')
-            ->first();
-
-        $numero = 1;
-
-        if ($ultimo) {
-            $partes = explode('-', $ultimo->codigo);
-
-            $numero = ((int) end($partes)) + 1;
-        }
-
-        return sprintf(
-            'P-%03d',
-            $numero
-        );
     }
 
     public function data(

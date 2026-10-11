@@ -7,6 +7,7 @@ use App\Models\AcuerdosOrden;
 use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\Cotizacion;
+use App\Models\Etapa;
 use App\Models\Liquidacione;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
@@ -14,14 +15,17 @@ use App\Models\MovimientoCaja;
 use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
+use App\Models\ProcesosOrden;
 use App\Models\TiposProduccion;
 use App\Models\UnidadMedida;
 use App\Services\FinalizarOrdenTrabajo;
 use App\Services\CodigoOrdenTrabajo;
+use App\Services\CodigoProcesoOrden;
 use App\Services\PanelDelTaller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class MobileDataController extends Controller
 {
@@ -168,6 +172,72 @@ class MobileDataController extends Controller
         $order->load('cliente');
 
         return response()->json(['data' => $this->orderSummary($order)], 201);
+    }
+
+    public function orderProcessFormOptions(string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        abort_if($order->estaCerrada(), 422, 'No se pueden agregar procesos a una orden cerrada.');
+
+        return response()->json(['data' => [
+            'stages' => Etapa::query()->where('estado', true)->orderBy('orden')->orderBy('nombre')
+                ->get(['id', 'nombre', 'orden'])
+                ->map(fn (Etapa $stage) => [
+                    'id' => $stage->id,
+                    'name' => $stage->nombre,
+                    'order' => $stage->orden,
+                ])->values(),
+        ]]);
+    }
+
+    public function storeOrderProcess(
+        Request $request,
+        string $orderId,
+        CodigoProcesoOrden $codigoProceso
+    ): JsonResponse {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        if ($order->estaCerrada()) {
+            return response()->json(['message' => 'No se pueden agregar procesos a una orden cerrada.'], 422);
+        }
+
+        $validated = $request->validate([
+            'etapa_id' => [
+                'required',
+                'integer',
+                Rule::exists('etapas', 'id')->whereNull('deleted_at')->where('estado', true),
+            ],
+            'fecha_inicio' => ['nullable', 'date'],
+            'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
+            'peso_entrada' => ['nullable', 'numeric', 'gte:0', 'decimal:0,3', 'lte:999999999.999'],
+            'peso_salida' => ['nullable', 'numeric', 'gte:0', 'decimal:0,3', 'lte:999999999.999'],
+            'observaciones' => ['nullable', 'string'],
+        ]);
+
+        $stage = Etapa::query()->findOrFail($validated['etapa_id']);
+        $process = ProcesosOrden::query()->create([
+            ProcesosOrden::ORDEN_TRABAJO_ID => $order->id,
+            ProcesosOrden::ETAPA_ID => $stage->id,
+            ProcesosOrden::CODIGO => $codigoProceso->generar($order),
+            ProcesosOrden::FECHA_INICIO => $validated['fecha_inicio'] ?? null,
+            ProcesosOrden::FECHA_FIN => $validated['fecha_fin'] ?? null,
+            ProcesosOrden::PESO_ENTRADA => $validated['peso_entrada'] ?? null,
+            ProcesosOrden::PESO_SALIDA => $validated['peso_salida'] ?? null,
+            ProcesosOrden::OBSERVACIONES => $validated['observaciones'] ?? null,
+            ProcesosOrden::ESTADO => ProcesosOrden::ESTADO_PENDIENTE,
+        ]);
+        $process->load('etapa');
+
+        return response()->json(['data' => [
+            'id' => $process->id,
+            'code' => $process->codigo,
+            'stage' => $process->etapa?->nombre,
+            'status' => $process->estadoTexto(),
+            'start_date' => $process->fecha_inicio?->toISOString(),
+            'end_date' => $process->fecha_fin?->toISOString(),
+            'input_weight' => $process->peso_entrada,
+            'output_weight' => $process->peso_salida,
+            'observations' => $process->observaciones,
+        ]], 201);
     }
 
     public function order(string $orderId, Request $request): JsonResponse

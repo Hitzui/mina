@@ -26,6 +26,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:ordenes_trabajo.create')->name('orders.form-options');
         Route::post('orders', [MobileDataController::class, 'storeOrder'])
             ->middleware('permission:ordenes_trabajo.create')->name('orders.store');
+        Route::get('orders/{orderId}/process-form-options', [MobileDataController::class, 'orderProcessFormOptions'])
+            ->middleware('permission:procesos_orden.create')->name('orders.process-form-options');
+        Route::post('orders/{orderId}/processes', [MobileDataController::class, 'storeOrderProcess'])
+            ->middleware('permission:procesos_orden.create')->name('orders.processes.store');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
         Route::post('orders/{orderId}/finalize', [MobileDataController::class, 'finalizeOrder'])

@@ -259,6 +259,47 @@ class OrdenCerradaTest extends TestCase
         $this->assertSame(OrdenesTrabajo::ESTADO_PENDIENTE, (int) $order->estado);
     }
 
+    public function test_api_movil_agrega_proceso_a_una_orden_abierta(): void
+    {
+        Sanctum::actingAs($this->adminUser);
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);
+        $etapaId = Etapa::query()->where('estado', true)->value('id');
+
+        $this->getJson('/api/v1/orders/'.$orden->id.'/process-form-options')
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['stages']]);
+
+        $this->postJson('/api/v1/orders/'.$orden->id.'/processes', [
+            'etapa_id' => $etapaId,
+            'peso_entrada' => 15.125,
+            'peso_salida' => 13.5,
+            'observaciones' => 'Proceso creado desde móvil',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.code', 'P-001')
+            ->assertJsonPath('data.status', 'Pendiente')
+            ->assertJsonPath('data.stage', Etapa::findOrFail($etapaId)->nombre);
+
+        $this->assertDatabaseHas('procesos_orden', [
+            'orden_trabajo_id' => $orden->id,
+            'etapa_id' => $etapaId,
+            'codigo' => 'P-001',
+            'estado' => ProcesosOrden::ESTADO_PENDIENTE,
+            'observaciones' => 'Proceso creado desde móvil',
+        ]);
+    }
+
+    public function test_api_movil_no_agrega_proceso_a_una_orden_cerrada(): void
+    {
+        Sanctum::actingAs($this->adminUser);
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_FINALIZADA);
+        $etapaId = Etapa::query()->where('estado', true)->value('id');
+
+        $this->postJson('/api/v1/orders/'.$orden->id.'/processes', ['etapa_id' => $etapaId])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'No se pueden agregar procesos a una orden cerrada.');
+    }
+
     public function test_una_orden_pendiente_sigue_admitiendo_datos(): void
     {
         $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);
