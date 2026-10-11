@@ -35,6 +35,7 @@ class RolesYPermisosSeeder extends Seeder
         'productos',
         'proveedores',
         'compras',
+        'reportes',
         'trabajos_empleado',
         'ingresos',
         'cobros',
@@ -76,6 +77,11 @@ class RolesYPermisosSeeder extends Seeder
                 $todos[$nombre] = $permiso;
             }
         }
+
+        $exportarReportes = Permission::firstOrCreate(
+            ['name' => 'reportes.export', 'guard_name' => 'web']
+        );
+        $todos['reportes.export'] = $exportarReportes;
 
         $this->command?->info('  Permisos: '.count($todos));
 
@@ -161,6 +167,7 @@ class RolesYPermisosSeeder extends Seeder
             'proveedores.view', 'proveedores.create',
             'proveedores.edit', 'proveedores.delete',
             'compras.view', 'compras.create', 'compras.edit', 'compras.delete',
+            'reportes.view', 'reportes.export',
             'trabajos_empleado.view', 'trabajos_empleado.create', 'trabajos_empleado.edit',
             'tipos_cambio.view', 'tipos_cambio.create', 'tipos_cambio.edit',
             'recuperaciones.view', 'recuperaciones.create', 'recuperaciones.edit',

@@ -711,14 +711,16 @@
                 </div>
             </li>
 
-            <li class="menu">
-                <a href="javascript:void(0);" aria-expanded="false" class="dropdown-toggle disabled">
+            @can('reportes.view')
+            <li class="menu {{ Request::routeIs('reportes.*') ? 'active' : '' }}">
+                <a href="{{ route('reportes.index') }}" aria-expanded="false" class="dropdown-toggle">
                     <div>
                         <i class="bi bi-file-earmark-text"></i>
                         <span>Reportes</span>
                     </div>
                 </a>
             </li>
+            @endcan
         </ul>
     </nav>
 </div>

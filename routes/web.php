@@ -37,6 +37,7 @@ use App\Http\Controllers\Procesos\OrdenTrabajoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoPdfController;
 use App\Http\Controllers\Procesos\ProcesoOrdenController;
 use App\Http\Controllers\Procesos\ProduccionController;
+use App\Http\Controllers\ReportesController;
 use App\Http\Controllers\Procesos\RecuperacionController;
 use App\Http\Controllers\Procesos\ValoracionOroController;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +83,12 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth')->group(function () {
 
     Route::get('/', DashboardController::class)->name('home');
+
+    Route::get('reportes', [ReportesController::class, 'index'])
+        ->name('reportes.index');
+    Route::get('reportes/exportar/{formato}', [ReportesController::class, 'exportar'])
+        ->whereIn('formato', ['xlsx', 'pdf'])
+        ->name('reportes.exportar');
 
     Route::get(
         'admin/clientes/selector',
