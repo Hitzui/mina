@@ -14,12 +14,12 @@ use App\Http\Controllers\Controller;
 use App\Models\AcuerdosOrden;
 use App\Models\Ingreso;
 use App\Models\OrdenesTrabajo;
-use App\Models\ProcesosOrden;
 use App\Models\TiposIngreso;
 use App\Models\TiposParticipacion;
 use App\Models\UnidadMedida;
 use App\Services\CodigoOrdenTrabajo;
 use App\Services\DistribucionGastosGenerales;
+use App\Services\FinalizarOrdenTrabajo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -356,49 +356,15 @@ class OrdenTrabajoController extends Controller
     /**
      * Finaliza una orden solo cuando tiene procesos y todos terminaron.
      */
-    public function finalizar(OrdenesTrabajo $ordenTrabajo)
+    public function finalizar(OrdenesTrabajo $ordenTrabajo, FinalizarOrdenTrabajo $finalizador)
     {
-        if ((int) $ordenTrabajo->estado === OrdenesTrabajo::ESTADO_FINALIZADA) {
-            Alert::toast('La orden de trabajo ya está finalizada.')->info()->flash();
+        $resultado = $finalizador->ejecutar($ordenTrabajo);
 
-            return redirect()->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
+        if ($resultado['success']) {
+            Alert::toast($resultado['message'])->success()->flash();
+        } else {
+            Alert::toast($resultado['message'])->error()->flash();
         }
-
-        if ((int) $ordenTrabajo->estado === OrdenesTrabajo::ESTADO_CANCELADA) {
-            Alert::toast('No se puede finalizar una orden que está cancelada.')->error()->flash();
-
-            return redirect()->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
-        }
-
-        $procesos = $ordenTrabajo->procesos_ordenes()->get();
-
-        if ($procesos->isEmpty()) {
-            Alert::toast('No se puede finalizar la orden: primero debe registrar al menos un proceso.')->error()->flash();
-
-            return redirect()->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
-        }
-
-        $procesosPendientes = $procesos->filter(
-            fn (ProcesosOrden $proceso) => $proceso->estadoCalculado() !== ProcesosOrden::ESTADO_FINALIZADO
-        );
-
-        if ($procesosPendientes->isNotEmpty()) {
-            $codigos = $procesosPendientes
-                ->map(fn (ProcesosOrden $proceso) => $proceso->codigo.' ('.$proceso->estadoTexto().')')
-                ->join(', ');
-            $cantidad = $procesosPendientes->count();
-            $plural = $cantidad === 1 ? 'proceso no está finalizado' : 'procesos no están finalizados';
-
-            Alert::toast(
-                "No se puede finalizar la orden: {$cantidad} {$plural}. {$codigos}."
-            )->error()->flash();
-
-            return redirect()->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
-        }
-
-        $ordenTrabajo->update(['estado' => OrdenesTrabajo::ESTADO_FINALIZADA]);
-
-        Alert::toast('Orden de trabajo finalizada correctamente.')->success()->flash();
 
         return redirect()->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
     }

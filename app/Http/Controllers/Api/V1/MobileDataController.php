@@ -16,6 +16,7 @@ use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
 use App\Models\TiposProduccion;
 use App\Models\UnidadMedida;
+use App\Services\FinalizarOrdenTrabajo;
 use App\Services\PanelDelTaller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -257,6 +258,25 @@ class MobileDataController extends Controller
             ...$this->orderSummary($order),
             ...$details,
         ]]);
+    }
+
+    public function finalizeOrder(string $orderId, FinalizarOrdenTrabajo $finalizador): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $result = $finalizador->ejecutar($order);
+
+        if (! $result['success']) {
+            return response()->json(['message' => $result['message']], 422);
+        }
+
+        return response()->json([
+            'data' => [
+                'id' => $order->id,
+                'status' => OrdenesTrabajo::ESTADO_FINALIZADA,
+                'status_text' => OrdenesTrabajo::ESTADOS[OrdenesTrabajo::ESTADO_FINALIZADA]['texto'],
+                'message' => $result['message'],
+            ],
+        ]);
     }
 
     public function cashSummary(Request $request): JsonResponse

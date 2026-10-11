@@ -15,6 +15,7 @@ use App\Models\TiposPagoEmpleado;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -43,19 +44,21 @@ class OrdenCerradaTest extends TestCase
 {
     use DatabaseTransactions;
 
+    private User $adminUser;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $admin = User::create([
+        $this->adminUser = User::create([
             'name' => 'Admin',
             'email' => 'cerrada-' . uniqid() . '@test.local',
             'password' => Hash::make('prueba-de-prueba'),
         ]);
-        $admin->syncRoles(['admin']);
-        $this->actingAs($admin);
+        $this->adminUser->syncRoles(['admin']);
+        $this->actingAs($this->adminUser);
     }
 
     // ==================================================================
@@ -210,6 +213,23 @@ class OrdenCerradaTest extends TestCase
             'estado' => OrdenesTrabajo::ESTADO_FINALIZADA,
         ]);
         $this->assertTrue($orden->fresh()->estaCerrada());
+    }
+
+    public function test_api_movil_rechaza_finalizar_si_quedan_procesos_pendientes(): void
+    {
+        Sanctum::actingAs($this->adminUser);
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_EN_PROCESO);
+        $proceso = $this->proceso($orden);
+        $proceso->update([
+            'fecha_inicio' => now()->subDay(),
+            'fecha_fin' => now()->addDay(),
+        ]);
+
+        $this->postJson('/api/v1/orders/'.$orden->id.'/finalize')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', fn (string $message) => str_contains($message, $proceso->codigo));
+
+        $this->assertSame(OrdenesTrabajo::ESTADO_EN_PROCESO, (int) $orden->fresh()->estado);
     }
 
     public function test_una_orden_pendiente_sigue_admitiendo_datos(): void
