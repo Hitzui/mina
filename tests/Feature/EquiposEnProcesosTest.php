@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -97,6 +98,52 @@ class EquiposEnProcesosTest extends TestCase
         $proceso ??= $this->proceso;
 
         return "/procesos/ordenes-trabajo/{$this->orden->id}/procesos/{$proceso->id}/equipos{$accion}";
+    }
+
+    public function test_api_movil_lista_calcula_y_asigna_equipo_a_un_proceso(): void
+    {
+        Sanctum::actingAs(auth()->user());
+        $equipment = $this->crearEquipo();
+        $prefix = "/api/v1/orders/{$this->orden->id}/processes/{$this->proceso->id}";
+
+        $this->getJson($prefix.'/equipment-options')
+            ->assertOk()
+            ->assertJsonPath('data.equipment.0.id', $equipment->id)
+            ->assertJsonPath('data.default_start', '2026-01-01T08:00');
+
+        $this->getJson($prefix.'/equipment-depreciation?'.http_build_query([
+            'equipo_id' => $equipment->id,
+            'fecha_inicio' => '2026-10-01T08:00',
+            'fecha_fin' => '2026-10-05T08:00',
+        ]))->assertOk()
+            ->assertJsonPath('data.code', $equipment->codigo)
+            ->assertJsonPath('data.available_value', true)
+            ->assertJsonPath('data.overlap', null);
+
+        $this->postJson($prefix.'/equipment', [
+            'equipo_id' => $equipment->id,
+            'fecha_inicio' => '2026-10-01T08:00',
+            'fecha_fin' => '2026-10-05T08:00',
+            'observaciones' => 'Uso de prueba desde móvil',
+        ])->assertCreated()
+            ->assertJsonPath('data.equipment_id', $equipment->id)
+            ->assertJsonPath('data.equipment_code', $equipment->codigo);
+
+        $this->postJson("/api/v1/orders/{$this->orden->id}/processes/{$this->otroProceso->id}/equipment", [
+            'equipo_id' => $equipment->id,
+            'fecha_inicio' => '2026-10-02T08:00',
+            'fecha_fin' => '2026-10-06T08:00',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('fecha_inicio');
+
+        $this->assertDatabaseHas('proceso_equipos', [
+            'proceso_orden_id' => $this->proceso->id,
+            'equipo_id' => $equipment->id,
+            'observaciones' => 'Uso de prueba desde móvil',
+        ]);
+        $this->getJson('/api/v1/orders/'.$this->orden->id)
+            ->assertOk()
+            ->assertJsonFragment(['equipment_code' => $equipment->codigo]);
     }
 
     // ==================================================================

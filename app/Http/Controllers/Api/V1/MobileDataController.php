@@ -9,6 +9,7 @@ use App\Models\Cobro;
 use App\Models\Cotizacion;
 use App\Models\Etapa;
 use App\Models\Empleado;
+use App\Models\Equipo;
 use App\Models\EmpleadosPago;
 use App\Models\Liquidacione;
 use App\Models\MetodosPagos;
@@ -18,6 +19,7 @@ use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
 use App\Models\ProcesosOrden;
+use App\Models\ProcesoEquipo;
 use App\Models\TiposProduccion;
 use App\Models\TiposPagoEmpleado;
 use App\Models\TiposCambio;
@@ -226,6 +228,113 @@ class MobileDataController extends Controller
             'total' => $work->total,
             'total_nio' => $work->total_nio,
         ]], 201);
+    }
+
+    public function processEquipmentOptions(string $orderId, string $processId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $this->assertProcessCanReceiveEquipment($order, $process);
+
+        $equipment = Equipo::query()->where('estado', 1)->orderBy('codigo')->get();
+
+        return response()->json(['data' => [
+            'equipment' => $equipment->map(fn (Equipo $item) => [
+                'id' => $item->id,
+                'code' => $item->codigo,
+                'name' => $item->nombre,
+                'acquisition_value' => (float) $item->valor_adquisicion,
+                'residual_value' => (float) $item->valor_residual,
+                'useful_life_months' => (int) $item->vida_util_meses,
+            ])->values(),
+            'default_start' => ($process->fecha_inicio ?? now())->format('Y-m-d\\TH:i'),
+        ]]);
+    }
+
+    public function processEquipmentDepreciation(Request $request, string $orderId, string $processId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $this->assertProcessCanReceiveEquipment($order, $process);
+        $validated = $request->validate([
+            'equipo_id' => ['required', 'integer', Rule::exists('equipos', 'id')->whereNull('deleted_at')->where('estado', 1)],
+            'fecha_inicio' => ['required', 'date'],
+            'fecha_fin' => ['nullable', 'date', 'after:fecha_inicio'],
+        ]);
+
+        $equipment = Equipo::with('asignaciones')->findOrFail($validated['equipo_id']);
+        $period = new ProcesoEquipo();
+        $period->equipo_id = $equipment->id;
+        $period->fecha_inicio = $validated['fecha_inicio'];
+        $period->fecha_fin = $validated['fecha_fin'] ?? null;
+        $overlap = null;
+        try {
+            $period->validarSinSolapamiento();
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            $overlap = $exception->errors()[ProcesoEquipo::FECHA_INICIO][0] ?? 'El periodo se cruza con otro uso del equipo.';
+        }
+        $period->calcularDepreciacion();
+
+        return response()->json(['data' => [
+            'code' => $equipment->codigo,
+            'acquisition_value' => (float) $equipment->valor_adquisicion,
+            'residual_value' => (float) $equipment->valor_residual,
+            'useful_life_months' => (int) $equipment->vida_util_meses,
+            'days' => $period->diasDeUso(),
+            'daily_depreciation' => round($equipment->depreciacionDiaria(), 4),
+            'total_depreciation' => (float) $period->depreciacion_total,
+            'available_value' => $equipment->valorPorDepreciar() > 0,
+            'overlap' => $overlap,
+        ]]);
+    }
+
+    public function storeProcessEquipment(Request $request, string $orderId, string $processId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $this->assertProcessCanReceiveEquipment($order, $process);
+        $validated = $request->validate([
+            'equipo_id' => ['required', 'integer', Rule::exists('equipos', 'id')->whereNull('deleted_at')->where('estado', 1)],
+            'fecha_inicio' => ['required', 'date'],
+            'fecha_fin' => ['nullable', 'date', 'after:fecha_inicio'],
+            'observaciones' => ['nullable', 'string', 'max:255'],
+        ], [
+            'equipo_id.exists' => 'El equipo seleccionado no existe o está inactivo.',
+            'fecha_inicio.required' => 'Indique cuándo empieza el uso del equipo.',
+            'fecha_fin.after' => 'La fecha de fin debe ser posterior a la de inicio.',
+        ]);
+
+        $assignment = new ProcesoEquipo();
+        $assignment->fill($validated);
+        $assignment->proceso_orden_id = $process->id;
+        $assignment->validarPeriodo();
+        $assignment->validarSinSolapamiento();
+        $assignment->calcularDepreciacion();
+        $assignment->save();
+        $assignment->load('equipo');
+
+        return response()->json(['data' => [
+            'id' => $assignment->id,
+            'equipment_id' => $assignment->equipo_id,
+            'equipment_code' => $assignment->equipo?->codigo,
+            'equipment_name' => $assignment->equipo?->nombre,
+            'start_date' => $assignment->fecha_inicio?->toISOString(),
+            'end_date' => $assignment->fecha_fin?->toISOString(),
+            'days' => $assignment->diasDeUso(),
+            'daily_depreciation' => round((float) $assignment->equipo?->depreciacionDiaria(), 4),
+            'total_depreciation' => (float) $assignment->depreciacion_total,
+            'observations' => $assignment->observaciones,
+        ]], 201);
+    }
+
+    private function mobileProcessContext(string $orderId, string $processId): array
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $process = ProcesosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($processId);
+
+        return [$order, $process];
+    }
+
+    private function assertProcessCanReceiveEquipment(OrdenesTrabajo $order, ProcesosOrden $process): void
+    {
+        abort_if($order->estaCerrada() || $process->estaCerrado(), 422, 'No se pueden asignar equipos a una orden o proceso cerrado.');
     }
 
     public function dashboard(Request $request): JsonResponse
@@ -533,6 +642,27 @@ class MobileDataController extends Controller
                     'currency' => $work->moneda?->codigo,
                     'total' => $work->total,
                     'total_nio' => $work->total_nio,
+                ])->values();
+        }
+
+        if ($request->user()->can('proceso_equipo.view')) {
+            $details['equipment'] = ProcesoEquipo::query()
+                ->with(['equipo', 'procesoOrden'])
+                ->whereHas('procesoOrden', fn ($query) => $query->where('orden_trabajo_id', $order->id))
+                ->orderBy('fecha_inicio')
+                ->get()
+                ->map(fn (ProcesoEquipo $assignment) => [
+                    'id' => $assignment->id,
+                    'process' => $assignment->procesoOrden?->codigo,
+                    'equipment_id' => $assignment->equipo_id,
+                    'equipment_code' => $assignment->equipo?->codigo,
+                    'equipment_name' => $assignment->equipo?->nombre,
+                    'start_date' => $assignment->fecha_inicio?->toISOString(),
+                    'end_date' => $assignment->fecha_fin?->toISOString(),
+                    'days' => $assignment->diasDeUso(),
+                    'daily_depreciation' => round((float) $assignment->equipo?->depreciacionDiaria(), 4),
+                    'total_depreciation' => (float) $assignment->depreciacion_total,
+                    'observations' => $assignment->observaciones,
                 ])->values();
         }
 

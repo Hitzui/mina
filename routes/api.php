@@ -36,6 +36,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-work-rate');
         Route::post('orders/{orderId}/processes/{processId}/employee-works', [MobileDataController::class, 'storeEmployeeWork'])
             ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-works.store');
+        Route::get('orders/{orderId}/processes/{processId}/equipment-options', [MobileDataController::class, 'processEquipmentOptions'])
+            ->middleware('permission:proceso_equipo.create')->name('orders.processes.equipment-options');
+        Route::get('orders/{orderId}/processes/{processId}/equipment-depreciation', [MobileDataController::class, 'processEquipmentDepreciation'])
+            ->middleware('permission:proceso_equipo.create')->name('orders.processes.equipment-depreciation');
+        Route::post('orders/{orderId}/processes/{processId}/equipment', [MobileDataController::class, 'storeProcessEquipment'])
+            ->middleware('permission:proceso_equipo.create')->name('orders.processes.equipment.store');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
         Route::post('orders/{orderId}/finalize', [MobileDataController::class, 'finalizeOrder'])
