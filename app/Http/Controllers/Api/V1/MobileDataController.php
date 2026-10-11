@@ -8,6 +8,8 @@ use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\Cotizacion;
 use App\Models\Etapa;
+use App\Models\Empleado;
+use App\Models\EmpleadosPago;
 use App\Models\Liquidacione;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
@@ -17,6 +19,9 @@ use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
 use App\Models\ProcesosOrden;
 use App\Models\TiposProduccion;
+use App\Models\TiposPagoEmpleado;
+use App\Models\TiposCambio;
+use App\Models\TrabajosEmpleado;
 use App\Models\UnidadMedida;
 use App\Services\FinalizarOrdenTrabajo;
 use App\Services\CodigoOrdenTrabajo;
@@ -26,6 +31,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Carbon;
 
 class MobileDataController extends Controller
 {
@@ -56,6 +62,170 @@ class MobileDataController extends Controller
             'address' => $client->direccion,
             'is_active' => (bool) $client->estado,
         ]);
+    }
+
+    public function employees(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'between:1,100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $paginator = Empleado::query()->with('tipo_empleado')
+            ->when(isset($filters['q']), fn ($query) => $query->where(function ($nested) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                $nested->where('codigo', 'like', $term)
+                    ->orWhere('nombre', 'like', $term)
+                    ->orWhere('telefono', 'like', $term);
+            }))
+            ->orderBy('nombre')->orderBy('id')
+            ->paginate($filters['per_page'] ?? 30);
+
+        return $this->paginated($paginator, fn (Empleado $employee) => [
+            'id' => $employee->id,
+            'code' => $employee->codigo,
+            'name' => $employee->nombre,
+            'phone' => $employee->telefono,
+            'employee_type' => $employee->tipo_empleado?->nombre,
+            'hire_date' => $employee->fecha_ingreso?->toDateString(),
+            'is_active' => (bool) $employee->estado,
+        ]);
+    }
+
+    public function employeeWorkOptions(string $orderId, string $processId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $process = ProcesosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($processId);
+        if ($order->estaCerrada() || $process->estaCerrado()) {
+            return response()->json(['message' => 'No se pueden registrar trabajos en una orden o proceso cerrado.'], 422);
+        }
+
+        return response()->json(['data' => [
+            'employees' => Empleado::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre'])
+                ->map(fn (Empleado $employee) => ['id' => $employee->id, 'code' => $employee->codigo, 'name' => $employee->nombre])
+                ->values(),
+            'payment_types' => TiposPagoEmpleado::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre', 'metodo_calculo'])
+                ->map(fn (TiposPagoEmpleado $type) => [
+                    'id' => $type->id,
+                    'name' => $type->nombre,
+                    'calculation_method' => $type->metodo_calculo ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+                ])->values(),
+            'units' => UnidadMedida::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
+                ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])
+                ->values(),
+        ]]);
+    }
+
+    public function employeeWorkRate(Request $request, string $orderId, string $processId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $process = ProcesosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($processId);
+        if ($order->estaCerrada() || $process->estaCerrado()) {
+            return response()->json(['message' => 'No se pueden registrar trabajos en una orden o proceso cerrado.'], 422);
+        }
+
+        $filters = $request->validate([
+            'empleado_id' => ['required', 'integer', Rule::exists('empleados', 'id')->where('estado', true)],
+            'tipo_pago_id' => ['required', 'integer', Rule::exists('tipos_pago_empleado', 'id')->where('estado', true)],
+            'fecha' => ['required', 'date'],
+        ]);
+        $pay = $this->employeePayForDate((int) $filters['empleado_id'], (int) $filters['tipo_pago_id'], $filters['fecha']);
+        if (! $pay) {
+            return response()->json(['message' => 'El empleado no tiene una tarifa vigente para el tipo de pago y la fecha seleccionados.'], 422);
+        }
+
+        $exchangeRate = 1.0;
+        if ($pay->moneda && ! $pay->moneda->es_moneda_base) {
+            $exchangeRate = TiposCambio::delDia($pay->moneda_id, $filters['fecha']);
+            if ($exchangeRate === null) {
+                return response()->json(['message' => $this->missingEmployeeExchangeRateMessage($pay->moneda, $filters['fecha'])], 422);
+            }
+        }
+        $rate = (float) $pay->tarifa;
+
+        return response()->json(['data' => [
+            'rate' => $rate,
+            'currency' => $pay->moneda?->codigo ?? '—',
+            'exchange_rate' => $exchangeRate,
+            'rate_nio' => round($rate * $exchangeRate, 4),
+            'calculation_method' => $pay->tipo_pago?->metodo_calculo ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+            'valid_from' => $pay->fecha_inicio?->toDateString(),
+            'valid_until' => $pay->fecha_fin?->toDateString(),
+        ]]);
+    }
+
+    public function storeEmployeeWork(Request $request, string $orderId, string $processId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $process = ProcesosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($processId);
+        if ($order->estaCerrada() || $process->estaCerrado()) {
+            return response()->json(['message' => 'No se pueden registrar trabajos en una orden o proceso cerrado.'], 422);
+        }
+
+        $validated = $request->validate([
+            'empleado_id' => ['required', 'integer', Rule::exists('empleados', 'id')->where('estado', true)],
+            'tipo_pago_id' => ['required', 'integer', Rule::exists('tipos_pago_empleado', 'id')->where('estado', true)],
+            'fecha' => ['required', 'date'],
+            'hora_inicio' => ['nullable', 'date_format:H:i'],
+            'hora_fin' => ['nullable', 'date_format:H:i', 'after_or_equal:hora_inicio'],
+            'descripcion' => ['nullable', 'string', 'max:255'],
+            'cantidad' => ['required', 'numeric', 'min:0'],
+            'unidad_id' => ['required', 'integer', Rule::exists('unidades_medida', 'id')->where('estado', true)],
+            'observaciones' => ['nullable', 'string'],
+        ]);
+
+        $pay = $this->employeePayForDate((int) $validated['empleado_id'], (int) $validated['tipo_pago_id'], $validated['fecha']);
+        if (! $pay) {
+            return response()->json(['message' => 'El empleado no tiene una tarifa vigente para el tipo de pago y la fecha seleccionados.'], 422);
+        }
+        $exchangeRate = 1.0;
+        if ($pay->moneda && ! $pay->moneda->es_moneda_base) {
+            $exchangeRate = TiposCambio::delDia($pay->moneda_id, $validated['fecha']);
+            if ($exchangeRate === null) {
+                return response()->json(['message' => $this->missingEmployeeExchangeRateMessage($pay->moneda, $validated['fecha'])], 422);
+            }
+        }
+
+        $unit = UnidadMedida::query()->findOrFail($validated['unidad_id']);
+        $paymentType = TiposPagoEmpleado::query()->findOrFail($validated['tipo_pago_id']);
+        $rate = (float) $pay->tarifa;
+        $rateNio = round($rate * $exchangeRate, 4);
+        $quantity = (float) $validated['cantidad'];
+        $work = TrabajosEmpleado::query()->create([
+            TrabajosEmpleado::EMPLEADO_ID => $validated['empleado_id'],
+            TrabajosEmpleado::PROCESO_ORDEN_ID => $process->id,
+            TrabajosEmpleado::TIPO_PAGO_ID => $paymentType->id,
+            TrabajosEmpleado::FECHA => $validated['fecha'],
+            TrabajosEmpleado::HORA_INICIO => $validated['hora_inicio'] ?? null,
+            TrabajosEmpleado::HORA_FIN => $validated['hora_fin'] ?? null,
+            TrabajosEmpleado::DESCRIPCION => $validated['descripcion'] ?? null,
+            TrabajosEmpleado::CANTIDAD => $quantity,
+            TrabajosEmpleado::UNIDAD_ID => $unit->id,
+            TrabajosEmpleado::UNIDAD => $unit->nombre,
+            TrabajosEmpleado::TARIFA => $rate,
+            TrabajosEmpleado::MONEDA_ID => $pay->moneda_id,
+            TrabajosEmpleado::TIPO_CAMBIO => $exchangeRate,
+            TrabajosEmpleado::TARIFA_NIO => $rateNio,
+            TrabajosEmpleado::TOTAL => $paymentType->calcularTotal($quantity, $rate),
+            TrabajosEmpleado::TOTAL_NIO => $paymentType->calcularTotal($quantity, $rateNio),
+            TrabajosEmpleado::OBSERVACIONES => $validated['observaciones'] ?? null,
+        ]);
+        $work->load(['empleado', 'tipo_pago', 'moneda']);
+
+        return response()->json(['data' => [
+            'id' => $work->id,
+            'employee' => $work->empleado?->nombre,
+            'payment_type' => $work->tipo_pago?->nombre,
+            'date' => $work->fecha?->toDateString(),
+            'description' => $work->descripcion,
+            'quantity' => $work->cantidad,
+            'unit' => $work->unidad,
+            'currency' => $work->moneda?->codigo,
+            'rate' => $work->tarifa,
+            'total' => $work->total,
+            'total_nio' => $work->total_nio,
+        ]], 201);
     }
 
     public function dashboard(Request $request): JsonResponse
@@ -613,6 +783,27 @@ class MobileDataController extends Controller
             'status' => $order->estadoTexto(),
             'status_code' => $order->estado,
         ];
+    }
+
+    private function employeePayForDate(int $employeeId, int $paymentTypeId, string $date): ?EmpleadosPago
+    {
+        return EmpleadosPago::query()->with(['moneda', 'tipo_pago'])
+            ->where('empleado_id', $employeeId)
+            ->where('tipo_pago_id', $paymentTypeId)
+            ->where('estado', true)
+            ->whereDate('fecha_inicio', '<=', $date)
+            ->where(fn ($query) => $query->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', $date))
+            ->orderByDesc('fecha_inicio')
+            ->first();
+    }
+
+    private function missingEmployeeExchangeRateMessage(Moneda $currency, string $date): string
+    {
+        return sprintf(
+            'No hay tipo de cambio registrado para %s el %s. Primero ingréselo en Configuración > Tipos de cambio.',
+            $currency->codigo,
+            Carbon::parse($date)->format('d/m/Y'),
+        );
     }
 
     private function quoteData(Cotizacion $quote): array

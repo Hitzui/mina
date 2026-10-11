@@ -30,12 +30,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:procesos_orden.create')->name('orders.process-form-options');
         Route::post('orders/{orderId}/processes', [MobileDataController::class, 'storeOrderProcess'])
             ->middleware('permission:procesos_orden.create')->name('orders.processes.store');
+        Route::get('orders/{orderId}/processes/{processId}/employee-work-options', [MobileDataController::class, 'employeeWorkOptions'])
+            ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-work-options');
+        Route::get('orders/{orderId}/processes/{processId}/employee-work-rate', [MobileDataController::class, 'employeeWorkRate'])
+            ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-work-rate');
+        Route::post('orders/{orderId}/processes/{processId}/employee-works', [MobileDataController::class, 'storeEmployeeWork'])
+            ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-works.store');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
         Route::post('orders/{orderId}/finalize', [MobileDataController::class, 'finalizeOrder'])
             ->middleware('permission:ordenes_trabajo.edit')->name('orders.finalize');
         Route::get('clients', [MobileDataController::class, 'clients'])
             ->middleware('permission:clientes.view')->name('clients.index');
+        Route::get('employees', [MobileDataController::class, 'employees'])
+            ->middleware('permission:empleados.view')->name('employees.index');
 
         Route::get('cash/summary', [MobileDataController::class, 'cashSummary'])
             ->middleware('permission:movimientos_caja.view')->name('cash.summary');

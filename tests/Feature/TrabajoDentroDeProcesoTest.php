@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -115,6 +116,57 @@ class TrabajoDentroDeProcesoTest extends TestCase
             'unidad' => 'hora',
             'descripcion' => 'Prueba automatica',
         ], $extra);
+    }
+
+    public function test_api_movil_lista_y_filtra_empleados(): void
+    {
+        Sanctum::actingAs(auth()->user());
+
+        $this->getJson('/api/v1/employees?q='.urlencode($this->empleado->codigo))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $this->empleado->id)
+            ->assertJsonPath('data.0.code', $this->empleado->codigo)
+            ->assertJsonPath('data.0.name', $this->empleado->nombre);
+    }
+
+    public function test_api_movil_registra_trabajo_con_tarifa_y_total_del_tipo_de_pago(): void
+    {
+        Sanctum::actingAs(auth()->user());
+        $unitId = UnidadMedida::query()->where('estado', true)->value('id');
+        $prefix = "/api/v1/orders/{$this->orden->id}/processes/{$this->proceso->id}";
+
+        $this->getJson($prefix.'/employee-work-options')
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['employees', 'payment_types', 'units']]);
+
+        $this->getJson($prefix.'/employee-work-rate?'.http_build_query([
+            'empleado_id' => $this->empleado->id,
+            'tipo_pago_id' => $this->tipoPago->id,
+            'fecha' => '2026-03-10',
+        ]))->assertOk()->assertJsonPath('data.rate', 100);
+
+        $this->postJson($prefix.'/employee-works', [
+            'empleado_id' => $this->empleado->id,
+            'tipo_pago_id' => $this->tipoPago->id,
+            'fecha' => '2026-03-10',
+            'cantidad' => 4,
+            'unidad_id' => $unitId,
+            'descripcion' => 'Trabajo desde móvil',
+        ])->assertCreated()
+            ->assertJsonPath('data.employee', $this->empleado->nombre)
+            ->assertJsonPath('data.total', 400);
+
+        $this->assertDatabaseHas('trabajos_empleados', [
+            'proceso_orden_id' => $this->proceso->id,
+            'empleado_id' => $this->empleado->id,
+            'tipo_pago_id' => $this->tipoPago->id,
+            'total' => 400,
+        ]);
+
+        $this->getJson('/api/v1/orders/'.$this->orden->id)
+            ->assertOk()
+            ->assertJsonPath('data.employee_work.0.process', $this->proceso->codigo)
+            ->assertJsonPath('data.employee_work.0.employee', $this->empleado->nombre);
     }
 
     // ------------------------------------------------------------------
