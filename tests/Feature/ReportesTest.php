@@ -33,11 +33,22 @@ class ReportesTest extends TestCase
                 'fecha_hasta' => '2026-10-31',
             ]))
             ->assertOk()
-            ->assertSee('Órdenes, ingresos y costos')
+            ->assertSee('Órdenes de trabajo (resumen)')
             ->assertSee('Ingresos NIO')
-            ->assertSee('Costos NIO')
+            ->assertSee('Costo total NIO')
             ->assertSee('Excel')
             ->assertSee('PDF');
+
+        $this->get(route('reportes.index', [
+            'categoria' => 'ordenes',
+            'tipo' => 'costos',
+            'orden' => 'OT-0001',
+            'fecha_desde' => '2026-10-01',
+            'fecha_hasta' => '2026-10-31',
+        ]))->assertOk()
+            ->assertSee('Categoría')
+            ->assertSee('Costos por orden y proceso')
+            ->assertSee('Costo NIO');
     }
 
     public function test_exportar_reporte_en_excel_y_pdf(): void
@@ -78,7 +89,7 @@ class ReportesTest extends TestCase
         $usuario = $this->usuarioConPermisos(['reportes.view']);
         $this->actingAs($usuario);
 
-        foreach (['caja', 'cierres', 'cobros', 'ordenes', 'compras', 'inventario', 'clientes'] as $tipo) {
+        foreach (['caja', 'cierres', 'cobros', 'ordenes', 'procesos', 'costos', 'ingresos', 'produccion', 'trabajos', 'compras', 'inventario', 'clientes'] as $tipo) {
             $this->get(route('reportes.index', [
                 'tipo' => $tipo,
                 'fecha_desde' => '2026-10-01',

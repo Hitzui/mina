@@ -20,23 +20,38 @@
                 </div>
 
                 <form method="GET" action="{{ route('reportes.index') }}" class="row g-3 align-items-end mb-4">
-                    <div class="col-lg-4 col-md-6">
-                        <label for="tipo" class="form-label">Informe</label>
-                        <select class="form-select" id="tipo" name="tipo">
-                            @foreach ($reportes as $clave => $nombre)
-                                <option value="{{ $clave }}" @selected($tipo === $clave)>{{ $nombre }}</option>
+                    <input type="hidden" id="categoria" name="categoria" value="{{ $categoria }}">
+                    <div class="col-lg-{{ $categoria === 'ordenes' ? '2' : '3' }} col-md-6">
+                        <label for="selectorCategoria" class="form-label">Categoría</label>
+                        <select class="form-select" id="selectorCategoria">
+                            @foreach ($categorias as $clave => $datosCategoria)
+                                <option value="{{ $clave }}" @selected($categoria === $clave)>{{ $datosCategoria['nombre'] }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-lg-2 col-md-3">
+                    <div class="col-lg-{{ $categoria === 'ordenes' ? '2' : '3' }} col-md-6">
+                        <label for="tipo" class="form-label">Informe</label>
+                        <select class="form-select" id="tipo" name="tipo">
+                            @foreach ($categorias[$categoria]['reportes'] as $clave)
+                                <option value="{{ $clave }}" @selected($tipo === $clave)>{{ $reportes[$clave] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-4">
                         <label for="fecha_desde" class="form-label">Desde</label>
                         <input class="form-control" type="date" id="fecha_desde" name="fecha_desde" value="{{ $filtros['fecha_desde'] }}" required>
                     </div>
-                    <div class="col-lg-2 col-md-3">
+                    <div class="col-lg-2 col-md-4">
                         <label for="fecha_hasta" class="form-label">Hasta</label>
                         <input class="form-control" type="date" id="fecha_hasta" name="fecha_hasta" value="{{ $filtros['fecha_hasta'] }}" required>
                     </div>
-                    <div class="col-lg-2 col-md-3">
+                    @if ($categoria === 'ordenes')
+                        <div class="col-lg-2 col-md-4">
+                            <label for="orden" class="form-label">Código de orden</label>
+                            <input class="form-control" type="search" id="orden" name="orden" value="{{ $filtros['orden'] }}" placeholder="Todas las órdenes">
+                        </div>
+                    @endif
+                    <div class="col-lg-2 col-md-4">
                         <button class="btn btn-primary w-100" type="submit"><i class="bi bi-search me-1"></i>Consultar</button>
                     </div>
                 </form>
@@ -60,5 +75,33 @@
             </div>
         </div>
     </div>
-    <x-slot:footerFiles></x-slot>
+    <x-slot:footerFiles>
+        <script>
+            (() => {
+                const reportesPorCategoria = @json($reportesPorCategoria);
+                const categoria = document.getElementById('categoria');
+                const selectorCategoria = document.getElementById('selectorCategoria');
+                const selectorReporte = document.getElementById('tipo');
+
+                selectorCategoria.addEventListener('change', () => {
+                    const seleccionados = reportesPorCategoria[selectorCategoria.value] || {};
+                    categoria.value = selectorCategoria.value;
+                    selectorReporte.replaceChildren();
+                    Object.entries(seleccionados).forEach(([valor, etiqueta]) => {
+                        selectorReporte.add(new Option(etiqueta, valor));
+                    });
+                });
+
+                selectorReporte.addEventListener('change', () => {
+                    for (const [clave, reportes] of Object.entries(reportesPorCategoria)) {
+                        if (Object.hasOwn(reportes, selectorReporte.value)) {
+                            categoria.value = clave;
+                            selectorCategoria.value = clave;
+                            break;
+                        }
+                    }
+                });
+            })();
+        </script>
+    </x-slot>
 </x-base-layout>
