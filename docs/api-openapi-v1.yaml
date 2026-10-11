@@ -14,6 +14,7 @@ tags:
   - name: Órdenes
   - name: Inventario
   - name: Cotizaciones
+  - name: Clientes
 paths:
   /auth/login:
     post:
@@ -158,6 +159,20 @@ paths:
         '200': { description: Ficha de orden con sus colecciones de detalle }
         '403': { description: Falta ordenes_trabajo.view }
         '404': { description: Orden no encontrada }
+  /clients:
+    get:
+      tags: [Clientes]
+      summary: Listar clientes para la aplicaci?n m?vil
+      description: Incluye clientes activos e inactivos, ordenados por nombre. Requiere clientes.view.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: q, schema: { type: string, maxLength: 100 }, description: Busca por nombre, tel?fono o direcci?n }
+        - { in: query, name: per_page, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        '200': { description: Listado paginado con nombre, tel?fono, direcci?n y estado }
+        '401': { description: Token ausente, inv?lido o expirado }
+        '403': { description: Falta clientes.view }
   /cash/summary:
     get:
       tags: [Aplicación]

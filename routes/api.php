@@ -24,6 +24,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:ordenes_trabajo.view')->name('orders.index');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
+        Route::get('clients', [MobileDataController::class, 'clients'])
+            ->middleware('permission:clientes.view')->name('clients.index');
 
         Route::get('cash/summary', [MobileDataController::class, 'cashSummary'])
             ->middleware('permission:movimientos_caja.view')->name('cash.summary');

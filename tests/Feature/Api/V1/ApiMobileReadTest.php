@@ -24,7 +24,7 @@ class ApiMobileReadTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $permissions = [
-            'ordenes_trabajo.view', 'movimientos_caja.view', 'productos.view',
+            'ordenes_trabajo.view', 'clientes.view', 'movimientos_caja.view', 'productos.view',
             'movimientos_inventario.view', 'cotizaciones.view', 'cobros.view',
             'configuracion.monedas.view', 'configuracion.metodos_pago.view',
             'configuracion.unidades_medida.view', 'configuracion.cajas.view',
@@ -67,6 +67,50 @@ class ApiMobileReadTest extends TestCase
             ->assertOk()->assertJsonPath('meta.total', 0);
         $this->getJson('/api/v1/quotes?q=__MISSING_QUOTE__', $headers)
             ->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_lista_clientes_devuelve_datos_paginados_y_requiere_permiso(): void
+    {
+        $primero = Cliente::create([
+            'nombre' => 'API Cliente A '.Str::upper(Str::random(5)),
+            'telefono' => '8888-1000',
+            'direccion' => 'Managua',
+            'estado' => true,
+        ]);
+        Cliente::create([
+            'nombre' => 'API Cliente B '.Str::upper(Str::random(5)),
+            'telefono' => '8888-2000',
+            'direccion' => 'Leon',
+            'estado' => false,
+        ]);
+
+        $this->withToken($this->token)->getJson('/api/v1/clients?q=API%20Cliente&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.id', $primero->id)
+            ->assertJsonPath('data.0.name', $primero->nombre)
+            ->assertJsonPath('data.0.phone', $primero->telefono)
+            ->assertJsonPath('data.0.address', $primero->direccion)
+            ->assertJsonPath('data.0.is_active', true);
+
+    }
+
+    public function test_api_de_clientes_requiere_permiso_del_modulo(): void
+    {
+        $cashRegister = Cajas::create([
+            'nombre' => 'Caja cliente sin permiso '.Str::upper(Str::random(5)),
+            'estado' => true,
+        ]);
+        $user = User::create([
+            'name' => 'Usuario sin permiso clientes',
+            'email' => 'mobile-client-denied-'.Str::lower(Str::random(8)).'@test.local',
+            'password' => Hash::make('password'),
+            'caja_id' => $cashRegister->id,
+        ]);
+
+        $this->withToken($user->createToken('KMP sin permiso clientes')->plainTextToken)
+            ->getJson('/api/v1/clients')->assertForbidden();
     }
 
     public function test_dashboard_y_catalogos_respetan_acceso_autenticado(): void

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\Cotizacion;
 use App\Models\MetodosPagos;
@@ -20,6 +21,35 @@ use Illuminate\Support\Facades\DB;
 
 class MobileDataController extends Controller
 {
+    public function clients(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'between:1,100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $paginator = Cliente::query()
+            ->select(['id', 'nombre', 'telefono', 'direccion', 'estado'])
+            ->when(isset($filters['q']), fn ($query) => $query->where(function ($nested) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                $nested->where('nombre', 'like', $term)
+                    ->orWhere('telefono', 'like', $term)
+                    ->orWhere('direccion', 'like', $term);
+            }))
+            ->orderBy('nombre')
+            ->orderBy('id')
+            ->paginate($filters['per_page'] ?? 20);
+
+        return $this->paginated($paginator, fn (Cliente $client) => [
+            'id' => $client->id,
+            'name' => $client->nombre,
+            'phone' => $client->telefono,
+            'address' => $client->direccion,
+            'is_active' => (bool) $client->estado,
+        ]);
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         $periodo = $request->validate(['periodo' => ['nullable', 'in:mes,anio,todo']])['periodo'] ?? 'mes';
