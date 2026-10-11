@@ -1,0 +1,135 @@
+<?php
+
+namespace Tests\Feature\Api\V1;
+
+use App\Models\Cajas;
+use App\Models\Cliente;
+use App\Models\OrdenesTrabajo;
+use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
+
+class ApiMobileReadTest extends TestCase
+{
+    use DatabaseTransactions;
+
+    private string $token;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $permissions = [
+            'ordenes_trabajo.view', 'movimientos_caja.view', 'productos.view',
+            'movimientos_inventario.view', 'cotizaciones.view', 'cobros.view',
+            'configuracion.monedas.view', 'configuracion.metodos_pago.view',
+            'configuracion.unidades_medida.view', 'configuracion.cajas.view',
+            'etapas.view', 'configuracion.tipos_produccion.view',
+        ];
+        foreach ($permissions as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+
+        $cashRegister = Cajas::create([
+            'nombre' => 'Caja móvil '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+        $user = User::create([
+            'name' => 'Usuario móvil',
+            'email' => 'mobile-'.Str::lower(Str::random(10)).'@test.local',
+            'password' => Hash::make('password'),
+            'caja_id' => $cashRegister->id,
+        ]);
+        $user->syncPermissions($permissions);
+        $this->token = $user->createToken('KMP test')->plainTextToken;
+    }
+
+    public function test_endpoints_de_lectura_movil_devuelven_json_con_paginacion(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->token];
+
+        $this->getJson('/api/v1/orders?q=__MISSING_ORDER__&per_page=10', $headers)
+            ->assertOk()->assertJsonPath('meta.per_page', 10)->assertJsonPath('data', []);
+        $this->getJson('/api/v1/cash/summary', $headers)
+            ->assertOk()->assertJsonStructure(['data' => ['cash_register', 'balances']]);
+        $this->getJson('/api/v1/cash/movements?fecha_desde=2100-01-01', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/cash/collections?fecha_desde=2100-01-01', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/cash/collections/999999999', $headers)->assertNotFound();
+        $this->getJson('/api/v1/inventory/products?q=__MISSING_PRODUCT__', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/inventory/movements?fecha_desde=2100-01-01', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/quotes?q=__MISSING_QUOTE__', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_dashboard_y_catalogos_respetan_acceso_autenticado(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->token];
+
+        $this->getJson('/api/v1/app/dashboard?periodo=mes', $headers)
+            ->assertOk()->assertJsonPath('data.period.key', 'mes');
+        $this->getJson('/api/v1/app/catalogs', $headers)
+            ->assertOk()->assertJsonStructure(['data' => ['currencies', 'payment_methods', 'units', 'stages', 'products', 'cash_register']]);
+    }
+
+    public function test_apis_de_ordenes_requieren_permiso_del_modulo(): void
+    {
+        $cashRegister = Cajas::create([
+            'nombre' => 'Caja sin permiso '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+        $user = User::create([
+            'name' => 'Usuario sin permiso móvil',
+            'email' => 'mobile-denied-'.Str::lower(Str::random(8)).'@test.local',
+            'password' => Hash::make('password'),
+            'caja_id' => $cashRegister->id,
+        ]);
+        $token = $user->createToken('KMP sin permiso')->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/v1/orders')->assertForbidden();
+    }
+
+    public function test_detalle_de_orden_no_expone_modulos_sin_permiso(): void
+    {
+        Permission::findOrCreate('ordenes_trabajo.view', 'web');
+        $cliente = Cliente::create([
+            'nombre' => 'Cliente API '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+        $order = OrdenesTrabajo::create([
+            'codigo' => 'API-'.Str::upper(Str::random(8)),
+            'cliente_id' => $cliente->id,
+            'fecha' => today(),
+            'descripcion' => 'Orden de prueba API',
+            'peso_mineral' => 12.5,
+            'unidad_peso' => 'kg',
+            'estado' => OrdenesTrabajo::ESTADO_PENDIENTE,
+        ]);
+        $cashRegister = Cajas::create([
+            'nombre' => 'Caja API limitada '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+        $limitedUser = User::create([
+            'name' => 'Usuario solo ordenes',
+            'email' => 'mobile-order-'.Str::lower(Str::random(8)).'@test.local',
+            'password' => Hash::make('password'),
+            'caja_id' => $cashRegister->id,
+        ]);
+        $limitedUser->givePermissionTo('ordenes_trabajo.view');
+        $token = $limitedUser->createToken('KMP order read')->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/v1/orders/'.$order->id)
+            ->assertOk()
+            ->assertJsonPath('data.code', $order->codigo)
+            ->assertJsonMissingPath('data.costs')
+            ->assertJsonMissingPath('data.incomes')
+            ->assertJsonMissingPath('data.processes');
+    }
+}

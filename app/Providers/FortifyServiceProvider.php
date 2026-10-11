@@ -39,12 +39,17 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(function () {
             return view('auth.login');
         });
-        
-        
+
         RateLimiter::for('login', function (Request $request) {
             $email = (string) $request->email;
 
             return Limit::perMinute(5)->by($email.$request->ip());
+        });
+
+        RateLimiter::for('api-login', function (Request $request) {
+            $email = mb_strtolower((string) $request->input('email'));
+
+            return Limit::perMinute(5)->by($email.'|'.$request->ip());
         });
 
         RateLimiter::for('two-factor', function (Request $request) {

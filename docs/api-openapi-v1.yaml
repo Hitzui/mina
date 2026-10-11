@@ -1,0 +1,264 @@
+openapi: 3.1.0
+info:
+  title: MINA API
+  version: 1.0.0
+  description: API versionada para clientes móviles. Los importes se exponen en los campos de los recursos y no se convierten implícitamente.
+servers:
+  - url: http://localhost/api/v1
+    description: Desarrollo local desde el host
+  - url: http://10.0.2.2/api/v1
+    description: Emulador Android accediendo al host local (XAMPP en puerto 80)
+tags:
+  - name: Autenticación
+  - name: Aplicación
+  - name: Órdenes
+  - name: Inventario
+  - name: Cotizaciones
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión y emitir un token de dispositivo
+      description: Limitado a cinco intentos por minuto por correo e IP. Requiere usuario con caja activa asignada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, device_name]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+                device_name: { type: string, maxLength: 100, example: KMP Android }
+      responses:
+        '200':
+          description: Token emitido. El token completo solo se devuelve en esta respuesta.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string }
+                      token_type: { type: string, const: Bearer }
+                      expires_at: { type: [string, 'null'], format: date-time }
+                      user: { $ref: '#/components/schemas/User' }
+        '401':
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: El usuario no tiene caja activa asignada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: Datos de entrada inválidos
+  /auth/me:
+    get:
+      tags: [Autenticación]
+      summary: Perfil, permisos y caja del usuario autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+        '401': { description: Token ausente, inválido o expirado }
+  /auth/logout:
+    delete:
+      tags: [Autenticación]
+      summary: Revocar el token del dispositivo actual
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Sesión cerrada }
+        '401': { description: Token ausente, inválido o expirado }
+  /auth/tokens:
+    delete:
+      tags: [Autenticación]
+      summary: Revocar todas las sesiones móviles del usuario
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Todas las sesiones móviles fueron cerradas }
+        '401': { description: Token ausente, inválido o expirado }
+  /bootstrap:
+    get:
+      tags: [Aplicación]
+      summary: Datos mínimos para iniciar la aplicación y armar navegación por permisos
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Versión API, perfil y caja asignada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      api_version: { type: string, example: v1 }
+                      user: { $ref: '#/components/schemas/User' }
+                      cash_register: { $ref: '#/components/schemas/CashRegister' }
+        '401': { description: Token ausente, inválido o expirado }
+  /app/dashboard:
+    get:
+      tags: [Aplicación]
+      summary: Indicadores del taller
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: periodo
+          schema: { type: string, enum: [mes, anio, todo], default: mes }
+      responses:
+        '200': { description: Indicadores del panel web en formato JSON }
+        '401': { description: Token ausente, inválido o expirado }
+  /app/catalogs:
+    get:
+      tags: [Aplicación]
+      summary: Catálogos activos permitidos para el usuario
+      description: Cada grupo del objeto data solo aparece cuando el usuario tiene el permiso de consulta de ese catálogo.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Catálogos para inicializar formularios móviles }
+        '401': { description: Token ausente, inválido o expirado }
+  /orders:
+    get:
+      tags: [Órdenes]
+      summary: Listar y filtrar órdenes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: q, schema: { type: string }, description: Busca por código }
+        - { in: query, name: estado, schema: { type: integer, minimum: 0, maximum: 3 } }
+        - { in: query, name: cliente_id, schema: { type: integer } }
+        - { in: query, name: fecha_desde, schema: { type: string, format: date } }
+        - { in: query, name: fecha_hasta, schema: { type: string, format: date } }
+        - { in: query, name: per_page, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        '200': { description: Listado paginado; requiere ordenes_trabajo.view }
+        '401': { description: Token ausente, inválido o expirado }
+        '403': { description: Falta el permiso requerido }
+  /orders/{orderId}:
+    get:
+      tags: [Órdenes]
+      summary: Detalle de orden, procesos, costos, ingresos y producción
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Ficha de orden con sus colecciones de detalle }
+        '403': { description: Falta ordenes_trabajo.view }
+        '404': { description: Orden no encontrada }
+  /cash/summary:
+    get:
+      tags: [Aplicación]
+      summary: Saldos de la caja asignada, separados por método y moneda
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Saldos de la caja del usuario; no admite seleccionar otra caja }
+        '403': { description: Falta movimientos_caja.view o no tiene caja asignada }
+  /cash/movements:
+    get:
+      tags: [Aplicación]
+      summary: Historial paginado de movimientos de la caja asignada
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Movimientos con método, moneda y vínculos de transferencia }
+        '403': { description: Falta movimientos_caja.view }
+  /cash/collections:
+    get:
+      tags: [Aplicación]
+      summary: Cobros recibidos en la caja asignada
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: estado, schema: { type: integer, minimum: 0, maximum: 3 } }
+        - { in: query, name: fecha_desde, schema: { type: string, format: date } }
+        - { in: query, name: fecha_hasta, schema: { type: string, format: date } }
+        - { in: query, name: per_page, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200': { description: Cobros paginados; requiere cobros.view y siempre se limita a la caja asignada }
+        '403': { description: Falta el permiso o la caja asignada está inactiva }
+  /cash/collections/{collectionId}:
+    get:
+      tags: [Aplicación]
+      summary: Detalle del cobro y distribución entre ingresos
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: collectionId, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Cabecera, estado y detalle de ingresos del cliente }
+        '403': { description: Falta cobros.view }
+        '404': { description: Cobro fuera de la caja asignada o no encontrado }
+  /inventory/products:
+    get:
+      tags: [Inventario]
+      summary: Productos activos con existencia y costo promedio
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Catálogo paginado; requiere productos.view }
+        '403': { description: Falta el permiso requerido }
+  /inventory/movements:
+    get:
+      tags: [Inventario]
+      summary: Historial paginado del kardex
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Movimientos con costos originales y equivalentes NIO; requiere movimientos_inventario.view }
+        '403': { description: Falta el permiso requerido }
+  /quotes:
+    get:
+      tags: [Cotizaciones]
+      summary: Listar cotizaciones
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Listado paginado; requiere cotizaciones.view }
+        '403': { description: Falta el permiso requerido }
+  /quotes/{quoteId}:
+    get:
+      tags: [Cotizaciones]
+      summary: Detalle de cotización
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: quoteId, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Cotización, condición comercial y orden enlazada si fue aceptada }
+        '403': { description: Falta cotizaciones.view }
+        '404': { description: Cotización no encontrada }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum token
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        roles: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string } }
+        cash_register: { $ref: '#/components/schemas/CashRegister' }
+    CashRegister:
+      oneOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        - type: 'null'
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+        code: { type: string }
