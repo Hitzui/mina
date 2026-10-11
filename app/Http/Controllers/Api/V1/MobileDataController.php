@@ -17,6 +17,7 @@ use App\Models\Producto;
 use App\Models\TiposProduccion;
 use App\Models\UnidadMedida;
 use App\Services\FinalizarOrdenTrabajo;
+use App\Services\CodigoOrdenTrabajo;
 use App\Services\PanelDelTaller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -126,6 +127,47 @@ class MobileDataController extends Controller
             ->paginate($filters['per_page'] ?? 20);
 
         return $this->paginated($paginator, fn ($order) => $this->orderSummary($order));
+    }
+
+    public function orderFormOptions(): JsonResponse
+    {
+        return response()->json(['data' => [
+            'clients' => Cliente::query()->where('estado', true)->orderBy('nombre')
+                ->get(['id', 'nombre'])
+                ->map(fn (Cliente $client) => ['id' => $client->id, 'name' => $client->nombre])
+                ->values(),
+            'units' => UnidadMedida::query()->where('estado', true)->orderBy('nombre')
+                ->get(['id', 'nombre'])
+                ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])
+                ->values(),
+        ]]);
+    }
+
+    public function storeOrder(Request $request, CodigoOrdenTrabajo $codigoOrden): JsonResponse
+    {
+        $validated = $request->validate([
+            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
+            'fecha' => ['required', 'date'],
+            'descripcion' => ['nullable', 'string', 'max:1000'],
+            'peso_mineral' => ['required', 'numeric', 'gt:0'],
+            'unidad_peso_id' => ['required', 'integer', 'exists:unidades_medida,id,estado,1'],
+        ]);
+
+        $unit = UnidadMedida::query()->findOrFail($validated['unidad_peso_id']);
+        $order = OrdenesTrabajo::query()->create([
+            OrdenesTrabajo::CODIGO => $codigoOrden->generar(),
+            OrdenesTrabajo::CLIENTE_ID => $validated['cliente_id'],
+            OrdenesTrabajo::FECHA => $validated['fecha'],
+            OrdenesTrabajo::DESCRIPCION => $validated['descripcion'] ?? null,
+            OrdenesTrabajo::PESO_MINERAL => $validated['peso_mineral'],
+            OrdenesTrabajo::UNIDAD_PESO => $unit->nombre,
+            OrdenesTrabajo::UNIDAD_PESO_ID => $unit->id,
+            OrdenesTrabajo::ESTADO => OrdenesTrabajo::ESTADO_PENDIENTE,
+        ]);
+
+        $order->load('cliente');
+
+        return response()->json(['data' => $this->orderSummary($order)], 201);
     }
 
     public function order(string $orderId, Request $request): JsonResponse

@@ -232,6 +232,33 @@ class OrdenCerradaTest extends TestCase
         $this->assertSame(OrdenesTrabajo::ESTADO_EN_PROCESO, (int) $orden->fresh()->estado);
     }
 
+    public function test_api_movil_crea_orden_con_codigo_normal_y_estado_pendiente(): void
+    {
+        Sanctum::actingAs($this->adminUser);
+        $this->getJson('/api/v1/orders/form-options')
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['clients', 'units']]);
+        $clienteId = OrdenesTrabajo::query()->value('cliente_id');
+        $unidadId = \Illuminate\Support\Facades\DB::table('unidades_medida')
+            ->where('estado', true)
+            ->value('id');
+
+        $this->postJson('/api/v1/orders', [
+            'cliente_id' => $clienteId,
+            'fecha' => '2026-10-11',
+            'descripcion' => 'Orden creada desde la app',
+            'peso_mineral' => 12.5,
+            'unidad_peso_id' => $unidadId,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.status_code', OrdenesTrabajo::ESTADO_PENDIENTE)
+            ->assertJsonPath('data.client.id', $clienteId);
+
+        $order = OrdenesTrabajo::query()->where('descripcion', 'Orden creada desde la app')->firstOrFail();
+        $this->assertMatchesRegularExpression('/^OT-'.now()->year.'-\d{4}$/', $order->codigo);
+        $this->assertSame(OrdenesTrabajo::ESTADO_PENDIENTE, (int) $order->estado);
+    }
+
     public function test_una_orden_pendiente_sigue_admitiendo_datos(): void
     {
         $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);
