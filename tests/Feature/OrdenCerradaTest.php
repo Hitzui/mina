@@ -259,6 +259,60 @@ class OrdenCerradaTest extends TestCase
         $this->assertSame(OrdenesTrabajo::ESTADO_PENDIENTE, (int) $order->estado);
     }
 
+    public function test_api_movil_edita_orden_sin_procesos_y_restringe_campos_si_ya_tiene_procesos(): void
+    {
+        Sanctum::actingAs($this->adminUser);
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);
+        $clienteId = OrdenesTrabajo::query()->value('cliente_id');
+        $unidadId = \Illuminate\Support\Facades\DB::table('unidades_medida')->where('estado', true)->value('id');
+
+        $this->getJson('/api/v1/orders/'.$orden->id.'/edit-form-options')
+            ->assertOk()
+            ->assertJsonPath('data.has_processes', false)
+            ->assertJsonPath('data.order.id', $orden->id);
+
+        $this->putJson('/api/v1/orders/'.$orden->id, [
+            'cliente_id' => $clienteId,
+            'fecha' => '2026-10-05',
+            'descripcion' => 'Actualizada desde móvil',
+            'peso_mineral' => 18.75,
+            'unidad_peso_id' => $unidadId,
+        ])->assertOk()
+            ->assertJsonPath('data.date', '2026-10-05')
+            ->assertJsonPath('data.mineral_weight', 18.75);
+
+        $orden->refresh();
+        $process = $this->proceso($orden);
+        $process->fecha_inicio = '2026-10-12 09:00:00';
+        $process->save();
+
+        $this->getJson('/api/v1/orders/'.$orden->id.'/edit-form-options')
+            ->assertOk()
+            ->assertJsonPath('data.has_processes', true)
+            ->assertJsonPath('data.earliest_process_start', '2026-10-12');
+
+        $this->putJson('/api/v1/orders/'.$orden->id, [
+            'cliente_id' => $orden->cliente_id,
+            'fecha' => '2026-10-13',
+            'descripcion' => 'Fecha fuera de secuencia',
+            'peso_mineral' => 999,
+            'unidad_peso_id' => $unidadId,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('fecha');
+
+        $this->putJson('/api/v1/orders/'.$orden->id, [
+            'cliente_id' => $clienteId,
+            'fecha' => '2026-10-12',
+            'descripcion' => 'Fecha consistente con el proceso',
+            'peso_mineral' => 999,
+            'unidad_peso_id' => $unidadId,
+        ])->assertOk();
+
+        $this->assertSame('2026-10-12', $orden->fresh()->fecha->toDateString());
+        $this->assertSame(18.75, (float) $orden->fresh()->peso_mineral);
+        $this->assertSame('Fecha consistente con el proceso', $orden->fresh()->descripcion);
+    }
+
     public function test_api_movil_agrega_proceso_a_una_orden_abierta(): void
     {
         Sanctum::actingAs($this->adminUser);

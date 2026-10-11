@@ -453,6 +453,103 @@ class MobileDataController extends Controller
         return response()->json(['data' => $this->orderSummary($order)], 201);
     }
 
+    public function orderEditFormOptions(string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->with('cliente')->findOrFail($orderId);
+        $hasProcesses = $order->procesos_ordenes()->exists();
+        $earliestProcessStart = $order->procesos_ordenes()
+            ->whereNotNull('fecha_inicio')
+            ->orderBy('fecha_inicio')
+            ->value('fecha_inicio');
+
+        return response()->json(['data' => [
+            'order' => [
+                'id' => $order->id,
+                'code' => $order->codigo,
+                'client_id' => $order->cliente_id,
+                'client_name' => $order->cliente?->nombre,
+                'date' => $order->fecha?->toDateString(),
+                'description' => $order->descripcion,
+                'mineral_weight' => (float) $order->peso_mineral,
+                'weight_unit_id' => $order->unidad_peso_id,
+                'weight_unit' => $order->unidad_peso,
+                'status' => $order->estadoTexto(),
+                'status_code' => $order->estado,
+            ],
+            'has_processes' => $hasProcesses,
+            'earliest_process_start' => $earliestProcessStart
+                ? Carbon::parse($earliestProcessStart)->toDateString()
+                : null,
+            'clients' => Cliente::query()
+                ->where(fn ($query) => $query->where('estado', true)->orWhere('id', $order->cliente_id))
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'estado'])
+                ->map(fn (Cliente $client) => [
+                    'id' => $client->id,
+                    'name' => $client->nombre,
+                    'is_active' => (bool) $client->estado,
+                ])->values(),
+            'units' => UnidadMedida::query()->where('estado', true)->orderBy('nombre')
+                ->get(['id', 'nombre'])
+                ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])
+                ->values(),
+        ]]);
+    }
+
+    public function updateOrder(Request $request, string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $hasProcesses = $order->procesos_ordenes()->exists();
+
+        if ($hasProcesses) {
+            $validated = $request->validate([
+                'fecha' => ['required', 'date'],
+                'descripcion' => ['nullable', 'string', 'max:1000'],
+            ]);
+            $values = [
+                OrdenesTrabajo::FECHA => $validated['fecha'],
+                OrdenesTrabajo::DESCRIPCION => $validated['descripcion'] ?? null,
+            ];
+        } else {
+            $validated = $request->validate([
+                'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
+                'fecha' => ['required', 'date'],
+                'descripcion' => ['nullable', 'string', 'max:1000'],
+                'peso_mineral' => ['required', 'numeric', 'gt:0'],
+                'unidad_peso_id' => ['required', 'integer', 'exists:unidades_medida,id,estado,1'],
+            ]);
+            $unit = UnidadMedida::query()->findOrFail($validated['unidad_peso_id']);
+            $values = [
+                OrdenesTrabajo::CLIENTE_ID => $validated['cliente_id'],
+                OrdenesTrabajo::FECHA => $validated['fecha'],
+                OrdenesTrabajo::DESCRIPCION => $validated['descripcion'] ?? null,
+                OrdenesTrabajo::PESO_MINERAL => $validated['peso_mineral'],
+                OrdenesTrabajo::UNIDAD_PESO => $unit->nombre,
+                OrdenesTrabajo::UNIDAD_PESO_ID => $unit->id,
+            ];
+        }
+
+        $conflictingProcess = $order->procesos_ordenes()
+            ->whereNotNull('fecha_inicio')
+            ->whereDate('fecha_inicio', '<', $validated['fecha'])
+            ->orderBy('fecha_inicio')
+            ->first();
+        if ($conflictingProcess) {
+            $processDate = Carbon::parse($conflictingProcess->fecha_inicio)->format('d/m/Y');
+            return response()->json([
+                'message' => "La fecha de la orden no puede ser posterior al inicio del proceso {$conflictingProcess->codigo} ({$processDate}).",
+                'errors' => [
+                    'fecha' => ["La fecha de la orden no puede ser posterior al inicio del proceso {$conflictingProcess->codigo} ({$processDate})."],
+                ],
+            ], 422);
+        }
+
+        $order->update($values);
+        $order->load('cliente');
+
+        return response()->json(['data' => $this->orderSummary($order)]);
+    }
+
     public function orderProcessFormOptions(string $orderId): JsonResponse
     {
         $order = OrdenesTrabajo::query()->findOrFail($orderId);
