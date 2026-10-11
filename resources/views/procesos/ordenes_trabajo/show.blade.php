@@ -31,6 +31,20 @@
                             <a href="{{ route('procesos.ordenes_trabajo.pdf', $ordenTrabajo) }}" class="btn btn-outline-secondary">
                                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF para firma
                             </a>
+                            @can('ordenes_trabajo.edit')
+                                @if(!in_array((int) $ordenTrabajo->estado, [\App\Models\OrdenesTrabajo::ESTADO_FINALIZADA, \App\Models\OrdenesTrabajo::ESTADO_CANCELADA], true))
+                                    <form
+                                        action="{{ route('procesos.ordenes_trabajo.finalizar', $ordenTrabajo) }}"
+                                        method="POST"
+                                        onsubmit="return confirm('¿Dar por finalizada esta orden? Solo podrá hacerlo cuando todos sus procesos estén finalizados.');"
+                                    >
+                                        @csrf
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="bi bi-check2-circle me-1"></i> Finalizar orden
+                                        </button>
+                                    </form>
+                                @endif
+                            @endcan
                             <a href="{{ route('procesos.ordenes_trabajo.edit', $ordenTrabajo) }}" class="btn btn-primary">
                                 <i class="bi bi-pencil-square me-1"></i> Editar
                             </a>

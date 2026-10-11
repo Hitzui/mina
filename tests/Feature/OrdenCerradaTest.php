@@ -155,6 +155,63 @@ class OrdenCerradaTest extends TestCase
         $this->assertFalse($this->orden(OrdenesTrabajo::ESTADO_EN_PROCESO)->estaCerrada());
     }
 
+    public function test_no_finaliza_una_orden_sin_procesos(): void
+    {
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);
+
+        $this->post(route('procesos.ordenes_trabajo.finalizar', $orden))
+            ->assertRedirect(route('procesos.ordenes_trabajo.show', $orden));
+
+        $this->assertDatabaseHas('ordenes_trabajo', [
+            'id' => $orden->id,
+            'estado' => OrdenesTrabajo::ESTADO_PENDIENTE,
+        ]);
+    }
+
+    public function test_no_finaliza_una_orden_si_tiene_procesos_no_finalizados(): void
+    {
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_EN_PROCESO);
+        $finalizado = $this->proceso($orden);
+        $finalizado->update([
+            'fecha_inicio' => now()->subDays(2),
+            'fecha_fin' => now()->subDay(),
+        ]);
+        $pendiente = $this->proceso($orden);
+
+        $this->post(route('procesos.ordenes_trabajo.finalizar', $orden))
+            ->assertRedirect(route('procesos.ordenes_trabajo.show', $orden));
+
+        $this->assertDatabaseHas('ordenes_trabajo', [
+            'id' => $orden->id,
+            'estado' => OrdenesTrabajo::ESTADO_EN_PROCESO,
+        ]);
+        $this->assertSame(ProcesosOrden::ESTADO_PENDIENTE, $pendiente->fresh()->estadoCalculado());
+    }
+
+    public function test_finaliza_una_orden_cuando_todos_sus_procesos_terminaron(): void
+    {
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_EN_PROCESO);
+        $primero = $this->proceso($orden);
+        $primero->update([
+            'fecha_inicio' => now()->subDays(3),
+            'fecha_fin' => now()->subDays(2),
+        ]);
+        $segundo = $this->proceso($orden);
+        $segundo->update([
+            'fecha_inicio' => now()->subDay(),
+            'fecha_fin' => now()->subHours(2),
+        ]);
+
+        $this->post(route('procesos.ordenes_trabajo.finalizar', $orden))
+            ->assertRedirect(route('procesos.ordenes_trabajo.show', $orden));
+
+        $this->assertDatabaseHas('ordenes_trabajo', [
+            'id' => $orden->id,
+            'estado' => OrdenesTrabajo::ESTADO_FINALIZADA,
+        ]);
+        $this->assertTrue($orden->fresh()->estaCerrada());
+    }
+
     public function test_una_orden_pendiente_sigue_admitiendo_datos(): void
     {
         $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);

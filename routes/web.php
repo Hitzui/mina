@@ -184,6 +184,10 @@ Route::middleware('auth')->group(function () {
         OrdenTrabajoPdfController::class)
         ->middleware('permission:ordenes_trabajo.view')
         ->name('procesos.ordenes_trabajo.pdf');
+    Route::post('procesos/ordenes-trabajo/{ordenTrabajo}/finalizar',
+        [OrdenTrabajoController::class, 'finalizar'])
+        ->middleware('permission:ordenes_trabajo.edit')
+        ->name('procesos.ordenes_trabajo.finalizar');
     Route::resource('procesos/ordenes-trabajo', OrdenTrabajoController::class)
         /*
          * El resource genera el placeholder {ordenes_trabajo} a partir del
