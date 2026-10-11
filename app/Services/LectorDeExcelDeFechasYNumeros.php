@@ -10,6 +10,7 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\ReaderInterface;
 use PhpOffice\PhpSpreadsheet\RichText\RichText;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -391,7 +392,8 @@ abstract class LectorDeExcelDeFechasYNumeros
      */
     private function fechaDe(Cell $celda): ?string
     {
-        $valor = $this->textoDe($celda->getValue());
+        $valorCrudo = $celda->getValue();
+        $valor = $this->textoDe($valorCrudo);
 
         if ($valor === '') {
             return null;
@@ -405,9 +407,14 @@ abstract class LectorDeExcelDeFechasYNumeros
          */
         if ($celda->getDataType() === DataType::TYPE_NUMERIC) {
             try {
-                return Carbon::instance(
-                    DateTime::createFromFormat('Y-m-d', $celda->getFormattedValue('yyyy-mm-dd'))
-                )->toDateString();
+                $serial = (float) $valorCrudo;
+
+                if (! is_finite($serial) || $serial <= 0) {
+                    return null;
+                }
+
+                return Carbon::instance(ExcelDate::excelToDateTimeObject($serial))
+                    ->toDateString();
             } catch (\Throwable) {
                 return null;
             }

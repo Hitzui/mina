@@ -33,6 +33,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Spatie\Permission\PermissionRegistrar;
@@ -533,6 +534,25 @@ class TipoCambioTest extends TestCase
             . 'guardarlo, y un boton de cancelar que dejara el mes dentro seria '
             . 'peor que un boton que no hiciera nada'
         );
+    }
+
+    public function test_importar_lee_fechas_que_excel_guarda_como_numeros_seriales(): void
+    {
+        $dolar = $this->dolar();
+        $filas = [
+            ['Fecha', 'Valor'],
+            [ExcelDate::PHPToExcel(new \DateTimeImmutable('2090-06-01')), 36.5824],
+            [ExcelDate::PHPToExcel(new \DateTimeImmutable('2090-06-02')), 36.5924],
+        ];
+
+        $respuesta = $this->post('/configuracion/tipos-cambio/importar', [
+            'archivo' => $this->excel($filas),
+            'moneda_id' => $dolar->id,
+        ], self::CABECERAS)->assertOk();
+
+        $this->assertSame(2, $respuesta->json('total'));
+        $this->assertSame('2090-06-01', $respuesta->json('desde'));
+        $this->assertSame('2090-06-02', $respuesta->json('hasta'));
     }
 
     public function test_la_vista_previa_dice_cuantos_dias_cambian(): void
