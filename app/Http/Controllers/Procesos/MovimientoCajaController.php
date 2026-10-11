@@ -6,7 +6,6 @@ use App\DataTables\MovimientosCajaDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Http\Controllers\Controller;
 use App\Models\Cajas;
-use App\Models\DetalleCierreCaja;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
 use App\Models\MovimientoCaja;
@@ -26,6 +25,7 @@ class MovimientoCajaController extends Controller
 
     public function index(MovimientosCajaDataTable $dataTable)
     {
+        $datosFormulario = $this->datosFormulario();
         $saldos = MovimientoCaja::query()
             ->join('cajas', 'cajas.id', '=', 'movimientos_caja.caja_id')
             ->join('monedas', 'monedas.id', '=', 'movimientos_caja.moneda_id')
@@ -46,6 +46,7 @@ class MovimientoCajaController extends Controller
                 ['label' => 'Movimientos de caja'],
             ],
             'saldos' => $saldos,
+            ...$datosFormulario,
         ]);
     }
 
@@ -58,14 +59,18 @@ class MovimientoCajaController extends Controller
                 ['label' => 'Movimientos de caja', 'url' => route('procesos.movimientos_caja.index')],
                 ['label' => 'Nuevo movimiento'],
             ],
-            'cajas' => Cajas::query()->orderBy('nombre')->get(),
-            'metodos' => MetodosPagos::query()->where('estado', true)->orderBy('nombre')->get(),
-            'monedas' => Moneda::query()->where('estado', true)->orderBy('codigo')->get(),
+            ...$this->datosFormulario(),
         ]);
     }
 
     public function store(Request $request, MovimientoCajaService $movimientos)
     {
+        $cajaAsignadaId = auth()->user()?->caja_id;
+        $request->merge([
+            'caja_id' => $cajaAsignadaId,
+            'caja_origen_id' => $cajaAsignadaId,
+        ]);
+
         $datos = $request->validate([
             'accion' => ['required', 'in:entrada,salida,saldo_inicial,transferencia'],
             'fecha' => ['required', 'date'],
@@ -78,20 +83,8 @@ class MovimientoCajaController extends Controller
             'descripcion' => ['required_unless:accion,transferencia', 'nullable', 'string', 'max:255'],
         ]);
 
-        $cajaSeleccionada = session('caja_seleccionada_id');
-        if ($cajaSeleccionada) {
-            $cajaEnUso = $datos['accion'] === 'transferencia'
-                ? ($datos['caja_origen_id'] ?? null)
-                : ($datos['caja_id'] ?? null);
-
-            if ((int) $cajaEnUso !== (int) $cajaSeleccionada) {
-                $campo = $datos['accion'] === 'transferencia' ? 'caja_origen_id' : 'caja_id';
-
-                throw ValidationException::withMessages([
-                    $campo => 'Use la caja seleccionada al iniciar sesión para registrar este movimiento.',
-                ]);
-            }
-        }
+        $datos['caja_id'] = $cajaAsignadaId;
+        $datos['caja_origen_id'] = $cajaAsignadaId;
 
         DB::transaction(function () use ($datos, $movimientos) {
             $metodoActivo = MetodosPagos::query()->whereKey($datos['metodo_pago_id'])
@@ -116,6 +109,8 @@ class MovimientoCajaController extends Controller
                     throw ValidationException::withMessages(['caja_origen_id' => 'Las dos cajas deben estar activas.']);
                 }
 
+                $this->validarSaldoDisponible($datos, $origen->nombre);
+
                 $movimientos->transferencia([
                     ...$datos,
                     'caja_origen_nombre' => $origen->nombre,
@@ -128,6 +123,10 @@ class MovimientoCajaController extends Controller
             $caja = Cajas::query()->whereKey($datos['caja_id'])->lockForUpdate()->firstOrFail();
             if (! $caja->estado) {
                 throw ValidationException::withMessages(['caja_id' => 'Seleccione una caja activa.']);
+            }
+
+            if ($datos['accion'] === 'salida') {
+                $this->validarSaldoDisponible($datos, $caja->nombre);
             }
 
             if ($datos['accion'] === 'saldo_inicial') {
@@ -160,5 +159,72 @@ class MovimientoCajaController extends Controller
 
         return redirect()->route('procesos.movimientos_caja.index')
             ->with('success', 'Movimiento registrado correctamente.');
+    }
+
+    /**
+     * Los egresos consumen el saldo de la combinación exacta caja/método/moneda.
+     * Se llama con la caja bloqueada dentro de la transacción para impedir que
+     * dos retiros simultáneos gasten el mismo saldo disponible.
+     */
+    private function validarSaldoDisponible(array $datos, string $nombreCaja): void
+    {
+        $saldo = (float) MovimientoCaja::query()
+            ->where('caja_id', $datos['caja_origen_id'] ?? $datos['caja_id'])
+            ->where('metodo_pago_id', $datos['metodo_pago_id'])
+            ->where('moneda_id', $datos['moneda_id'])
+            ->selectRaw(
+                'COALESCE(SUM(CASE WHEN tipo = ? THEN monto ELSE -monto END), 0) AS saldo',
+                [MovimientoCaja::ENTRADA]
+            )
+            ->value('saldo');
+        $monto = round((float) $datos['monto'], 2);
+
+        if ($monto > round($saldo, 2)) {
+            $metodo = MetodosPagos::find($datos['metodo_pago_id'])?->nombre ?? 'método seleccionado';
+            $moneda = Moneda::find($datos['moneda_id'])?->codigo ?? 'moneda seleccionada';
+
+            throw ValidationException::withMessages([
+                'monto' => sprintf(
+                    'El egreso supera el saldo disponible de %s %s en %s para %s (%s).',
+                    $moneda,
+                    number_format(max(0, $saldo), 2, '.', ','),
+                    $nombreCaja,
+                    $metodo,
+                    $moneda
+                ),
+            ]);
+        }
+    }
+
+    /** Opciones y saldo por método/moneda para el modal de la caja asignada. */
+    private function datosFormulario(): array
+    {
+        $cajaId = (int) (auth()->user()?->caja_id ?? 0);
+        $caja = Cajas::query()->find($cajaId);
+
+        $saldosDisponibles = MovimientoCaja::query()
+            ->where('caja_id', $cajaId)
+            ->select('metodo_pago_id', 'moneda_id')
+            ->selectRaw(
+                'ROUND(SUM(CASE WHEN tipo = ? THEN monto ELSE -monto END), 2) AS saldo',
+                [MovimientoCaja::ENTRADA]
+            )
+            ->groupBy('metodo_pago_id', 'moneda_id')
+            ->get()
+            ->mapWithKeys(fn ($fila) => [
+                $fila->metodo_pago_id.':'.$fila->moneda_id => (float) $fila->saldo,
+            ]);
+
+        return [
+            'caja' => $caja,
+            'cajasDestino' => Cajas::query()
+                ->where('estado', true)
+                ->where('id', '<>', $cajaId)
+                ->orderBy('nombre')
+                ->get(),
+            'metodos' => MetodosPagos::query()->where('estado', true)->orderBy('nombre')->get(),
+            'monedas' => Moneda::query()->where('estado', true)->orderBy('codigo')->get(),
+            'saldosDisponibles' => $saldosDisponibles,
+        ];
     }
 }

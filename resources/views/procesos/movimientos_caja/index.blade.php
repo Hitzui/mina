@@ -63,9 +63,9 @@
                         <p class="text-muted mb-0">Ingresos, egresos y transferencias; los cobros finalizados se registran automáticamente.</p>
                     </div>
                     @can('movimientos_caja.create')
-                        <a href="{{ route('procesos.movimientos_caja.create') }}" class="btn btn-primary">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimientoCaja">
                             <i class="bi bi-plus me-1"></i>Registrar movimiento
-                        </a>
+                        </button>
                     @endcan
                 </div>
 
@@ -137,6 +137,10 @@
             </div>
         </div>
     </div>
+
+    @can('movimientos_caja.create')
+        @include('procesos.movimientos_caja._modal_form')
+    @endcan
 
     <x-slot:footerFiles>{!! $dataTable->scripts() !!}</x-slot>
 </x-base-layout>

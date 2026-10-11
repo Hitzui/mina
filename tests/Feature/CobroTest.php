@@ -2030,7 +2030,8 @@ class CobroTest extends TestCase
             ->assertOk()
             ->assertSee('Resumen de saldos por caja y moneda')
             ->assertSee($cajaOrigen->nombre)
-            ->assertDontSee($cajaDestino->nombre)
+            ->assertDontSee('name="caja_id"', false)
+            ->assertDontSee('name="caja_origen_id"', false)
             ->assertSee('Saldo inicial')
             ->assertSee('Entradas')
             ->assertSee('Salidas')
@@ -2045,12 +2046,14 @@ class CobroTest extends TestCase
     public function test_el_cierre_calcula_el_neto_de_entradas_y_salidas_por_metodo_y_moneda()
     {
         $caja = Caja::create(['nombre' => 'Caja cierre neto ' . uniqid(), 'estado' => true]);
+        $usuario = $this->usuario();
+        $usuario->forceFill(['caja_id' => $caja->id])->save();
         $cliente = $this->cliente();
         $moneda = $this->monedaActiva();
         $ingreso = $this->ingreso($this->orden($cliente), 500, $moneda);
         [$cobro] = $this->cobroConUnaLinea($cliente, $ingreso, $moneda, Cobro::ESTADO_FINALIZADA, $caja->id);
 
-        $this->actingAs($this->usuario())
+        $this->actingAs($usuario)
             ->post(route('procesos.movimientos_caja.store'), [
                 'accion' => 'salida',
                 'fecha' => today()->format('Y-m-d'),
