@@ -457,11 +457,6 @@ class MobileDataController extends Controller
     {
         $order = OrdenesTrabajo::query()->with('cliente')->findOrFail($orderId);
         $hasProcesses = $order->procesos_ordenes()->exists();
-        $earliestProcessStart = $order->procesos_ordenes()
-            ->whereNotNull('fecha_inicio')
-            ->orderBy('fecha_inicio')
-            ->value('fecha_inicio');
-
         return response()->json(['data' => [
             'order' => [
                 'id' => $order->id,
@@ -477,9 +472,6 @@ class MobileDataController extends Controller
                 'status_code' => $order->estado,
             ],
             'has_processes' => $hasProcesses,
-            'earliest_process_start' => $earliestProcessStart
-                ? Carbon::parse($earliestProcessStart)->toDateString()
-                : null,
             'clients' => Cliente::query()
                 ->where(fn ($query) => $query->where('estado', true)->orWhere('id', $order->cliente_id))
                 ->orderBy('nombre')
@@ -503,11 +495,11 @@ class MobileDataController extends Controller
 
         if ($hasProcesses) {
             $validated = $request->validate([
-                'fecha' => ['required', 'date'],
+                'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
                 'descripcion' => ['nullable', 'string', 'max:1000'],
             ]);
             $values = [
-                OrdenesTrabajo::FECHA => $validated['fecha'],
+                OrdenesTrabajo::CLIENTE_ID => $validated['cliente_id'],
                 OrdenesTrabajo::DESCRIPCION => $validated['descripcion'] ?? null,
             ];
         } else {
@@ -527,21 +519,6 @@ class MobileDataController extends Controller
                 OrdenesTrabajo::UNIDAD_PESO => $unit->nombre,
                 OrdenesTrabajo::UNIDAD_PESO_ID => $unit->id,
             ];
-        }
-
-        $conflictingProcess = $order->procesos_ordenes()
-            ->whereNotNull('fecha_inicio')
-            ->whereDate('fecha_inicio', '<', $validated['fecha'])
-            ->orderBy('fecha_inicio')
-            ->first();
-        if ($conflictingProcess) {
-            $processDate = Carbon::parse($conflictingProcess->fecha_inicio)->format('d/m/Y');
-            return response()->json([
-                'message' => "La fecha de la orden no puede ser posterior al inicio del proceso {$conflictingProcess->codigo} ({$processDate}).",
-                'errors' => [
-                    'fecha' => ["La fecha de la orden no puede ser posterior al inicio del proceso {$conflictingProcess->codigo} ({$processDate})."],
-                ],
-            ], 422);
         }
 
         $order->update($values);

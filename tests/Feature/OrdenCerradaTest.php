@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CategoriasCosto;
+use App\Models\Cliente;
 use App\Models\Empleado;
 use App\Models\Equipo;
 use App\Models\Etapa;
@@ -288,29 +289,24 @@ class OrdenCerradaTest extends TestCase
 
         $this->getJson('/api/v1/orders/'.$orden->id.'/edit-form-options')
             ->assertOk()
-            ->assertJsonPath('data.has_processes', true)
-            ->assertJsonPath('data.earliest_process_start', '2026-10-12');
+            ->assertJsonPath('data.has_processes', true);
 
+        $nuevoClienteId = Cliente::query()->where('id', '!=', $orden->cliente_id)->value('id');
+        $this->assertNotNull($nuevoClienteId, 'Se requiere un cliente distinto para verificar que se puede cambiar.');
         $this->putJson('/api/v1/orders/'.$orden->id, [
-            'cliente_id' => $orden->cliente_id,
+            'cliente_id' => $nuevoClienteId,
             'fecha' => '2026-10-13',
-            'descripcion' => 'Fecha fuera de secuencia',
+            'descripcion' => 'Cliente actualizado con proceso asociado',
             'peso_mineral' => 999,
             'unidad_peso_id' => $unidadId,
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors('fecha');
+        ])->assertOk()
+            ->assertJsonPath('data.date', '2026-10-05')
+            ->assertJsonPath('data.client.id', $nuevoClienteId);
 
-        $this->putJson('/api/v1/orders/'.$orden->id, [
-            'cliente_id' => $clienteId,
-            'fecha' => '2026-10-12',
-            'descripcion' => 'Fecha consistente con el proceso',
-            'peso_mineral' => 999,
-            'unidad_peso_id' => $unidadId,
-        ])->assertOk();
-
-        $this->assertSame('2026-10-12', $orden->fresh()->fecha->toDateString());
+        $this->assertSame('2026-10-05', $orden->fresh()->fecha->toDateString());
         $this->assertSame(18.75, (float) $orden->fresh()->peso_mineral);
-        $this->assertSame('Fecha consistente con el proceso', $orden->fresh()->descripcion);
+        $this->assertSame('Cliente actualizado con proceso asociado', $orden->fresh()->descripcion);
+        $this->assertSame((int) $nuevoClienteId, (int) $orden->fresh()->cliente_id);
     }
 
     public function test_api_movil_agrega_proceso_a_una_orden_abierta(): void
