@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\AcuerdosOrden;
 use App\Models\Cajas;
 use App\Models\Cliente;
+use App\Models\Liquidacione;
+use App\Models\Moneda;
 use App\Models\OrdenesTrabajo;
+use App\Models\TiposParticipacion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -174,6 +178,77 @@ class ApiMobileReadTest extends TestCase
             ->assertJsonPath('data.code', $order->codigo)
             ->assertJsonMissingPath('data.costs')
             ->assertJsonMissingPath('data.incomes')
+            ->assertJsonMissingPath('data.agreements')
+            ->assertJsonMissingPath('data.liquidations')
             ->assertJsonMissingPath('data.processes');
+    }
+
+    public function test_detalle_de_orden_incluye_acuerdos_y_liquidaciones_con_permisos(): void
+    {
+        $permissions = ['ordenes_trabajo.view', 'acuerdos_orden.view', 'liquidaciones.view'];
+        foreach ($permissions as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+
+        $client = Cliente::create([
+            'nombre' => 'Cliente acuerdos '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+        $order = OrdenesTrabajo::create([
+            'codigo' => 'API-'.Str::upper(Str::random(8)),
+            'cliente_id' => $client->id,
+            'fecha' => today(),
+            'descripcion' => 'Orden API con acuerdos',
+            'peso_mineral' => 12.5,
+            'unidad_peso' => 'kg',
+            'estado' => OrdenesTrabajo::ESTADO_PENDIENTE,
+        ]);
+        $currency = Moneda::create([
+            'codigo' => Str::upper(Str::random(3)),
+            'nombre' => 'Moneda de prueba',
+            'estado' => true,
+        ]);
+        $participationType = TiposParticipacion::create([
+            'nombre' => 'Participación API '.Str::upper(Str::random(5)),
+            'estado' => true,
+        ]);
+        AcuerdosOrden::create([
+            'orden_trabajo_id' => $order->id,
+            'tipo_participacion_id' => $participationType->id,
+            'porcentaje_cliente' => 60,
+            'porcentaje_empresa' => 40,
+            'moneda_id' => $currency->id,
+            'estado' => true,
+        ]);
+        Liquidacione::create([
+            'orden_trabajo_id' => $order->id,
+            'fecha' => today(),
+            'gramos_recuperados' => 10,
+            'gramos_cliente' => 6,
+            'gramos_empresa' => 4,
+            'porcentaje_cliente' => 60,
+            'porcentaje_empresa' => 40,
+            'observaciones' => 'Lote de prueba API',
+        ]);
+
+        $cashRegister = Cajas::create([
+            'nombre' => 'Caja detalle acuerdos '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+        $user = User::create([
+            'name' => 'Usuario detalle acuerdos',
+            'email' => 'mobile-agreements-'.Str::lower(Str::random(8)).'@test.local',
+            'password' => Hash::make('password'),
+            'caja_id' => $cashRegister->id,
+        ]);
+        $user->syncPermissions($permissions);
+        $token = $user->createToken('KMP order agreements read')->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/v1/orders/'.$order->id)
+            ->assertOk()
+            ->assertJsonPath('data.agreements.0.participation_type', $participationType->nombre)
+            ->assertJsonPath('data.agreements.0.modality', 'porcentaje')
+            ->assertJsonPath('data.liquidations.0.recovered_grams', 10)
+            ->assertJsonPath('data.liquidations.0.observations', 'Lote de prueba API');
     }
 }

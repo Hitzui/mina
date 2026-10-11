@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcuerdosOrden;
 use App\Models\Cliente;
 use App\Models\Cobro;
 use App\Models\Cotizacion;
+use App\Models\Liquidacione;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
 use App\Models\MovimientoCaja;
@@ -183,6 +185,41 @@ class MobileDataController extends Controller
                     'currency' => $income->moneda?->codigo,
                     'total' => $income->total,
                     'total_nio' => $income->total_nio,
+                ])->values();
+        }
+
+        if ($request->user()->can('acuerdos_orden.view')) {
+            $details['agreements'] = $order->acuerdos_ordens_where_orden_trabajo()
+                ->with(['tipo_participacion', 'moneda'])
+                ->orderByDesc(AcuerdosOrden::CREATED_AT)
+                ->get()
+                ->map(fn ($agreement) => [
+                    'id' => $agreement->id,
+                    'participation_type' => $agreement->tipo_participacion?->nombre,
+                    'modality' => $agreement->modalidad(),
+                    'client_percentage' => $agreement->porcentaje_cliente,
+                    'company_percentage' => $agreement->porcentaje_empresa,
+                    'service_fee' => $agreement->tarifa_servicio,
+                    'currency' => $agreement->moneda?->codigo,
+                    'observations' => $agreement->observaciones,
+                    'active' => (bool) $agreement->estado,
+                ])->values();
+        }
+
+        if ($request->user()->can('liquidaciones.view')) {
+            $details['liquidations'] = $order->liquidaciones_where_orden_trabajo()
+                ->orderByDesc(Liquidacione::FECHA)
+                ->orderByDesc(Liquidacione::ID)
+                ->get()
+                ->map(fn ($liquidation) => [
+                    'id' => $liquidation->id,
+                    'date' => $liquidation->fecha?->toDateString(),
+                    'recovered_grams' => $liquidation->gramos_recuperados,
+                    'client_grams' => $liquidation->gramos_cliente,
+                    'company_grams' => $liquidation->gramos_empresa,
+                    'client_percentage' => $liquidation->porcentaje_cliente,
+                    'company_percentage' => $liquidation->porcentaje_empresa,
+                    'observations' => $liquidation->observaciones,
                 ])->values();
         }
 
