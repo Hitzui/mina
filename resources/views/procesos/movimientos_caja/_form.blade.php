@@ -23,6 +23,7 @@
                     <option value="salida" @selected(old('accion') === 'salida')>Egreso</option>
                     <option value="saldo_inicial" @selected(old('accion') === 'saldo_inicial')>Apertura de caja (saldo inicial)</option>
                     <option value="transferencia" @selected(old('accion') === 'transferencia')>Transferencia a otra caja</option>
+                    <option value="traslado_metodo" @selected(old('accion') === 'traslado_metodo')>Traslado entre métodos (depósito o retiro bancario)</option>
                 </select>
             </div>
             <div class="col-md-6">
@@ -41,8 +42,20 @@
                 @error('caja_destino_id')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
             </div>
 
+            <div class="col-12 campo-traslado-metodo d-none">
+                <label for="metodo_destino_id" class="form-label">Método de pago de destino <span class="text-danger">*</span></label>
+                <select id="metodo_destino_id" name="metodo_destino_id" class="form-select" disabled>
+                    <option value="">Seleccione método de destino</option>
+                    @foreach ($metodos as $metodoDestino)
+                        <option value="{{ $metodoDestino->id }}" @selected(old('metodo_destino_id') == $metodoDestino->id)>{{ $metodoDestino->nombre }}</option>
+                    @endforeach
+                </select>
+                @error('metodo_destino_id')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                <div class="form-text">Mueve el saldo dentro de la misma caja; por ejemplo, de Efectivo a Transferencia LaFise al depositarlo.</div>
+            </div>
+
             <div class="col-md-6">
-                <label for="metodo_pago_id" class="form-label">Método de pago <span class="text-danger">*</span></label>
+                <label for="metodo_pago_id" class="form-label"><span id="etiquetaMetodoOrigen">Método de pago</span> <span class="text-danger">*</span></label>
                 <select id="metodo_pago_id" name="metodo_pago_id" class="form-select" required>
                     <option value="">Seleccione método</option>
                     @foreach ($metodos as $metodo)
@@ -87,7 +100,9 @@
         if (!formulario) return;
 
         const accion = formulario.querySelector('#accion');
+        const etiquetaMetodoOrigen = formulario.querySelector('#etiquetaMetodoOrigen');
         const destino = formulario.querySelector('#caja_destino_id');
+        const metodoDestino = formulario.querySelector('#metodo_destino_id');
         const descripcion = formulario.querySelector('#descripcion');
         const campoDescripcion = formulario.querySelector('.campo-descripcion');
         const metodo = formulario.querySelector('#metodo_pago_id');
@@ -99,20 +114,27 @@
 
         function actualizarFormulario() {
             const transferencia = accion.value === 'transferencia';
+            const trasladoMetodo = accion.value === 'traslado_metodo';
+            etiquetaMetodoOrigen.textContent = trasladoMetodo ? 'Método de pago de origen' : 'Método de pago';
             formulario.querySelectorAll('.campo-transferencia').forEach(campo => {
                 campo.classList.toggle('d-none', !transferencia);
             });
+            formulario.querySelectorAll('.campo-traslado-metodo').forEach(campo => {
+                campo.classList.toggle('d-none', !trasladoMetodo);
+            });
             destino.disabled = !transferencia;
             destino.required = transferencia;
-            campoDescripcion.classList.toggle('d-none', transferencia);
-            descripcion.disabled = transferencia;
-            descripcion.required = !transferencia;
+            metodoDestino.disabled = !trasladoMetodo;
+            metodoDestino.required = trasladoMetodo;
+            campoDescripcion.classList.toggle('d-none', transferencia || trasladoMetodo);
+            descripcion.disabled = transferencia || trasladoMetodo;
+            descripcion.required = !transferencia && !trasladoMetodo;
 
             if (accion.value === 'saldo_inicial' && !descripcion.value) {
                 descripcion.value = 'Saldo inicial';
             }
 
-            const egreso = accion.value === 'salida' || transferencia;
+            const egreso = accion.value === 'salida' || transferencia || trasladoMetodo;
             if (egreso && metodo.value && moneda.value) {
                 const clave = metodo.value + ':' + moneda.value;
                 const saldo = Number(saldos[clave] ?? 0);
@@ -126,7 +148,7 @@
                 if (saldo <= 0) {
                     saldoDisponible.textContent = 'No hay saldo disponible en la caja para este método de pago y moneda (' + saldoTexto + '). Registre un ingreso primero.';
                 } else if (monto.value && importe > saldo) {
-                    saldoDisponible.textContent = 'El egreso supera el saldo disponible de ' + saldoTexto + '.';
+                    saldoDisponible.textContent = 'El importe supera el saldo disponible de ' + saldoTexto + '.';
                 } else {
                     saldoDisponible.textContent = 'Saldo disponible en la caja asignada: ' + saldoTexto;
                 }

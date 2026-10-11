@@ -58,6 +58,8 @@ class MovimientoCajaModalTest extends TestCase
             ->assertOk()
             ->assertSee('modalMovimientoCaja')
             ->assertSee('Registrar movimiento')
+            ->assertSee('Traslado entre métodos')
+            ->assertSee('Método de pago de destino')
             ->assertSee('Caja asignada a su usuario')
             ->assertSee($this->caja->nombre)
             ->assertDontSee('name="caja_id"', false)
@@ -131,6 +133,57 @@ class MovimientoCajaModalTest extends TestCase
         ]);
     }
 
+    public function test_trasladar_dinero_entre_metodos_mueve_saldo_sin_cambiar_el_total_de_la_caja(): void
+    {
+        $this->registrarSaldoInicial(100);
+        $metodoBancario = MetodosPagos::create([
+            'nombre' => 'Banco '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+
+        $this->post(route('procesos.movimientos_caja.store'), $this->datosMovimiento([
+            'accion' => 'traslado_metodo',
+            'metodo_destino_id' => $metodoBancario->id,
+            'monto' => '40.00',
+        ]))->assertRedirect(route('procesos.movimientos_caja.index'));
+
+        $traslados = MovimientoCaja::query()
+            ->where('origen', MovimientoCaja::ORIGEN_TRANSFERENCIA)
+            ->where('caja_id', $this->caja->id)
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $traslados);
+        $salida = $traslados->firstWhere('tipo', MovimientoCaja::SALIDA);
+        $entrada = $traslados->firstWhere('tipo', MovimientoCaja::ENTRADA);
+        $this->assertSame((int) $this->metodo->id, (int) $salida->metodo_pago_id);
+        $this->assertSame((int) $metodoBancario->id, (int) $entrada->metodo_pago_id);
+        $this->assertSame((int) $entrada->id, (int) $salida->transferencia_id);
+        $this->assertSame((int) $salida->id, (int) $entrada->transferencia_id);
+        $this->assertSame('60.00', $this->saldoDe($this->metodo->id));
+        $this->assertSame('40.00', $this->saldoDe($metodoBancario->id));
+    }
+
+    public function test_traslado_entre_metodos_no_puede_superar_el_saldo_del_metodo_de_origen(): void
+    {
+        $this->registrarSaldoInicial(100);
+        $metodoBancario = MetodosPagos::create([
+            'nombre' => 'Banco '.Str::upper(Str::random(6)),
+            'estado' => true,
+        ]);
+
+        $this->from(route('procesos.movimientos_caja.index'))
+            ->post(route('procesos.movimientos_caja.store'), $this->datosMovimiento([
+                'accion' => 'traslado_metodo',
+                'metodo_destino_id' => $metodoBancario->id,
+                'monto' => '100.01',
+            ]))
+            ->assertRedirect(route('procesos.movimientos_caja.index'))
+            ->assertSessionHasErrors('monto');
+
+        $this->assertSame(1, MovimientoCaja::query()->where('caja_id', $this->caja->id)->count());
+    }
+
     private function crearCaja(string $sufijo): Cajas
     {
         return Cajas::create([
@@ -159,5 +212,18 @@ class MovimientoCajaModalTest extends TestCase
             'monto' => '25.00',
             'descripcion' => 'Movimiento de prueba',
         ], $extra);
+    }
+
+    private function saldoDe(int $metodoId): string
+    {
+        return (string) MovimientoCaja::query()
+            ->where('caja_id', $this->caja->id)
+            ->where('metodo_pago_id', $metodoId)
+            ->where('moneda_id', $this->moneda->id)
+            ->selectRaw(
+                'COALESCE(ROUND(SUM(CASE WHEN tipo = ? THEN monto ELSE -monto END), 2), 0) AS saldo',
+                [MovimientoCaja::ENTRADA]
+            )
+            ->value('saldo');
     }
 }

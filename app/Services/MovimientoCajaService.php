@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Cobro;
 use App\Models\Cajas;
+use App\Models\Cobro;
+use App\Models\MetodosPagos;
 use App\Models\MovimientoCaja;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +45,7 @@ class MovimientoCajaService
             ->get();
 
         foreach ($anteriores as $anterior) {
-            $this->revertir($anterior, 'Ajuste del cobro ' . $cobro->codigo);
+            $this->revertir($anterior, 'Ajuste del cobro '.$cobro->codigo);
         }
 
         if (! $cobro->exists || ! $cobro->esFinalizado() || $cobro->trashed()) {
@@ -65,7 +66,7 @@ class MovimientoCajaService
             'metodo_pago_id' => $cobro->metodo_pago_id,
             'moneda_id' => $cobro->moneda_id,
             'monto' => $monto,
-            'descripcion' => 'Cobro ' . $cobro->codigo,
+            'descripcion' => 'Cobro '.$cobro->codigo,
             'referencia' => $cobro->codigo,
             'cobro_id' => $cobro->id,
             'registrado_por' => Auth::id(),
@@ -97,7 +98,7 @@ class MovimientoCajaService
     public function codigo(): string
     {
         do {
-            $codigo = 'MOV-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(5));
+            $codigo = 'MOV-'.now()->format('ymdHis').'-'.Str::upper(Str::random(5));
         } while (MovimientoCaja::where('codigo', $codigo)->exists());
 
         return $codigo;
@@ -132,7 +133,7 @@ class MovimientoCajaService
                 'codigo' => $this->codigo(),
                 'caja_id' => $datos['caja_origen_id'],
                 'tipo' => MovimientoCaja::SALIDA,
-                'descripcion' => 'Transferencia a caja ' . $datos['caja_destino_nombre'],
+                'descripcion' => 'Transferencia a caja '.$datos['caja_destino_nombre'],
             ]);
 
             $entrada = MovimientoCaja::create([
@@ -140,7 +141,52 @@ class MovimientoCajaService
                 'codigo' => $this->codigo(),
                 'caja_id' => $datos['caja_destino_id'],
                 'tipo' => MovimientoCaja::ENTRADA,
-                'descripcion' => 'Transferencia desde caja ' . $datos['caja_origen_nombre'],
+                'descripcion' => 'Transferencia desde caja '.$datos['caja_origen_nombre'],
+                'transferencia_id' => $salida->id,
+            ]);
+
+            $salida->update(['transferencia_id' => $entrada->id]);
+
+            return [$salida, $entrada];
+        });
+    }
+
+    /**
+     * Registra un depósito o retiro bancario como traslado entre métodos de
+     * pago dentro de la misma caja, conservando el saldo total de la caja.
+     *
+     * @return array{0: MovimientoCaja, 1: MovimientoCaja}
+     */
+    public function trasladoEntreMetodos(array $datos): array
+    {
+        return DB::transaction(function () use ($datos) {
+            $grupo = $this->codigo();
+            $metodoOrigen = MetodosPagos::find($datos['metodo_pago_id'])?->nombre ?? 'origen';
+            $metodoDestino = MetodosPagos::find($datos['metodo_destino_id'])?->nombre ?? 'destino';
+            $base = [
+                'caja_id' => $datos['caja_id'],
+                'fecha' => $datos['fecha'],
+                'origen' => MovimientoCaja::ORIGEN_TRANSFERENCIA,
+                'moneda_id' => $datos['moneda_id'],
+                'monto' => round((float) $datos['monto'], 2),
+                'referencia' => $grupo,
+                'registrado_por' => Auth::id(),
+            ];
+
+            $salida = MovimientoCaja::create([
+                ...$base,
+                'codigo' => $this->codigo(),
+                'tipo' => MovimientoCaja::SALIDA,
+                'metodo_pago_id' => $datos['metodo_pago_id'],
+                'descripcion' => 'Traslado desde '.$metodoOrigen.' hacia '.$metodoDestino,
+            ]);
+
+            $entrada = MovimientoCaja::create([
+                ...$base,
+                'codigo' => $this->codigo(),
+                'tipo' => MovimientoCaja::ENTRADA,
+                'metodo_pago_id' => $datos['metodo_destino_id'],
+                'descripcion' => 'Traslado recibido desde '.$metodoOrigen,
                 'transferencia_id' => $salida->id,
             ]);
 

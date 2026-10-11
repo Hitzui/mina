@@ -72,15 +72,16 @@ class MovimientoCajaController extends Controller
         ]);
 
         $datos = $request->validate([
-            'accion' => ['required', 'in:entrada,salida,saldo_inicial,transferencia'],
+            'accion' => ['required', 'in:entrada,salida,saldo_inicial,transferencia,traslado_metodo'],
             'fecha' => ['required', 'date'],
             'caja_id' => ['required_unless:accion,transferencia', 'nullable', 'integer', 'exists:cajas,id'],
             'caja_origen_id' => ['required_if:accion,transferencia', 'nullable', 'integer', 'exists:cajas,id'],
             'caja_destino_id' => ['required_if:accion,transferencia', 'nullable', 'different:caja_origen_id', 'integer', 'exists:cajas,id'],
             'metodo_pago_id' => ['required', 'integer', 'exists:metodos_pago,id'],
+            'metodo_destino_id' => ['required_if:accion,traslado_metodo', 'nullable', 'different:metodo_pago_id', 'integer', 'exists:metodos_pago,id'],
             'moneda_id' => ['required', 'integer', 'exists:monedas,id'],
             'monto' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
-            'descripcion' => ['required_unless:accion,transferencia', 'nullable', 'string', 'max:255'],
+            'descripcion' => ['required_unless:accion,transferencia,traslado_metodo', 'nullable', 'string', 'max:255'],
         ]);
 
         $datos['caja_id'] = $cajaAsignadaId;
@@ -96,6 +97,19 @@ class MovimientoCajaController extends Controller
                 throw ValidationException::withMessages([
                     'metodo_pago_id' => 'Seleccione un método de pago y una moneda activos.',
                 ]);
+            }
+
+            if ($datos['accion'] === 'traslado_metodo') {
+                $metodoDestinoActivo = MetodosPagos::query()
+                    ->whereKey($datos['metodo_destino_id'])
+                    ->where('estado', true)
+                    ->exists();
+
+                if (! $metodoDestinoActivo) {
+                    throw ValidationException::withMessages([
+                        'metodo_destino_id' => 'Seleccione un método de pago de destino activo.',
+                    ]);
+                }
             }
 
             if ($datos['accion'] === 'transferencia') {
@@ -125,8 +139,18 @@ class MovimientoCajaController extends Controller
                 throw ValidationException::withMessages(['caja_id' => 'Seleccione una caja activa.']);
             }
 
-            if ($datos['accion'] === 'salida') {
+            if (in_array($datos['accion'], ['salida', 'traslado_metodo'], true)) {
                 $this->validarSaldoDisponible($datos, $caja->nombre);
+            }
+
+            if ($datos['accion'] === 'traslado_metodo') {
+                $movimientos->trasladoEntreMetodos([
+                    ...$datos,
+                    'caja_id' => $caja->id,
+                    'caja_nombre' => $caja->nombre,
+                ]);
+
+                return;
             }
 
             if ($datos['accion'] === 'saldo_inicial') {
@@ -185,7 +209,7 @@ class MovimientoCajaController extends Controller
 
             throw ValidationException::withMessages([
                 'monto' => sprintf(
-                    'El egreso supera el saldo disponible de %s %s en %s para %s (%s).',
+                    'El movimiento supera el saldo disponible de %s %s en %s para %s (%s).',
                     $moneda,
                     number_format(max(0, $saldo), 2, '.', ','),
                     $nombreCaja,
