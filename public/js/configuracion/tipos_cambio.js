@@ -388,21 +388,63 @@
             enviarFormulario(true, function (respuesta) {
                 $boton.prop('disabled', false);
 
-                Swal.fire({
-                    title: 'Mes importado',
-                    html: 'Se han guardado <strong>' + respuesta.guardados + '</strong> día(s).'
-                        + '<br>'
-                        + respuesta.nuevos + ' nuevos y ' + respuesta.cambiados + ' corregidos.'
-                        + (respuesta.recuperados > 0
-                            ? '<br>' + respuesta.recuperados + ' recuperados de días que estaban borrados.'
-                            : ''),
-                    icon: 'success',
-                    confirmButtonText: 'Entendido',
-                }).then(function () {
-                    modalImportar?.hide();
+                const mostrarResultado = function () {
+                    let paginaRecargada = false;
+                    const recargarPagina = function () {
+                        if (paginaRecargada) {
+                            return;
+                        }
 
-                    recargarTabla();
-                });
+                        paginaRecargada = true;
+                        window.location.reload();
+                    };
+
+                    const mensaje = {
+                        title: 'Mes importado',
+                        html: 'Se han guardado <strong>' + respuesta.guardados + '</strong> día(s).'
+                            + '<br>'
+                            + respuesta.nuevos + ' nuevos y ' + respuesta.cambiados + ' corregidos.'
+                            + (respuesta.recuperados > 0
+                                ? '<br>' + respuesta.recuperados + ' recuperados de días que estaban borrados.'
+                                : ''),
+                        icon: 'success',
+                        confirmButtonText: 'Entendido',
+                        timer: 7000,
+                        timerProgressBar: true,
+                        didClose: recargarPagina,
+                    };
+
+                    /*
+                     * La aplicacion carga SweetAlert bajo demanda. Llamar a
+                     * Swal.fire() directamente aqui falla en la primera
+                     * importacion si todavia no hubo otra accion que lo
+                     * cargara: el servidor ya guardo el archivo y el modal se
+                     * queda abierto sin avisar. Este evento pide al cargador
+                     * comun que cargue SweetAlert y muestre el resultado.
+                     */
+                    window.dispatchEvent(new CustomEvent('sweetalert', {
+                        detail: { config: mensaje },
+                    }));
+
+                    // Si la libreria externa no responde, al menos refresca
+                    // para que los dias guardados aparezcan en la tabla.
+                    window.setTimeout(recargarPagina, 8000);
+                };
+
+                /*
+                 * SweetAlert se muestra despues de cerrar el modal Bootstrap.
+                 * Si se abre mientras el modal sigue visible, su backdrop y
+                 * bloqueo de foco pueden dejar el aviso de exito detras, y
+                 * el usuario no llega a ver que la importacion termino. La
+                 * pagina se refresca al aceptar el aviso o cuando este se
+                 * cierra solo, asi que los dias importados aparecen en la lista.
+                 */
+                if (modalImportar && modalImportarElement?.classList.contains('show')) {
+                    modalImportarElement.addEventListener('hidden.bs.modal', mostrarResultado, { once: true });
+                    modalImportar.hide();
+                } else {
+                    mostrarResultado();
+                }
             });
         });
 
