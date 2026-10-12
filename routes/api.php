@@ -58,6 +58,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:movimientos_costo.edit')->name('orders.processes.costs.update');
         Route::delete('orders/{orderId}/processes/{processId}/costs/{costId}', [MobileDataController::class, 'deleteProcessCost'])
             ->middleware('permission:movimientos_costo.delete')->name('orders.processes.costs.destroy');
+        Route::get('orders/{orderId}/processes/{processId}/materials', [MobileDataController::class, 'processMaterials'])
+            ->middleware('permission:movimientos_inventario.view|movimientos_inventario.create|movimientos_inventario.delete')->name('orders.processes.materials.index');
+        Route::get('orders/{orderId}/processes/{processId}/material-options', [MobileDataController::class, 'processMaterialOptions'])
+            ->middleware('permission:movimientos_inventario.create')->name('orders.processes.material-options');
+        Route::post('orders/{orderId}/processes/{processId}/materials', [MobileDataController::class, 'storeProcessMaterial'])
+            ->middleware('permission:movimientos_inventario.create')->name('orders.processes.materials.store');
+        Route::delete('orders/{orderId}/processes/{processId}/materials/{movementId}', [MobileDataController::class, 'deleteProcessMaterial'])
+            ->middleware('permission:movimientos_inventario.delete')->name('orders.processes.materials.destroy');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
         Route::post('orders/{orderId}/finalize', [MobileDataController::class, 'finalizeOrder'])

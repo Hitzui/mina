@@ -12,6 +12,9 @@ use App\Models\Moneda;
 use App\Models\MovimientosCosto;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
+use App\Models\Producto;
+use App\Models\InventarioProducto;
+use App\Models\MovimientosInventario;
 use App\Models\TiposParticipacion;
 use App\Models\UnidadMedida;
 use App\Models\User;
@@ -271,6 +274,101 @@ class ApiMobileReadTest extends TestCase
         $cost = MovimientosCosto::withTrashed()->where('descripcion', 'Consumo offline')->firstOrFail();
         $this->assertSame(15.0, (float) $cost->costo_total);
         $this->assertSoftDeleted('movimientos_costos', ['id' => $cost->id]);
+    }
+
+    public function test_api_de_consumo_descuenta_promedio_y_eliminarlo_devuelve_existencias(): void
+    {
+        $this->user->givePermissionTo('movimientos_inventario.create', 'movimientos_inventario.delete');
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->firstOrFail();
+        $stage = Etapa::query()->where('estado', true)->firstOrFail();
+        $process = new ProcesosOrden();
+        $process->orden_trabajo_id = $order->id;
+        $process->etapa_id = $stage->id;
+        $process->codigo = 'INV-'.Str::upper(Str::random(8));
+        $process->fecha_inicio = '2026-01-01 08:00:00';
+        $process->estado = 1;
+        $process->save();
+        $product = Producto::create([
+            Producto::CODIGO => 'MAT-'.Str::upper(Str::random(8)),
+            Producto::NOMBRE => 'Cemento API móvil',
+            Producto::UNIDAD_MEDIDA => 'kg',
+            Producto::STOCK_MINIMO => 0,
+            Producto::ESTADO => true,
+        ]);
+        $baseCurrency = Moneda::query()->where('es_moneda_base', true)->firstOrFail();
+        app(\App\Services\InventarioService::class)->registrar([
+            'producto_id' => $product->id,
+            'tipo' => MovimientosInventario::TIPO_ENTRADA,
+            'fecha' => '2026-10-01',
+            'cantidad' => 10,
+            'costo_unitario' => 4.25,
+            'moneda_id' => $baseCurrency->id,
+        ]);
+        $path = "/api/v1/orders/{$order->id}/processes/{$process->id}/materials";
+
+        $this->withToken($this->token)->getJson("/api/v1/orders/{$order->id}/processes/{$process->id}/material-options")
+            ->assertOk()->assertJsonFragment(['id' => $product->id, 'name' => 'Cemento API móvil', 'stock' => 10]);
+        $movementId = $this->withToken($this->token)->postJson($path, [
+            'producto_id' => $product->id,
+            'fecha' => '2026-10-12',
+            'cantidad' => 3,
+            'costo_unitario' => 999,
+        ])->assertCreated()->assertJsonPath('data.unit_cost', 4.25)->assertJsonPath('data.total_nio', 12.75)->json('data.id');
+
+        $this->assertSame(7.0, (float) InventarioProducto::query()->where('producto_id', $product->id)->value('cantidad_actual'));
+        $this->withToken($this->token)->getJson($path)
+            ->assertOk()->assertJsonPath('data.materials.0.id', $movementId)->assertJsonPath('data.materials.0.quantity', 3);
+        $this->withToken($this->token)->deleteJson($path.'/'.$movementId)->assertOk();
+        $this->assertSoftDeleted('movimientos_inventario', ['id' => $movementId]);
+        $this->assertSame(10.0, (float) InventarioProducto::query()->where('producto_id', $product->id)->value('cantidad_actual'));
+    }
+
+    public function test_upload_offline_sincroniza_el_consumo_y_reversion_de_materia_prima(): void
+    {
+        $this->user->givePermissionTo('movimientos_inventario.create', 'movimientos_inventario.delete');
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->firstOrFail();
+        $stage = Etapa::query()->where('estado', true)->firstOrFail();
+        $process = new ProcesosOrden();
+        $process->orden_trabajo_id = $order->id;
+        $process->etapa_id = $stage->id;
+        $process->codigo = 'SYNC-'.Str::upper(Str::random(8));
+        $process->fecha_inicio = '2026-01-01 08:00:00';
+        $process->estado = 1;
+        $process->save();
+        $product = Producto::create([
+            Producto::CODIGO => 'MAT-'.Str::upper(Str::random(8)),
+            Producto::NOMBRE => 'Reactivo sync móvil',
+            Producto::UNIDAD_MEDIDA => 'L',
+            Producto::STOCK_MINIMO => 0,
+            Producto::ESTADO => true,
+        ]);
+        $baseCurrency = Moneda::query()->where('es_moneda_base', true)->firstOrFail();
+        app(\App\Services\InventarioService::class)->registrar([
+            'producto_id' => $product->id,
+            'tipo' => MovimientosInventario::TIPO_ENTRADA,
+            'fecha' => '2026-10-01',
+            'cantidad' => 20,
+            'costo_unitario' => 2,
+            'moneda_id' => $baseCurrency->id,
+        ]);
+        $operations = [
+            [
+                'local_id' => '-700', 'operation_key' => 'offline-material-consume-700', 'type' => 'material.consume',
+                'payload' => ['order_id' => $order->id, 'process_id' => $process->id, 'producto_id' => $product->id,
+                    'fecha' => '2026-10-12', 'cantidad' => 5, 'tipo' => 'entrada', 'costo_unitario' => 999],
+            ],
+            [
+                'local_id' => '-701', 'operation_key' => 'offline-material-delete-701', 'type' => 'material.delete',
+                'payload' => ['order_id' => $order->id, 'process_id' => $process->id, 'movement_id' => -700],
+            ],
+        ];
+
+        $response = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 2);
+        $movementId = $response->json('data.id_map.-700');
+        $this->assertNotNull($movementId);
+        $this->assertSoftDeleted('movimientos_inventario', ['id' => $movementId]);
+        $this->assertSame(20.0, (float) InventarioProducto::query()->where('producto_id', $product->id)->value('cantidad_actual'));
     }
 
     public function test_lista_clientes_devuelve_datos_paginados_y_requiere_permiso(): void

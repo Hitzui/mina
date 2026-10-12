@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Concerns\ValidaCostos;
+use App\Http\Controllers\Concerns\ValidaMovimientos;
 use App\Http\Controllers\Controller;
 use App\Models\AcuerdosOrden;
 use App\Models\Cliente;
@@ -32,6 +33,7 @@ use App\Services\FinalizarOrdenTrabajo;
 use App\Services\CodigoOrdenTrabajo;
 use App\Services\CodigoProcesoOrden;
 use App\Services\PanelDelTaller;
+use App\Services\InventarioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +43,7 @@ use Illuminate\Support\Carbon;
 class MobileDataController extends Controller
 {
     use ValidaCostos;
+    use ValidaMovimientos;
 
     public function offlineSnapshot(Request $request): JsonResponse
     {
@@ -100,6 +103,9 @@ class MobileDataController extends Controller
                     'id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
                     'is_base_currency' => (bool) $currency->es_moneda_base,
                 ])->values() : [],
+            'products' => ($user->can('productos.view') || $user->can('movimientos_inventario.create'))
+                ? Producto::query()->with(['inventario', 'unidadMedida'])->where('estado', true)->orderBy('nombre')->get()
+                    ->map(fn (Producto $product) => $this->mobileProductData($product))->values() : [],
             'stages' => $user->can('procesos_orden.create')
                 ? Etapa::query()->where('estado', true)->orderBy('orden')->get(['id', 'nombre', 'orden'])
                     ->map(fn (Etapa $stage) => ['id' => $stage->id, 'name' => $stage->nombre, 'order' => $stage->orden])->values() : [],
@@ -148,6 +154,7 @@ class MobileDataController extends Controller
             'operations.*.type' => ['required', 'string', Rule::in([
                 'order.create', 'order.update', 'process.create', 'employee_work.create', 'equipment.assign',
                 'cost.create', 'cost.update', 'cost.delete', 'order.finalize',
+                'material.consume', 'material.delete',
             ])],
             'operations.*.payload' => ['required', 'array'],
         ]);
@@ -183,7 +190,8 @@ class MobileDataController extends Controller
                     $orderId = $this->resolveOfflineReference($body['order_id'] ?? null, $idMap);
                     $processId = $this->resolveOfflineReference($body['process_id'] ?? null, $idMap);
                     $costId = $this->resolveOfflineReference($body['cost_id'] ?? null, $idMap);
-                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['local_id']);
+                    $movementId = $this->resolveOfflineReference($body['movement_id'] ?? null, $idMap);
+                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['movement_id'], $body['local_id']);
                     [$method, $path] = match ($type) {
                         'order.create' => ['POST', '/api/v1/orders'],
                         'order.update' => ['PUT', '/api/v1/orders/'.$orderId],
@@ -193,6 +201,8 @@ class MobileDataController extends Controller
                         'cost.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/costs'],
                         'cost.update' => ['PUT', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/costs/'.$costId],
                         'cost.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/costs/'.$costId],
+                        'material.consume' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/materials'],
+                        'material.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/materials/'.$movementId],
                         'order.finalize' => ['POST', '/api/v1/orders/'.$orderId.'/finalize'],
                         default => abort(422, 'Tipo de operación móvil no reconocido: '.$type),
                     };
@@ -623,6 +633,90 @@ class MobileDataController extends Controller
         ];
     }
 
+    public function processMaterials(string $orderId, string $processId): JsonResponse
+    {
+        [, $process] = $this->mobileProcessContext($orderId, $processId);
+        $materials = MovimientosInventario::query()->deProceso($process->id)
+            ->where('tipo', MovimientosInventario::TIPO_SALIDA)
+            ->with('producto')->orderByDesc('fecha')->orderByDesc('id')->get()
+            ->map(fn (MovimientosInventario $movement) => $this->processMaterialData($movement));
+
+        return response()->json(['data' => ['materials' => $materials->values()]]);
+    }
+
+    public function processMaterialOptions(string $orderId, string $processId): JsonResponse
+    {
+        $this->mobileProcessContext($orderId, $processId);
+        return response()->json(['data' => [
+            'products' => Producto::query()->with(['inventario', 'unidadMedida'])->where('estado', true)->orderBy('nombre')->get()
+                ->map(fn (Producto $product) => $this->mobileProductData($product))->values(),
+            'date' => now()->toDateString(),
+        ]]);
+    }
+
+    public function storeProcessMaterial(
+        Request $request,
+        string $orderId,
+        string $processId,
+        InventarioService $inventory
+    ): JsonResponse {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        abort_if($order->estaCerrada() || $process->estaCerrado(), 422, 'No se pueden registrar consumos en una orden o proceso cerrado.');
+        $request->merge(['tipo' => MovimientosInventario::TIPO_SALIDA]);
+        $validated = $this->validarMovimiento($request);
+        $validated['tipo'] = MovimientosInventario::TIPO_SALIDA;
+        $validated['orden_trabajo_id'] = $order->id;
+        $validated['proceso_orden_id'] = $process->id;
+        $movement = $inventory->registrar($validated);
+        $movement->load('producto');
+
+        return response()->json(['data' => $this->processMaterialData($movement)], 201);
+    }
+
+    public function deleteProcessMaterial(
+        string $orderId,
+        string $processId,
+        string $movementId,
+        InventarioService $inventory
+    ): JsonResponse {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $movement = MovimientosInventario::query()
+            ->where('orden_trabajo_id', $order->id)
+            ->where('proceso_orden_id', $process->id)
+            ->where('tipo', MovimientosInventario::TIPO_SALIDA)
+            ->findOrFail($movementId);
+        $inventory->revertir($movement);
+
+        return response()->json(['data' => ['success' => true]]);
+    }
+
+    private function processMaterialData(MovimientosInventario $movement): array
+    {
+        return [
+            'id' => $movement->id,
+            'product_id' => $movement->producto_id,
+            'product' => $movement->producto?->nombre ?? 'Material eliminado',
+            'unit' => $movement->producto?->unidad_medida,
+            'date' => $movement->fecha?->toDateString(),
+            'quantity' => (float) $movement->cantidad,
+            'unit_cost' => (float) $movement->costo_unitario,
+            'total_nio' => $movement->costo_total_nio === null ? null : (float) $movement->costo_total_nio,
+            'observations' => $movement->observaciones,
+        ];
+    }
+
+    private function mobileProductData(Producto $product): array
+    {
+        return [
+            'id' => $product->id,
+            'code' => $product->codigo,
+            'name' => $product->nombre,
+            'unit' => $product->unidadMedida?->nombre ?? $product->unidad_medida,
+            'stock' => $product->existencia,
+            'average_cost' => $product->costo_promedio,
+        ];
+    }
+
     private function assertProcessCanReceiveEquipment(OrdenesTrabajo $order, ProcesosOrden $process): void
     {
         abort_if($order->estaCerrada() || $process->estaCerrado(), 422, 'No se pueden asignar equipos a una orden o proceso cerrado.');
@@ -913,10 +1007,19 @@ class MobileDataController extends Controller
                     }
                     if ($request->user()->can('movimientos_costo.view')
                         || $request->user()->can('movimientos_costo.create')
-                        || $request->user()->can('movimientos_costo.edit')) {
+                        || $request->user()->can('movimientos_costo.edit')
+                        || $request->user()->can('movimientos_costo.delete')) {
                         $data['costs'] = MovimientosCosto::query()->deProceso($process->id)
                             ->with(['categoria_costo', 'moneda'])->orderBy('fecha')->orderBy('id')->get()
                             ->map(fn (MovimientosCosto $cost) => $this->processCostData($cost))->values();
+                    }
+                    if ($request->user()->can('movimientos_inventario.view')
+                        || $request->user()->can('movimientos_inventario.create')
+                        || $request->user()->can('movimientos_inventario.delete')) {
+                        $data['materials'] = MovimientosInventario::query()->deProceso($process->id)
+                            ->where('tipo', MovimientosInventario::TIPO_SALIDA)->with('producto')
+                            ->orderByDesc('fecha')->orderByDesc('id')->get()
+                            ->map(fn (MovimientosInventario $movement) => $this->processMaterialData($movement))->values();
                     }
 
                     return $data;
