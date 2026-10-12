@@ -37,6 +37,204 @@ use Illuminate\Support\Carbon;
 
 class MobileDataController extends Controller
 {
+    public function offlineSnapshot(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $page = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'between:1,50'],
+        ]);
+        $pageNumber = (int) ($page['page'] ?? 1);
+        $perPage = (int) ($page['per_page'] ?? 25);
+        $data = [
+            'clients' => [],
+            'employees' => [],
+            'orders' => [],
+            'catalogs' => [],
+        ];
+
+        if ($pageNumber === 1 && ($user->can('clientes.view') || $user->can('ordenes_trabajo.create') || $user->can('ordenes_trabajo.edit'))) {
+            $data['clients'] = Cliente::query()->orderBy('nombre')->get(['id', 'nombre', 'telefono', 'direccion', 'estado'])
+                ->map(fn (Cliente $client) => [
+                    'id' => $client->id,
+                    'name' => $client->nombre,
+                    'phone' => $user->can('clientes.view') ? $client->telefono : null,
+                    'address' => $user->can('clientes.view') ? $client->direccion : null,
+                    'is_active' => (bool) $client->estado,
+                ])->values();
+        }
+        if ($pageNumber === 1 && ($user->can('empleados.view') || $user->can('trabajos_empleado.create'))) {
+            $data['employees'] = Empleado::query()->with('tipo_empleado')->orderBy('nombre')->get()
+                ->map(fn (Empleado $employee) => [
+                    'id' => $employee->id, 'code' => $employee->codigo, 'name' => $employee->nombre,
+                    'phone' => $user->can('empleados.view') ? $employee->telefono : null,
+                    'employee_type' => $user->can('empleados.view') ? $employee->tipo_empleado?->nombre : null,
+                    'hire_date' => $user->can('empleados.view') ? $employee->fecha_ingreso?->toDateString() : null,
+                    'is_active' => (bool) $employee->estado,
+                ])->values();
+        }
+        $ordersMeta = ['current_page' => 1, 'last_page' => 1, 'total' => 0];
+        if ($user->can('ordenes_trabajo.view')) {
+            $orders = OrdenesTrabajo::query()->orderByDesc('fecha')->orderByDesc('id')->paginate($perPage, ['id'], 'page', $pageNumber);
+            $data['orders'] = $orders->getCollection()
+                ->map(fn (OrdenesTrabajo $order) => $this->order((string) $order->id, $request)->getData(true)['data'])
+                ->values();
+            $ordersMeta = ['current_page' => $orders->currentPage(), 'last_page' => $orders->lastPage(), 'total' => $orders->total()];
+        }
+
+        $data['catalogs'] = $pageNumber === 1 ? [
+            'units' => ($user->can('ordenes_trabajo.create') || $user->can('ordenes_trabajo.edit') || $user->can('trabajos_empleado.create'))
+                ? UnidadMedida::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])->values() : [],
+            'stages' => $user->can('procesos_orden.create')
+                ? Etapa::query()->where('estado', true)->orderBy('orden')->get(['id', 'nombre', 'orden'])
+                    ->map(fn (Etapa $stage) => ['id' => $stage->id, 'name' => $stage->nombre, 'order' => $stage->orden])->values() : [],
+            'employees' => $user->can('trabajos_empleado.create')
+                ? Empleado::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre'])
+                    ->map(fn (Empleado $employee) => ['id' => $employee->id, 'code' => $employee->codigo, 'name' => $employee->nombre])->values() : [],
+            'payment_types' => $user->can('trabajos_empleado.create')
+                ? TiposPagoEmpleado::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre', 'metodo_calculo'])
+                    ->map(fn (TiposPagoEmpleado $type) => ['id' => $type->id, 'name' => $type->nombre, 'calculation_method' => $type->metodo_calculo ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA])->values() : [],
+            'equipment' => $user->can('proceso_equipo.create')
+                ? Equipo::query()->where('estado', true)->orderBy('codigo')->get()->map(fn (Equipo $item) => [
+                    'id' => $item->id, 'code' => $item->codigo, 'name' => $item->nombre,
+                    'acquisition_value' => (float) $item->valor_adquisicion, 'residual_value' => (float) $item->valor_residual,
+                    'useful_life_months' => (int) $item->vida_util_meses,
+                    'remaining_value' => (float) $item->valorPorDepreciar(),
+                ])->values() : [],
+            'equipment_assignments' => $user->can('proceso_equipo.create')
+                ? ProcesoEquipo::query()->get(['equipo_id', 'fecha_inicio', 'fecha_fin'])->map(fn (ProcesoEquipo $assignment) => [
+                    'equipment_id' => $assignment->equipo_id,
+                    'start_date' => $assignment->fecha_inicio?->toISOString(),
+                    'end_date' => $assignment->fecha_fin?->toISOString(),
+                ])->values() : [],
+            'employee_rates' => $user->can('trabajos_empleado.create')
+                ? EmpleadosPago::query()->with(['moneda', 'tipo_pago'])->get()->map(fn (EmpleadosPago $pay) => [
+                    'id' => $pay->id, 'employee_id' => $pay->empleado_id, 'payment_type_id' => $pay->tipo_pago_id,
+                    'rate' => (float) $pay->tarifa, 'currency_id' => $pay->moneda_id,
+                    'currency' => $pay->moneda?->codigo, 'is_base_currency' => (bool) $pay->moneda?->es_moneda_base,
+                    'calculation_method' => $pay->tipo_pago?->metodo_calculo ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA,
+                    'valid_from' => $pay->fecha_inicio?->toDateString(), 'valid_until' => $pay->fecha_fin?->toDateString(),
+                    'active' => (bool) $pay->estado,
+                ])->values() : [],
+            'exchange_rates' => $user->can('trabajos_empleado.create')
+                ? DB::table('tipos_cambio')->whereNull('deleted_at')->selectRaw('moneda_id, DATE(fecha) as fecha, valor')->get() : [],
+        ] : [];
+
+        return response()->json(['data' => $data, 'meta' => ['orders' => $ordersMeta]]);
+    }
+
+    public function offlineUpload(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'operations' => ['present', 'array', 'max:10000'],
+            'operations.*' => ['required', 'array'],
+            'operations.*.local_id' => ['nullable'],
+            'operations.*.operation_key' => ['required', 'string', 'max:150'],
+            'operations.*.type' => ['required', 'string', Rule::in([
+                'order.create', 'order.update', 'process.create', 'employee_work.create', 'equipment.assign', 'order.finalize',
+            ])],
+            'operations.*.payload' => ['required', 'array'],
+        ]);
+        $idMap = [];
+        $uploaded = 0;
+        $failureErrors = [];
+
+        try {
+            DB::transaction(function () use ($request, $validated, &$idMap, &$uploaded, &$failureErrors) {
+                foreach ($validated['operations'] as $operation) {
+                    $localId = (string) ($operation['local_id'] ?? '');
+                    $type = $operation['type'] ?? '';
+                    $operationKey = $operation['operation_key'];
+                    $previous = DB::table('mobile_sync_operations')
+                        ->where('user_id', $request->user()->id)
+                        ->where('operation_key', $operationKey)
+                        ->first();
+                    if ($previous) {
+                        $result = json_decode($previous->result, true) ?: [];
+                        if ($localId !== '' && isset($result['data']['id'])) {
+                            $idMap[$localId] = (int) $result['data']['id'];
+                        }
+                        $uploaded++;
+                        continue;
+                    }
+                    $body = is_string($operation['payload'] ?? null)
+                        ? json_decode($operation['payload'], true, flags: JSON_THROW_ON_ERROR)
+                        : ($operation['payload'] ?? []);
+                    if (! is_array($body)) {
+                        abort(422, 'El contenido de una operación móvil no es válido.');
+                    }
+
+                    $orderId = $this->resolveOfflineReference($body['order_id'] ?? null, $idMap);
+                    $processId = $this->resolveOfflineReference($body['process_id'] ?? null, $idMap);
+                    unset($body['order_id'], $body['process_id'], $body['local_id']);
+                    [$method, $path] = match ($type) {
+                        'order.create' => ['POST', '/api/v1/orders'],
+                        'order.update' => ['PUT', '/api/v1/orders/'.$orderId],
+                        'process.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes'],
+                        'employee_work.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/employee-works'],
+                        'equipment.assign' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/equipment'],
+                        'order.finalize' => ['POST', '/api/v1/orders/'.$orderId.'/finalize'],
+                        default => abort(422, 'Tipo de operación móvil no reconocido: '.$type),
+                    };
+
+                    $inner = Request::create($path, $method, server: [
+                        'CONTENT_TYPE' => 'application/json',
+                        'HTTP_ACCEPT' => 'application/json',
+                        'HTTP_AUTHORIZATION' => $request->header('Authorization', ''),
+                    ], content: json_encode($body, JSON_THROW_ON_ERROR));
+                    $response = app(\Illuminate\Contracts\Http\Kernel::class)->handle($inner);
+                    if ($response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
+                        $error = json_decode($response->getContent(), true);
+                        $failureErrors = $error['errors'] ?? [];
+                        abort($response->getStatusCode(), $error['message'] ?? 'No se pudo sincronizar una operación móvil.');
+                    }
+
+                    $result = json_decode($response->getContent(), true);
+                    if ($localId !== '' && isset($result['data']['id'])) {
+                        $idMap[$localId] = (int) $result['data']['id'];
+                    }
+                    DB::table('mobile_sync_operations')->insert([
+                        'user_id' => $request->user()->id,
+                        'operation_key' => $operationKey,
+                        'operation_type' => $type,
+                        'result' => json_encode($result, JSON_THROW_ON_ERROR),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $uploaded++;
+                }
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+            $status = method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 422;
+            $response = [
+                'message' => $exception->getMessage() ?: 'No se pudo sincronizar. No se aplicaron cambios.',
+            ];
+            if ($failureErrors !== []) {
+                $response['errors'] = $failureErrors;
+            }
+            return response()->json($response, $status >= 400 && $status <= 599 ? $status : 422);
+        }
+
+        return response()->json(['data' => ['uploaded' => $uploaded, 'id_map' => $idMap]]);
+    }
+
+    private function resolveOfflineReference(mixed $value, array $idMap): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $reference = (string) $value;
+        if (isset($idMap[$reference])) {
+            return $idMap[$reference];
+        }
+        if (ctype_digit($reference) && (int) $reference > 0) {
+            return (int) $reference;
+        }
+        abort(422, 'No se encontró la referencia local '.$reference.' al sincronizar.');
+    }
+
     public function clients(Request $request): JsonResponse
     {
         $filters = $request->validate([
@@ -984,6 +1182,7 @@ class MobileDataController extends Controller
             'description' => $order->descripcion,
             'mineral_weight' => $order->peso_mineral,
             'weight_unit' => $order->unidad_peso,
+            'weight_unit_id' => $order->unidad_peso_id,
             'status' => $order->estadoTexto(),
             'status_code' => $order->estado,
         ];

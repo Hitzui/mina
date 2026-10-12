@@ -5,10 +5,12 @@ namespace Tests\Feature\Api\V1;
 use App\Models\AcuerdosOrden;
 use App\Models\Cajas;
 use App\Models\Cliente;
+use App\Models\Etapa;
 use App\Models\Liquidacione;
 use App\Models\Moneda;
 use App\Models\OrdenesTrabajo;
 use App\Models\TiposParticipacion;
+use App\Models\UnidadMedida;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -28,7 +30,7 @@ class ApiMobileReadTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $permissions = [
-            'ordenes_trabajo.view', 'clientes.view', 'movimientos_caja.view', 'productos.view',
+            'ordenes_trabajo.view', 'ordenes_trabajo.create', 'procesos_orden.create', 'clientes.view', 'movimientos_caja.view', 'productos.view',
             'movimientos_inventario.view', 'cotizaciones.view', 'cobros.view',
             'configuracion.monedas.view', 'configuracion.metodos_pago.view',
             'configuracion.unidades_medida.view', 'configuracion.cajas.view',
@@ -71,6 +73,112 @@ class ApiMobileReadTest extends TestCase
             ->assertOk()->assertJsonPath('meta.total', 0);
         $this->getJson('/api/v1/quotes?q=__MISSING_QUOTE__', $headers)
             ->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_descarga_offline_incluye_datos_y_paginacion_de_ordenes(): void
+    {
+        $this->withToken($this->token)->getJson('/api/v1/offline/snapshot?page=1&per_page=10')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => ['clients', 'employees', 'orders', 'catalogs' => ['units', 'stages', 'employees', 'payment_types', 'equipment']],
+                'meta' => ['orders' => ['current_page', 'last_page', 'total']],
+            ]);
+    }
+
+    public function test_upload_sin_operaciones_finaliza_y_permite_limpiar_la_copia_local(): void
+    {
+        $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => []])
+            ->assertOk()
+            ->assertJsonPath('data.uploaded', 0)
+            ->assertJsonPath('data.id_map', []);
+    }
+
+    public function test_upload_offline_reutiliza_el_resultado_si_se_reintenta(): void
+    {
+        $client = Cliente::query()->where('estado', true)->firstOrFail();
+        $unit = UnidadMedida::query()->where('estado', true)->firstOrFail();
+        $operation = [
+            'local_id' => '-offline-order-77',
+            'operation_key' => 'offline-test-order-77',
+            'type' => 'order.create',
+            'payload' => [
+                'cliente_id' => $client->id,
+                'fecha' => '2026-10-11',
+                'peso_mineral' => 12.5,
+                'unidad_peso_id' => $unit->id,
+                'descripcion' => 'Orden enviada desde la cola offline',
+            ],
+        ];
+
+        $first = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => [$operation]])
+            ->assertOk()->assertJsonPath('data.uploaded', 1)->json('data.id_map.-offline-order-77');
+        $this->assertNotNull($first);
+
+        $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => [$operation]])
+            ->assertOk()
+            ->assertJsonPath('data.uploaded', 1)
+            ->assertJsonPath('data.id_map.-offline-order-77', $first);
+
+        $this->assertSame(1, OrdenesTrabajo::query()->where('descripcion', 'Orden enviada desde la cola offline')->count());
+    }
+
+    public function test_upload_resuelve_dependencias_entre_orden_y_proceso_locales(): void
+    {
+        $client = Cliente::query()->where('estado', true)->firstOrFail();
+        $unit = UnidadMedida::query()->where('estado', true)->firstOrFail();
+        $stage = Etapa::query()->where('estado', true)->firstOrFail();
+        $operations = [
+            [
+                'local_id' => '-200', 'operation_key' => 'offline-dependency-order-200', 'type' => 'order.create',
+                'payload' => [
+                    'cliente_id' => $client->id, 'fecha' => '2026-10-11', 'peso_mineral' => 5,
+                    'unidad_peso_id' => $unit->id, 'descripcion' => 'Orden dependiente de proceso local',
+                ],
+            ],
+            [
+                'local_id' => '-201', 'operation_key' => 'offline-dependency-process-201', 'type' => 'process.create',
+                'payload' => [
+                    'order_id' => -200, 'etapa_id' => $stage->id, 'fecha_inicio' => '2026-10-11',
+                    'observaciones' => 'Proceso agregado sin señal',
+                ],
+            ],
+        ];
+
+        $response = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 2);
+        $orderId = $response->json('data.id_map.-200');
+        $processId = $response->json('data.id_map.-201');
+        $this->assertNotNull($orderId);
+        $this->assertNotNull($processId);
+        $this->assertDatabaseHas('procesos_orden', [
+            'id' => $processId,
+            'orden_trabajo_id' => $orderId,
+            'observaciones' => 'Proceso agregado sin señal',
+        ]);
+    }
+
+    public function test_upload_invalido_no_deja_una_orden_parcialmente_creada(): void
+    {
+        $client = Cliente::query()->where('estado', true)->firstOrFail();
+        $unit = UnidadMedida::query()->where('estado', true)->firstOrFail();
+        $operations = [
+            [
+                'local_id' => '-300', 'operation_key' => 'offline-rollback-order-300', 'type' => 'order.create',
+                'payload' => [
+                    'cliente_id' => $client->id, 'fecha' => '2026-10-11', 'peso_mineral' => 5,
+                    'unidad_peso_id' => $unit->id, 'descripcion' => 'No debe quedar por rollback',
+                ],
+            ],
+            [
+                'local_id' => '-301', 'operation_key' => 'offline-rollback-process-301', 'type' => 'process.create',
+                'payload' => ['order_id' => -300, 'etapa_id' => 999999],
+            ],
+        ];
+
+        $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertUnprocessable();
+        $this->assertDatabaseMissing('ordenes_trabajo', ['descripcion' => 'No debe quedar por rollback']);
+        $this->assertDatabaseMissing('mobile_sync_operations', ['operation_key' => 'offline-rollback-order-300']);
     }
 
     public function test_lista_clientes_devuelve_datos_paginados_y_requiere_permiso(): void

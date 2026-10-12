@@ -14,6 +14,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::delete('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::delete('auth/tokens', [AuthController::class, 'logoutAll'])->name('auth.logout-all');
         Route::get('bootstrap', [AuthController::class, 'bootstrap'])->name('bootstrap');
+        Route::get('offline/snapshot', [MobileDataController::class, 'offlineSnapshot'])->name('offline.snapshot');
+        Route::post('offline/upload', [MobileDataController::class, 'offlineUpload'])->name('offline.upload');
 
         Route::prefix('app')->name('app.')->group(function () {
             Route::get('dashboard', [MobileDataController::class, 'dashboard'])->name('dashboard');
