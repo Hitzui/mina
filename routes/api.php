@@ -48,6 +48,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:proceso_equipo.create')->name('orders.processes.equipment-depreciation');
         Route::post('orders/{orderId}/processes/{processId}/equipment', [MobileDataController::class, 'storeProcessEquipment'])
             ->middleware('permission:proceso_equipo.create')->name('orders.processes.equipment.store');
+        Route::get('orders/{orderId}/processes/{processId}/costs', [MobileDataController::class, 'processCosts'])
+            ->middleware('permission:movimientos_costo.view|movimientos_costo.create|movimientos_costo.edit')->name('orders.processes.costs.index');
+        Route::get('orders/{orderId}/processes/{processId}/cost-options', [MobileDataController::class, 'processCostOptions'])
+            ->middleware('permission:movimientos_costo.create|movimientos_costo.edit')->name('orders.processes.cost-options');
+        Route::post('orders/{orderId}/processes/{processId}/costs', [MobileDataController::class, 'storeProcessCost'])
+            ->middleware('permission:movimientos_costo.create')->name('orders.processes.costs.store');
+        Route::put('orders/{orderId}/processes/{processId}/costs/{costId}', [MobileDataController::class, 'updateProcessCost'])
+            ->middleware('permission:movimientos_costo.edit')->name('orders.processes.costs.update');
+        Route::delete('orders/{orderId}/processes/{processId}/costs/{costId}', [MobileDataController::class, 'deleteProcessCost'])
+            ->middleware('permission:movimientos_costo.delete')->name('orders.processes.costs.destroy');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
         Route::post('orders/{orderId}/finalize', [MobileDataController::class, 'finalizeOrder'])

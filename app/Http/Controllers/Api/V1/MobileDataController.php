@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Concerns\ValidaCostos;
 use App\Http\Controllers\Controller;
 use App\Models\AcuerdosOrden;
 use App\Models\Cliente;
 use App\Models\Cobro;
+use App\Models\CategoriasCosto;
 use App\Models\Cotizacion;
 use App\Models\Etapa;
 use App\Models\Empleado;
@@ -16,6 +18,7 @@ use App\Models\MetodosPagos;
 use App\Models\Moneda;
 use App\Models\MovimientoCaja;
 use App\Models\MovimientosInventario;
+use App\Models\MovimientosCosto;
 use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
 use App\Models\ProcesosOrden;
@@ -37,6 +40,8 @@ use Illuminate\Support\Carbon;
 
 class MobileDataController extends Controller
 {
+    use ValidaCostos;
+
     public function offlineSnapshot(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -86,6 +91,15 @@ class MobileDataController extends Controller
             'units' => ($user->can('ordenes_trabajo.create') || $user->can('ordenes_trabajo.edit') || $user->can('trabajos_empleado.create'))
                 ? UnidadMedida::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])->values() : [],
+            'cost_categories' => ($user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit'))
+                ? CategoriasCosto::paraRegistrar()->get(['id', 'nombre'])->map(fn (CategoriasCosto $category) => [
+                    'id' => $category->id, 'name' => $category->nombre,
+                ])->values() : [],
+            'currencies' => ($user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit'))
+                ? Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])->map(fn (Moneda $currency) => [
+                    'id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
+                    'is_base_currency' => (bool) $currency->es_moneda_base,
+                ])->values() : [],
             'stages' => $user->can('procesos_orden.create')
                 ? Etapa::query()->where('estado', true)->orderBy('orden')->get(['id', 'nombre', 'orden'])
                     ->map(fn (Etapa $stage) => ['id' => $stage->id, 'name' => $stage->nombre, 'order' => $stage->orden])->values() : [],
@@ -117,7 +131,7 @@ class MobileDataController extends Controller
                     'valid_from' => $pay->fecha_inicio?->toDateString(), 'valid_until' => $pay->fecha_fin?->toDateString(),
                     'active' => (bool) $pay->estado,
                 ])->values() : [],
-            'exchange_rates' => $user->can('trabajos_empleado.create')
+            'exchange_rates' => ($user->can('trabajos_empleado.create') || $user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit'))
                 ? DB::table('tipos_cambio')->whereNull('deleted_at')->selectRaw('moneda_id, DATE(fecha) as fecha, valor')->get() : [],
         ] : [];
 
@@ -132,7 +146,8 @@ class MobileDataController extends Controller
             'operations.*.local_id' => ['nullable'],
             'operations.*.operation_key' => ['required', 'string', 'max:150'],
             'operations.*.type' => ['required', 'string', Rule::in([
-                'order.create', 'order.update', 'process.create', 'employee_work.create', 'equipment.assign', 'order.finalize',
+                'order.create', 'order.update', 'process.create', 'employee_work.create', 'equipment.assign',
+                'cost.create', 'cost.update', 'cost.delete', 'order.finalize',
             ])],
             'operations.*.payload' => ['required', 'array'],
         ]);
@@ -167,13 +182,17 @@ class MobileDataController extends Controller
 
                     $orderId = $this->resolveOfflineReference($body['order_id'] ?? null, $idMap);
                     $processId = $this->resolveOfflineReference($body['process_id'] ?? null, $idMap);
-                    unset($body['order_id'], $body['process_id'], $body['local_id']);
+                    $costId = $this->resolveOfflineReference($body['cost_id'] ?? null, $idMap);
+                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['local_id']);
                     [$method, $path] = match ($type) {
                         'order.create' => ['POST', '/api/v1/orders'],
                         'order.update' => ['PUT', '/api/v1/orders/'.$orderId],
                         'process.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes'],
                         'employee_work.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/employee-works'],
                         'equipment.assign' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/equipment'],
+                        'cost.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/costs'],
+                        'cost.update' => ['PUT', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/costs/'.$costId],
+                        'cost.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/costs/'.$costId],
                         'order.finalize' => ['POST', '/api/v1/orders/'.$orderId.'/finalize'],
                         default => abort(422, 'Tipo de operación móvil no reconocido: '.$type),
                     };
@@ -530,6 +549,80 @@ class MobileDataController extends Controller
         return [$order, $process];
     }
 
+    public function processCosts(string $orderId, string $processId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $costs = MovimientosCosto::query()->deProceso($process->id)
+            ->with(['categoria_costo', 'moneda'])->orderBy('fecha')->orderBy('id')->get()
+            ->map(fn (MovimientosCosto $cost) => $this->processCostData($cost));
+
+        return response()->json(['data' => ['costs' => $costs->values()]]);
+    }
+
+    public function processCostOptions(string $orderId, string $processId): JsonResponse
+    {
+        [, $process] = $this->mobileProcessContext($orderId, $processId);
+        return response()->json(['data' => [
+            'categories' => CategoriasCosto::paraRegistrar()->get(['id', 'nombre'])->map(fn (CategoriasCosto $category) => [
+                'id' => $category->id, 'name' => $category->nombre,
+            ])->values(),
+            'currencies' => Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])
+                ->map(fn (Moneda $currency) => ['id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
+                    'is_base_currency' => (bool) $currency->es_moneda_base])->values(),
+            'date' => $process->fecha_inicio?->toDateString() ?? now()->toDateString(),
+        ]]);
+    }
+
+    public function storeProcessCost(Request $request, string $orderId, string $processId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        abort_if($order->estaCerrada() || $process->estaCerrado(), 422, 'No se pueden registrar costos en una orden o proceso cerrado.');
+        $validated = $this->validarCosto($request);
+        [$cost] = $this->armarCosto($validated, $order->id, $process->id);
+        $cost->validarProcesoPertenece();
+        $cost->save();
+        $cost->load(['categoria_costo', 'moneda']);
+
+        return response()->json(['data' => $this->processCostData($cost)], 201);
+    }
+
+    public function updateProcessCost(Request $request, string $orderId, string $processId, string $costId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $cost = MovimientosCosto::query()->where('orden_trabajo_id', $order->id)
+            ->where('proceso_orden_id', $process->id)->findOrFail($costId);
+        $validated = $this->validarCosto($request, $cost->id);
+        [$cost] = $this->armarCosto($validated, $order->id, $process->id, $cost);
+        $cost->validarProcesoPertenece();
+        $cost->save();
+        $cost->load(['categoria_costo', 'moneda']);
+
+        return response()->json(['data' => $this->processCostData($cost)]);
+    }
+
+    public function deleteProcessCost(string $orderId, string $processId, string $costId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $cost = MovimientosCosto::query()->where('orden_trabajo_id', $order->id)
+            ->where('proceso_orden_id', $process->id)->findOrFail($costId);
+        $cost->delete();
+        return response()->json(['data' => ['success' => true]]);
+    }
+
+    private function processCostData(MovimientosCosto $cost): array
+    {
+        return [
+            'id' => $cost->id, 'category_id' => $cost->categoria_costo_id,
+            'category' => $cost->categoria_costo?->nombre, 'date' => $cost->fecha?->toDateString(),
+            'description' => $cost->descripcion, 'quantity' => (float) $cost->cantidad,
+            'unit_cost' => (float) $cost->costo_unitario, 'total' => (float) $cost->costo_total,
+            'currency_id' => $cost->moneda_id, 'currency' => $cost->moneda?->codigo,
+            'unit_cost_nio' => $cost->costo_unitario_nio === null ? null : (float) $cost->costo_unitario_nio,
+            'total_nio' => $cost->costo_total_nio === null ? null : (float) $cost->costo_total_nio,
+            'observations' => $cost->observaciones,
+        ];
+    }
+
     private function assertProcessCanReceiveEquipment(OrdenesTrabajo $order, ProcesosOrden $process): void
     {
         abort_if($order->estaCerrada() || $process->estaCerrado(), 422, 'No se pueden asignar equipos a una orden o proceso cerrado.');
@@ -802,7 +895,7 @@ class MobileDataController extends Controller
 
         if ($request->user()->can('procesos_orden.view')) {
             $details['processes'] = $order->procesos_ordenes()->with('etapa')->orderBy('id')->get()
-                ->map(function ($process) use ($mayViewFullProcessCosts) {
+                ->map(function ($process) use ($mayViewFullProcessCosts, $request) {
                     $data = [
                         'id' => $process->id,
                         'code' => $process->codigo,
@@ -817,6 +910,13 @@ class MobileDataController extends Controller
                     if ($mayViewFullProcessCosts) {
                         $data['cost_total_nio'] = round($process->costoTotal, 2);
                         $data['cost_breakdown'] = $process->costosDesglosados()->values();
+                    }
+                    if ($request->user()->can('movimientos_costo.view')
+                        || $request->user()->can('movimientos_costo.create')
+                        || $request->user()->can('movimientos_costo.edit')) {
+                        $data['costs'] = MovimientosCosto::query()->deProceso($process->id)
+                            ->with(['categoria_costo', 'moneda'])->orderBy('fecha')->orderBy('id')->get()
+                            ->map(fn (MovimientosCosto $cost) => $this->processCostData($cost))->values();
                     }
 
                     return $data;

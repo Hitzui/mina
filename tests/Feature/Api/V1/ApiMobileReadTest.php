@@ -5,10 +5,13 @@ namespace Tests\Feature\Api\V1;
 use App\Models\AcuerdosOrden;
 use App\Models\Cajas;
 use App\Models\Cliente;
+use App\Models\CategoriasCosto;
 use App\Models\Etapa;
 use App\Models\Liquidacione;
 use App\Models\Moneda;
+use App\Models\MovimientosCosto;
 use App\Models\OrdenesTrabajo;
+use App\Models\ProcesosOrden;
 use App\Models\TiposParticipacion;
 use App\Models\UnidadMedida;
 use App\Models\User;
@@ -24,6 +27,7 @@ class ApiMobileReadTest extends TestCase
     use DatabaseTransactions;
 
     private string $token;
+    private User $user;
 
     protected function setUp(): void
     {
@@ -50,6 +54,7 @@ class ApiMobileReadTest extends TestCase
             'password' => Hash::make('password'),
             'caja_id' => $cashRegister->id,
         ]);
+        $this->user = $user;
         $user->syncPermissions($permissions);
         $this->token = $user->createToken('KMP test')->plainTextToken;
     }
@@ -179,6 +184,93 @@ class ApiMobileReadTest extends TestCase
             ->assertUnprocessable();
         $this->assertDatabaseMissing('ordenes_trabajo', ['descripcion' => 'No debe quedar por rollback']);
         $this->assertDatabaseMissing('mobile_sync_operations', ['operation_key' => 'offline-rollback-order-300']);
+    }
+
+    public function test_api_de_costos_de_proceso_reusa_validaciones_y_calcula_totales(): void
+    {
+        foreach (['movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit', 'movimientos_costo.delete'] as $permission) {
+            $this->user->givePermissionTo($permission);
+        }
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->firstOrFail();
+        $stage = Etapa::query()->where('estado', true)->firstOrFail();
+        $process = new ProcesosOrden();
+        $process->orden_trabajo_id = $order->id;
+        $process->etapa_id = $stage->id;
+        $process->codigo = 'M-'.Str::upper(Str::random(8));
+        $process->fecha_inicio = '2026-01-01 08:00:00';
+        $process->fecha_fin = '2099-12-31 17:00:00';
+        $process->peso_entrada = 1;
+        $process->peso_salida = 1;
+        $process->estado = 1;
+        $process->save();
+        $category = CategoriasCosto::paraRegistrar()->firstOrFail();
+        $currency = Moneda::query()->where('estado', true)->where('es_moneda_base', true)->firstOrFail();
+        $path = "/api/v1/orders/{$order->id}/processes/{$process->id}/costs";
+
+        $this->withToken($this->token)->getJson("/api/v1/orders/{$order->id}/processes/{$process->id}/cost-options")
+            ->assertOk()->assertJsonStructure(['data' => ['categories', 'currencies', 'date']]);
+
+        $costId = $this->withToken($this->token)->postJson($path, [
+            'categoria_costo_id' => $category->id,
+            'fecha' => '2026-10-11',
+            'descripcion' => 'Energía de prueba móvil',
+            'cantidad' => 2,
+            'costo_unitario' => 4.25,
+            'moneda_id' => $currency->id,
+        ])->assertCreated()->assertJsonPath('data.total', 8.5)->assertJsonPath('data.total_nio', 8.5)->json('data.id');
+
+        $this->withToken($this->token)->getJson($path)
+            ->assertOk()->assertJsonPath('data.costs.0.id', $costId)->assertJsonPath('data.costs.0.category', $category->nombre);
+
+        $this->withToken($this->token)->putJson($path.'/'.$costId, [
+            'categoria_costo_id' => $category->id,
+            'fecha' => '2026-10-11',
+            'descripcion' => 'Energía corregida',
+            'cantidad' => 3,
+            'costo_unitario' => 4.25,
+            'moneda_id' => $currency->id,
+        ])->assertOk()->assertJsonPath('data.total', 12.75);
+
+        $this->withToken($this->token)->deleteJson($path.'/'.$costId)->assertOk();
+        $this->assertSoftDeleted('movimientos_costos', ['id' => $costId]);
+    }
+
+    public function test_upload_offline_resuelve_creacion_edicion_y_eliminacion_de_costos(): void
+    {
+        foreach (['movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit', 'movimientos_costo.delete'] as $permission) {
+            $this->user->givePermissionTo($permission);
+        }
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->firstOrFail();
+        $stage = Etapa::query()->where('estado', true)->firstOrFail();
+        $process = new ProcesosOrden();
+        $process->orden_trabajo_id = $order->id;
+        $process->etapa_id = $stage->id;
+        $process->codigo = 'OFF-'.Str::upper(Str::random(8));
+        $process->fecha_inicio = '2026-01-01 08:00:00';
+        $process->fecha_fin = '2099-12-31 17:00:00';
+        $process->estado = 1;
+        $process->save();
+        $category = CategoriasCosto::paraRegistrar()->firstOrFail();
+        $currency = Moneda::query()->where('estado', true)->where('es_moneda_base', true)->firstOrFail();
+        $basePayload = [
+            'order_id' => $order->id, 'process_id' => $process->id,
+            'categoria_costo_id' => $category->id, 'fecha' => '2026-10-11',
+            'descripcion' => 'Consumo offline', 'cantidad' => 2,
+            'costo_unitario' => 5, 'moneda_id' => $currency->id,
+        ];
+        $operations = [
+            ['local_id' => '-500', 'operation_key' => 'offline-cost-create-500', 'type' => 'cost.create', 'payload' => $basePayload],
+            ['local_id' => '-501', 'operation_key' => 'offline-cost-update-501', 'type' => 'cost.update',
+                'payload' => [...$basePayload, 'cost_id' => -500, 'cantidad' => 3]],
+            ['local_id' => '-502', 'operation_key' => 'offline-cost-delete-502', 'type' => 'cost.delete',
+                'payload' => ['order_id' => $order->id, 'process_id' => $process->id, 'cost_id' => -500]],
+        ];
+
+        $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 3);
+        $cost = MovimientosCosto::withTrashed()->where('descripcion', 'Consumo offline')->firstOrFail();
+        $this->assertSame(15.0, (float) $cost->costo_total);
+        $this->assertSoftDeleted('movimientos_costos', ['id' => $cost->id]);
     }
 
     public function test_lista_clientes_devuelve_datos_paginados_y_requiere_permiso(): void
