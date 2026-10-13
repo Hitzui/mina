@@ -16,6 +16,7 @@ use App\Models\Producto;
 use App\Models\InventarioProducto;
 use App\Models\MovimientosInventario;
 use App\Models\TiposParticipacion;
+use App\Models\TiposIngreso;
 use App\Models\UnidadMedida;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -236,6 +237,71 @@ class ApiMobileReadTest extends TestCase
 
         $this->withToken($this->token)->deleteJson($path.'/'.$costId)->assertOk();
         $this->assertSoftDeleted('movimientos_costos', ['id' => $costId]);
+    }
+
+    public function test_api_movil_registra_costos_generales_y_sincroniza_offline(): void
+    {
+        foreach (['movimientos_costo.view', 'movimientos_costo.create', 'movimientos_costo.edit', 'movimientos_costo.delete'] as $permission) {
+            $this->user->givePermissionTo($permission);
+        }
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->firstOrFail();
+        $category = CategoriasCosto::paraRegistrar()->firstOrFail();
+        $currency = Moneda::query()->where('estado', true)->where('es_moneda_base', true)->firstOrFail();
+        $url = '/api/v1/orders/'.$order->id;
+        $this->withToken($this->token)->getJson($url.'/cost-options')
+            ->assertOk()->assertJsonStructure(['data' => ['categories', 'currencies', 'date']]);
+
+        $created = $this->withToken($this->token)->postJson($url.'/costs', [
+            'categoria_costo_id' => $category->id,
+            'fecha' => '2026-10-12',
+            'descripcion' => 'Alquiler de prueba móvil',
+            'cantidad' => 2,
+            'costo_unitario' => 15.25,
+            'moneda_id' => $currency->id,
+        ])->assertCreated()->assertJsonPath('data.total', 30.5)->assertJsonPath('data.total_nio', 30.5);
+        $costId = $created->json('data.id');
+        $this->withToken($this->token)->getJson($url.'/costs')
+            ->assertOk()->assertJsonPath('data.costs.0.id', $costId)
+            ->assertJsonPath('data.costs.0.category_id', $category->id);
+        $this->withToken($this->token)->putJson($url.'/costs/'.$costId, [
+            'categoria_costo_id' => $category->id,
+            'fecha' => '2026-10-12',
+            'descripcion' => 'Alquiler corregido',
+            'cantidad' => 3,
+            'costo_unitario' => 10,
+            'moneda_id' => $currency->id,
+        ])->assertOk()->assertJsonPath('data.total', 30);
+        $this->withToken($this->token)->deleteJson($url.'/costs/'.$costId)->assertOk();
+        $this->assertSoftDeleted('movimientos_costos', ['id' => $costId]);
+
+        $localId = '-'.random_int(10000, 99999);
+        $key = 'offline-order-cost-'.Str::lower(Str::random(10));
+        $operations = [
+            [
+                'local_id' => $localId, 'operation_key' => $key.'-create', 'type' => 'order_cost.create',
+                'payload' => [
+                    'order_id' => $order->id, 'categoria_costo_id' => $category->id, 'fecha' => '2026-10-14',
+                    'descripcion' => 'Transporte offline', 'cantidad' => 2, 'costo_unitario' => 8, 'moneda_id' => $currency->id,
+                ],
+            ],
+            [
+                'local_id' => $localId, 'operation_key' => $key.'-update', 'type' => 'order_cost.update',
+                'payload' => [
+                    'order_id' => $order->id, 'cost_id' => $localId, 'categoria_costo_id' => $category->id,
+                    'fecha' => '2026-10-14', 'descripcion' => 'Transporte corregido', 'cantidad' => 3,
+                    'costo_unitario' => 8, 'moneda_id' => $currency->id,
+                ],
+            ],
+            [
+                'local_id' => $localId, 'operation_key' => $key.'-delete', 'type' => 'order_cost.delete',
+                'payload' => ['order_id' => $order->id, 'cost_id' => $localId],
+            ],
+        ];
+        $uploaded = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 3);
+        $offlineCostId = $uploaded->json('data.id_map.'.$localId);
+        $this->assertNotNull($offlineCostId);
+        $this->assertSoftDeleted('movimientos_costos', ['id' => $offlineCostId]);
     }
 
     public function test_upload_offline_resuelve_creacion_edicion_y_eliminacion_de_costos(): void
@@ -705,5 +771,68 @@ class ApiMobileReadTest extends TestCase
         $offlineLiquidationId = $uploaded->json('data.id_map.'.$localId);
         $this->assertNotNull($offlineLiquidationId);
         $this->assertSoftDeleted('liquidaciones', ['id' => $offlineLiquidationId]);
+    }
+
+    public function test_api_movil_registra_ingresos_y_sincroniza_creacion_edicion_y_eliminacion_offline(): void
+    {
+        $permissions = ['ingresos.view', 'ingresos.create', 'ingresos.edit', 'ingresos.delete'];
+        foreach ($permissions as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+        $this->user->givePermissionTo($permissions);
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->first();
+        $currency = Moneda::query()->where('estado', true)->where('es_moneda_base', true)->first();
+        $unit = UnidadMedida::query()->where('estado', true)->first();
+        if (! $order || ! $currency || ! $unit) {
+            $this->markTestSkipped('Hace falta una orden abierta, moneda base y unidad activa para probar ingresos móviles.');
+        }
+        $type = TiposIngreso::create(['nombre' => 'Ingreso API móvil '.Str::upper(Str::random(6)), 'estado' => true]);
+        $url = '/api/v1/orders/'.$order->id;
+        $this->withToken($this->token)->getJson($url.'/income-options')
+            ->assertOk()->assertJsonFragment(['id' => $type->id, 'name' => $type->nombre]);
+
+        $created = $this->withToken($this->token)->postJson($url.'/incomes', [
+            'type_id' => $type->id, 'date' => '2026-10-12', 'description' => 'Servicio móvil',
+            'quantity' => 2, 'unit_id' => $unit->id, 'unit_price' => 125.50,
+            'currency_id' => $currency->id, 'observations' => 'Registro online',
+        ])->assertCreated()->assertJsonPath('data.total', 251)->assertJsonPath('data.total_nio', 251);
+        $incomeId = $created->json('data.id');
+        $this->withToken($this->token)->getJson($url)
+            ->assertOk()->assertJsonFragment(['type_id' => $type->id, 'unit_id' => $unit->id]);
+        $this->withToken($this->token)->putJson($url.'/incomes/'.$incomeId, [
+            'type_id' => $type->id, 'date' => '2026-10-13', 'quantity' => 3,
+            'unit_id' => $unit->id, 'unit_price' => 100, 'currency_id' => $currency->id,
+        ])->assertOk()->assertJsonPath('data.total', 300);
+        $this->withToken($this->token)->deleteJson($url.'/incomes/'.$incomeId)->assertOk();
+        $this->assertSoftDeleted('ingresos', ['id' => $incomeId]);
+
+        $localId = '-'.random_int(10000, 99999);
+        $key = 'offline-income-'.Str::lower(Str::random(10));
+        $operations = [
+            [
+                'local_id' => $localId, 'operation_key' => $key.'-create', 'type' => 'income.create',
+                'payload' => [
+                    'order_id' => $order->id, 'type_id' => $type->id, 'date' => '2026-10-14',
+                    'quantity' => 1.5, 'unit_id' => $unit->id, 'unit_price' => 80, 'currency_id' => $currency->id,
+                ],
+            ],
+            [
+                'local_id' => $localId, 'operation_key' => $key.'-update', 'type' => 'income.update',
+                'payload' => [
+                    'order_id' => $order->id, 'income_id' => $localId, 'type_id' => $type->id,
+                    'date' => '2026-10-15', 'quantity' => 2, 'unit_id' => $unit->id,
+                    'unit_price' => 90, 'currency_id' => $currency->id,
+                ],
+            ],
+            [
+                'local_id' => $localId, 'operation_key' => $key.'-delete', 'type' => 'income.delete',
+                'payload' => ['order_id' => $order->id, 'income_id' => $localId],
+            ],
+        ];
+        $uploaded = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 3);
+        $offlineIncomeId = $uploaded->json('data.id_map.'.$localId);
+        $this->assertNotNull($offlineIncomeId);
+        $this->assertSoftDeleted('ingresos', ['id' => $offlineIncomeId]);
     }
 }

@@ -52,6 +52,24 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:liquidaciones.edit')->name('orders.liquidations.update');
         Route::delete('orders/{orderId}/liquidations/{liquidationId}', [MobileDataController::class, 'deleteLiquidation'])
             ->middleware('permission:liquidaciones.delete')->name('orders.liquidations.destroy');
+        Route::get('orders/{orderId}/income-options', [MobileDataController::class, 'incomeOptions'])
+            ->middleware('permission:ingresos.create|ingresos.edit')->name('orders.incomes.options');
+        Route::post('orders/{orderId}/incomes', [MobileDataController::class, 'storeIncome'])
+            ->middleware('permission:ingresos.create')->name('orders.incomes.store');
+        Route::put('orders/{orderId}/incomes/{incomeId}', [MobileDataController::class, 'updateIncome'])
+            ->middleware('permission:ingresos.edit')->name('orders.incomes.update');
+        Route::delete('orders/{orderId}/incomes/{incomeId}', [MobileDataController::class, 'deleteIncome'])
+            ->middleware('permission:ingresos.delete')->name('orders.incomes.destroy');
+        Route::get('orders/{orderId}/cost-options', [MobileDataController::class, 'orderCostOptions'])
+            ->middleware('permission:movimientos_costo.create|movimientos_costo.edit')->name('orders.costs.options');
+        Route::get('orders/{orderId}/costs', [MobileDataController::class, 'orderCosts'])
+            ->middleware('permission:movimientos_costo.view|movimientos_costo.create|movimientos_costo.edit')->name('orders.costs.index');
+        Route::post('orders/{orderId}/costs', [MobileDataController::class, 'storeOrderCost'])
+            ->middleware('permission:movimientos_costo.create')->name('orders.costs.store');
+        Route::put('orders/{orderId}/costs/{costId}', [MobileDataController::class, 'updateOrderCost'])
+            ->middleware('permission:movimientos_costo.edit')->name('orders.costs.update');
+        Route::delete('orders/{orderId}/costs/{costId}', [MobileDataController::class, 'deleteOrderCost'])
+            ->middleware('permission:movimientos_costo.delete')->name('orders.costs.destroy');
         Route::get('orders/{orderId}/processes/{processId}/employee-work-options', [MobileDataController::class, 'employeeWorkOptions'])
             ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-work-options');
         Route::get('orders/{orderId}/processes/{processId}/employee-work-rate', [MobileDataController::class, 'employeeWorkRate'])

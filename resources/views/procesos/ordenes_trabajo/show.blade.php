@@ -28,6 +28,9 @@
                         </div>
 
                         <div class="d-flex gap-2 flex-wrap">
+                            <a href="{{ route('procesos.ordenes_trabajo.resumen', $ordenTrabajo) }}" class="btn btn-outline-primary">
+                                <i class="bi bi-speedometer2 me-1"></i> Resumen operativo y financiero
+                            </a>
                             <a href="{{ route('procesos.ordenes_trabajo.pdf', $ordenTrabajo) }}" class="btn btn-outline-secondary">
                                 <i class="bi bi-file-earmark-pdf me-1"></i> PDF para firma
                             </a>

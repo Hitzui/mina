@@ -13,11 +13,13 @@ use App\Models\Cotizacion;
 use App\Models\Etapa;
 use App\Models\Empleado;
 use App\Models\Equipo;
+use App\Models\Ingreso;
 use App\Models\EmpleadosPago;
 use App\Models\Liquidacione;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
 use App\Models\TiposParticipacion;
+use App\Models\TiposIngreso;
 use App\Models\MovimientoCaja;
 use App\Models\MovimientosInventario;
 use App\Models\MovimientosCosto;
@@ -92,14 +94,14 @@ class MobileDataController extends Controller
         }
 
         $data['catalogs'] = $pageNumber === 1 ? [
-            'units' => ($user->can('ordenes_trabajo.create') || $user->can('ordenes_trabajo.edit') || $user->can('trabajos_empleado.create'))
+            'units' => ($user->can('ordenes_trabajo.create') || $user->can('ordenes_trabajo.edit') || $user->can('trabajos_empleado.create') || $user->can('ingresos.create') || $user->can('ingresos.edit'))
                 ? UnidadMedida::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])->values() : [],
             'cost_categories' => ($user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit'))
                 ? CategoriasCosto::paraRegistrar()->get(['id', 'nombre'])->map(fn (CategoriasCosto $category) => [
                     'id' => $category->id, 'name' => $category->nombre,
                 ])->values() : [],
-            'currencies' => ($user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit'))
+            'currencies' => ($user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit') || $user->can('ingresos.create') || $user->can('ingresos.edit'))
                 ? Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])->map(fn (Moneda $currency) => [
                     'id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
                     'is_base_currency' => (bool) $currency->es_moneda_base,
@@ -111,6 +113,10 @@ class MobileDataController extends Controller
                 ? Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])
                     ->map(fn (Moneda $currency) => ['id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
                         'is_base_currency' => (bool) $currency->es_moneda_base])->values() : [],
+            'income_types' => ($user->can('ingresos.create') || $user->can('ingresos.edit'))
+                ? TiposIngreso::paraRegistrar()->get(['id', 'nombre'])->map(fn (TiposIngreso $type) => [
+                    'id' => $type->id, 'name' => $type->nombre,
+                ])->values() : [],
             'products' => ($user->can('productos.view') || $user->can('movimientos_inventario.create'))
                 ? Producto::query()->with(['inventario', 'unidadMedida'])->where('estado', true)->orderBy('nombre')->get()
                     ->map(fn (Producto $product) => $this->mobileProductData($product))->values() : [],
@@ -145,8 +151,8 @@ class MobileDataController extends Controller
                     'valid_from' => $pay->fecha_inicio?->toDateString(), 'valid_until' => $pay->fecha_fin?->toDateString(),
                     'active' => (bool) $pay->estado,
                 ])->values() : [],
-            'exchange_rates' => ($user->can('trabajos_empleado.create') || $user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit'))
-                ? DB::table('tipos_cambio')->whereNull('deleted_at')->selectRaw('moneda_id, DATE(fecha) as fecha, valor')->get() : [],
+            'exchange_rates' => ($user->can('trabajos_empleado.create') || $user->can('movimientos_costo.create') || $user->can('movimientos_costo.edit') || $user->can('ingresos.create') || $user->can('ingresos.edit'))
+                ? DB::table('tipos_cambio')->whereNull('deleted_at')->selectRaw('id, moneda_id, DATE(fecha) as fecha, valor')->get() : [],
         ] : [];
 
         return response()->json(['data' => $data, 'meta' => ['orders' => $ordersMeta]]);
@@ -165,6 +171,8 @@ class MobileDataController extends Controller
                 'material.consume', 'material.delete',
                 'agreement.create', 'agreement.update', 'agreement.delete',
                 'liquidation.create', 'liquidation.update', 'liquidation.delete',
+                'income.create', 'income.update', 'income.delete',
+                'order_cost.create', 'order_cost.update', 'order_cost.delete',
             ])],
             'operations.*.payload' => ['required', 'array'],
         ]);
@@ -203,7 +211,8 @@ class MobileDataController extends Controller
                     $movementId = $this->resolveOfflineReference($body['movement_id'] ?? null, $idMap);
                     $agreementId = $this->resolveOfflineReference($body['agreement_id'] ?? null, $idMap);
                     $liquidationId = $this->resolveOfflineReference($body['liquidation_id'] ?? null, $idMap);
-                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['movement_id'], $body['agreement_id'], $body['liquidation_id'], $body['local_id']);
+                    $incomeId = $this->resolveOfflineReference($body['income_id'] ?? null, $idMap);
+                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['movement_id'], $body['agreement_id'], $body['liquidation_id'], $body['income_id'], $body['local_id']);
                     if ($type === 'liquidation.create') {
                         $body['agreement_id'] = $agreementId;
                     }
@@ -225,6 +234,12 @@ class MobileDataController extends Controller
                         'liquidation.create' => ['POST', '/api/v1/orders/'.$orderId.'/liquidations'],
                         'liquidation.update' => ['PUT', '/api/v1/orders/'.$orderId.'/liquidations/'.$liquidationId],
                         'liquidation.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/liquidations/'.$liquidationId],
+                        'income.create' => ['POST', '/api/v1/orders/'.$orderId.'/incomes'],
+                        'income.update' => ['PUT', '/api/v1/orders/'.$orderId.'/incomes/'.$incomeId],
+                        'income.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/incomes/'.$incomeId],
+                        'order_cost.create' => ['POST', '/api/v1/orders/'.$orderId.'/costs'],
+                        'order_cost.update' => ['PUT', '/api/v1/orders/'.$orderId.'/costs/'.$costId],
+                        'order_cost.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/costs/'.$costId],
                         default => abort(422, 'Tipo de operación móvil no reconocido: '.$type),
                     };
 
@@ -702,6 +717,174 @@ class MobileDataController extends Controller
             'currency' => $agreement->moneda?->codigo,
             'observations' => $agreement->observaciones,
             'active' => (bool) $agreement->estado,
+        ];
+    }
+
+    public function incomeOptions(string $orderId): JsonResponse
+    {
+        OrdenesTrabajo::query()->findOrFail($orderId);
+        return response()->json(['data' => [
+            'date' => now()->toDateString(),
+            'types' => TiposIngreso::paraRegistrar()->get(['id', 'nombre'])->map(fn (TiposIngreso $type) => [
+                'id' => $type->id, 'name' => $type->nombre,
+            ])->values(),
+            'units' => UnidadMedida::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])->map(fn (UnidadMedida $unit) => [
+                'id' => $unit->id, 'name' => $unit->nombre,
+            ])->values(),
+            'currencies' => Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])->map(fn (Moneda $currency) => [
+                'id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
+                'is_base_currency' => (bool) $currency->es_moneda_base,
+            ])->values(),
+        ]]);
+    }
+
+    public function storeIncome(Request $request, string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        abort_if($order->estaCerrada(), 422, 'No se pueden agregar ingresos a una orden finalizada o cancelada.');
+        $income = new Ingreso();
+        $this->saveIncome($request, $order, $income);
+        return response()->json(['data' => $this->incomeData($income->load(['tipo_ingreso', 'moneda']))], 201);
+    }
+
+    public function updateIncome(Request $request, string $orderId, string $incomeId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $income = Ingreso::query()->where('orden_trabajo_id', $order->id)->findOrFail($incomeId);
+        $this->saveIncome($request, $order, $income);
+        return response()->json(['data' => $this->incomeData($income->load(['tipo_ingreso', 'moneda']))]);
+    }
+
+    public function deleteIncome(string $orderId, string $incomeId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $income = Ingreso::query()->where('orden_trabajo_id', $order->id)->findOrFail($incomeId);
+        $income->delete();
+        return response()->json(['ok' => true]);
+    }
+
+    public function orderCostOptions(string $orderId): JsonResponse
+    {
+        OrdenesTrabajo::query()->findOrFail($orderId);
+        return response()->json(['data' => [
+            'categories' => CategoriasCosto::paraRegistrar()->get(['id', 'nombre'])->map(fn (CategoriasCosto $category) => [
+                'id' => $category->id, 'name' => $category->nombre,
+            ])->values(),
+            'currencies' => Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])
+                ->map(fn (Moneda $currency) => ['id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
+                    'is_base_currency' => (bool) $currency->es_moneda_base])->values(),
+            'date' => now()->toDateString(),
+        ]]);
+    }
+
+    public function orderCosts(string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $costs = MovimientosCosto::query()->where('orden_trabajo_id', $order->id)->whereNull('proceso_orden_id')
+            ->with(['categoria_costo', 'moneda'])->orderByDesc('fecha')->orderByDesc('id')->get()
+            ->map(fn (MovimientosCosto $cost) => $this->orderCostData($cost));
+        return response()->json(['data' => ['costs' => $costs->values()]]);
+    }
+
+    public function storeOrderCost(Request $request, string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        abort_if($order->estaCerrada(), 422, 'No se pueden registrar costos en una orden finalizada o cancelada.');
+        $validated = $this->validarCosto($request);
+        [$cost] = $this->armarCosto($validated, $order->id, null);
+        $cost->validarProcesoPertenece();
+        $cost->save();
+        return response()->json(['data' => $this->orderCostData($cost->load(['categoria_costo', 'moneda']))], 201);
+    }
+
+    public function updateOrderCost(Request $request, string $orderId, string $costId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $cost = MovimientosCosto::query()->where('orden_trabajo_id', $order->id)
+            ->whereNull('proceso_orden_id')->findOrFail($costId);
+        $validated = $this->validarCosto($request, $cost->id);
+        [$cost] = $this->armarCosto($validated, $order->id, null, $cost);
+        $cost->validarProcesoPertenece();
+        $cost->save();
+        return response()->json(['data' => $this->orderCostData($cost->load(['categoria_costo', 'moneda']))]);
+    }
+
+    public function deleteOrderCost(string $orderId, string $costId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $cost = MovimientosCosto::query()->where('orden_trabajo_id', $order->id)
+            ->whereNull('proceso_orden_id')->findOrFail($costId);
+        $cost->delete();
+        return response()->json(['ok' => true]);
+    }
+
+    private function orderCostData(MovimientosCosto $cost): array
+    {
+        return [
+            'id' => $cost->id,
+            'category_id' => $cost->categoria_costo_id,
+            'category' => $cost->categoria_costo?->nombre,
+            'date' => $cost->fecha?->toDateString(),
+            'description' => $cost->descripcion,
+            'quantity' => (float) $cost->cantidad,
+            'unit_cost' => (float) $cost->costo_unitario,
+            'total' => (float) $cost->costo_total,
+            'currency_id' => $cost->moneda_id,
+            'currency' => $cost->moneda?->codigo,
+            'unit_cost_nio' => $cost->costo_unitario_nio === null ? null : (float) $cost->costo_unitario_nio,
+            'total_nio' => $cost->costo_total_nio === null ? null : (float) $cost->costo_total_nio,
+            'observations' => $cost->observaciones,
+        ];
+    }
+
+    private function saveIncome(Request $request, OrdenesTrabajo $order, Ingreso $income): void
+    {
+        $data = $request->validate([
+            'type_id' => ['required', 'integer', Rule::exists('tipos_ingreso', 'id')->whereNull('deleted_at')->where('estado', true)],
+            'date' => ['required', 'date'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'quantity' => ['required', 'numeric', 'gt:0'],
+            'unit_id' => ['nullable', 'integer', Rule::exists('unidades_medida', 'id')->where('estado', true)],
+            'unit' => ['nullable', 'string', 'max:100'],
+            'unit_price' => ['required', 'numeric', 'gte:0'],
+            'currency_id' => ['required', 'integer', Rule::exists('monedas', 'id')->whereNull('deleted_at')->where('estado', true)],
+            'observations' => ['nullable', 'string'],
+        ]);
+        $unitId = $data['unit_id'] ?? null;
+        $unit = $unitId ? UnidadMedida::query()->findOrFail($unitId) : null;
+        $currency = Moneda::query()->findOrFail($data['currency_id']);
+        $type = TiposIngreso::query()->findOrFail($data['type_id']);
+        abort_if(! $unit?->estado && $unitId !== null, 422, 'La unidad ya no está disponible.');
+        abort_if(! $currency->estado, 422, 'La moneda está inactiva.');
+        abort_if(! $type->estado, 422, 'El tipo de ingreso está inactivo.');
+
+        $income->orden_trabajo_id = $order->id;
+        $income->tipo_ingreso_id = $type->id;
+        $income->fecha = $data['date'];
+        $income->descripcion = filled($data['description'] ?? null) ? $data['description'] : null;
+        $income->cantidad = $data['quantity'];
+        $income->unidad_medida_id = $unit?->id;
+        $income->unidad_medida = $unit?->nombre ?? (filled($data['unit'] ?? null) ? $data['unit'] : null);
+        $income->precio_unitario = $data['unit_price'];
+        $income->moneda_id = $currency->id;
+        $income->observaciones = filled($data['observations'] ?? null) ? $data['observations'] : null;
+        $income->estado = $income->estado ?? 1;
+        $exchangeRate = $currency->es_moneda_base ? 1.0 : TiposCambio::vigentePara((int) $currency->id, $data['date']);
+        $income->calcularTotales($exchangeRate)->save();
+    }
+
+    private function incomeData(Ingreso $income): array
+    {
+        return [
+            'id' => $income->id,
+            'date' => $income->fecha?->toDateString(),
+            'type' => $income->tipo_ingreso?->nombre,
+            'description' => $income->descripcion,
+            'quantity' => $income->cantidad,
+            'unit' => $income->unidad_medida,
+            'currency' => $income->moneda?->codigo,
+            'total' => $income->total,
+            'total_nio' => $income->total_nio,
         ];
     }
 
@@ -1262,19 +1445,27 @@ class MobileDataController extends Controller
                 })->values();
         }
 
-        if ($request->user()->can('movimientos_costo.view')) {
+        if ($request->user()->can('movimientos_costo.view')
+            || $request->user()->can('movimientos_costo.create')
+            || $request->user()->can('movimientos_costo.edit')
+            || $request->user()->can('movimientos_costo.delete')) {
             $details['costs'] = $order->movimientos_costos_where_orden_trabajo()
                 ->with(['categoria_costo', 'moneda', 'proceso_orden.etapa'])->orderBy('fecha')->get()
                 ->map(fn ($cost) => [
                     'id' => $cost->id,
                     'date' => $cost->fecha?->toDateString(),
                     'process' => $cost->proceso_orden?->nombre_completo ?? null,
+                    'category_id' => $cost->categoria_costo_id,
                     'category' => $cost->categoria_costo?->nombre,
                     'description' => $cost->descripcion,
                     'quantity' => $cost->cantidad,
+                    'unit_cost' => $cost->costo_unitario,
+                    'currency_id' => $cost->moneda_id,
                     'currency' => $cost->moneda?->codigo,
                     'total' => $cost->costo_total,
+                    'unit_cost_nio' => $cost->costo_unitario_nio,
                     'total_nio' => $cost->costo_total_nio,
+                    'observations' => $cost->observaciones,
                 ])->values();
         }
 
@@ -1283,11 +1474,18 @@ class MobileDataController extends Controller
                 ->map(fn ($income) => [
                     'id' => $income->id,
                     'date' => $income->fecha?->toDateString(),
+                    'type_id' => $income->tipo_ingreso_id,
                     'type' => $income->tipo_ingreso?->nombre,
                     'description' => $income->descripcion,
+                    'quantity' => $income->cantidad,
+                    'unit_id' => $income->unidad_medida_id,
+                    'unit' => $income->unidad_medida,
+                    'unit_price' => $income->precio_unitario,
+                    'currency_id' => $income->moneda_id,
                     'currency' => $income->moneda?->codigo,
                     'total' => $income->total,
                     'total_nio' => $income->total_nio,
+                    'observations' => $income->observaciones,
                 ])->values();
         }
 

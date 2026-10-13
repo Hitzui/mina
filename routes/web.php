@@ -34,6 +34,7 @@ use App\Http\Controllers\Procesos\OrdenesTrabajo\MaterialesProcesoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\ProcesoEquipoController;
 use App\Http\Controllers\Procesos\OrdenesTrabajo\TrabajosEmpleadoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoController;
+use App\Http\Controllers\Procesos\ResumenOrdenTrabajoController;
 use App\Http\Controllers\Procesos\OrdenTrabajoPdfController;
 use App\Http\Controllers\Procesos\ProcesoOrdenController;
 use App\Http\Controllers\Procesos\ProduccionController;
@@ -184,6 +185,15 @@ Route::middleware('auth')->group(function () {
         OrdenTrabajoPdfController::class)
         ->middleware('permission:ordenes_trabajo.view')
         ->name('procesos.ordenes_trabajo.pdf');
+    Route::get('procesos/ordenes-trabajo/{ordenTrabajo}/resumen',
+        [ResumenOrdenTrabajoController::class, 'show'])
+        ->name('procesos.ordenes_trabajo.resumen');
+    Route::get('procesos/ordenes-trabajo/{ordenTrabajo}/resumen/pdf',
+        [ResumenOrdenTrabajoController::class, 'pdf'])
+        ->name('procesos.ordenes_trabajo.resumen.pdf');
+    Route::get('procesos/ordenes-trabajo/{ordenTrabajo}/resumen/xlsx',
+        [ResumenOrdenTrabajoController::class, 'xlsx'])
+        ->name('procesos.ordenes_trabajo.resumen.xlsx');
     Route::post('procesos/ordenes-trabajo/{ordenTrabajo}/finalizar',
         [OrdenTrabajoController::class, 'finalizar'])
         ->middleware('permission:ordenes_trabajo.edit')
