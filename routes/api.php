@@ -36,6 +36,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:procesos_orden.create')->name('orders.process-form-options');
         Route::post('orders/{orderId}/processes', [MobileDataController::class, 'storeOrderProcess'])
             ->middleware('permission:procesos_orden.create')->name('orders.processes.store');
+        Route::get('agreement-options', [MobileDataController::class, 'agreementOptions'])
+            ->middleware('permission:acuerdos_orden.create|acuerdos_orden.edit')->name('agreements.options');
+        Route::post('orders/{orderId}/agreements', [MobileDataController::class, 'storeAgreement'])
+            ->middleware('permission:acuerdos_orden.create')->name('orders.agreements.store');
+        Route::put('orders/{orderId}/agreements/{agreementId}', [MobileDataController::class, 'updateAgreement'])
+            ->middleware('permission:acuerdos_orden.edit')->name('orders.agreements.update');
+        Route::delete('orders/{orderId}/agreements/{agreementId}', [MobileDataController::class, 'deleteAgreement'])
+            ->middleware('permission:acuerdos_orden.delete')->name('orders.agreements.destroy');
+        Route::get('orders/{orderId}/liquidation-options', [MobileDataController::class, 'liquidationOptions'])
+            ->middleware('permission:liquidaciones.create')->name('orders.liquidations.options');
+        Route::post('orders/{orderId}/liquidations', [MobileDataController::class, 'storeLiquidation'])
+            ->middleware('permission:liquidaciones.create')->name('orders.liquidations.store');
+        Route::put('orders/{orderId}/liquidations/{liquidationId}', [MobileDataController::class, 'updateLiquidation'])
+            ->middleware('permission:liquidaciones.edit')->name('orders.liquidations.update');
+        Route::delete('orders/{orderId}/liquidations/{liquidationId}', [MobileDataController::class, 'deleteLiquidation'])
+            ->middleware('permission:liquidaciones.delete')->name('orders.liquidations.destroy');
         Route::get('orders/{orderId}/processes/{processId}/employee-work-options', [MobileDataController::class, 'employeeWorkOptions'])
             ->middleware('permission:trabajos_empleado.create')->name('orders.processes.employee-work-options');
         Route::get('orders/{orderId}/processes/{processId}/employee-work-rate', [MobileDataController::class, 'employeeWorkRate'])

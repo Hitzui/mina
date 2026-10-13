@@ -549,4 +549,161 @@ class ApiMobileReadTest extends TestCase
             ->assertJsonPath('data.liquidations.0.recovered_grams', 10)
             ->assertJsonPath('data.liquidations.0.observations', 'Lote de prueba API');
     }
+
+    public function test_api_movil_crea_actualiza_y_elimina_acuerdos_de_la_orden(): void
+    {
+        $permissions = ['acuerdos_orden.view', 'acuerdos_orden.create', 'acuerdos_orden.edit', 'acuerdos_orden.delete'];
+        foreach ($permissions as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+        $this->user->givePermissionTo($permissions);
+
+        $order = OrdenesTrabajo::query()->whereNotIn('estado', [0, 3])->first();
+        $currency = Moneda::query()->where('estado', true)->where('es_moneda_base', true)->first();
+        if (! $order || ! $currency) {
+            $this->markTestSkipped('Hace falta una orden abierta y una moneda base activa para probar acuerdos móviles.');
+        }
+        $type = TiposParticipacion::create(['nombre' => 'Tipo API móvil '.Str::upper(Str::random(6)), 'estado' => true]);
+        $url = '/api/v1/orders/'.$order->id.'/agreements';
+
+        $created = $this->withToken($this->token)->postJson($url, [
+            'participation_type_id' => $type->id,
+            'client_percentage' => 65,
+            'company_percentage' => 35,
+            'currency_id' => $currency->id,
+            'active' => true,
+            'observations' => 'Acuerdo desde móvil',
+        ])->assertCreated()->assertJsonPath('data.participation_type_id', $type->id)
+            ->assertJsonPath('data.modality', 'porcentaje');
+        $agreementId = $created->json('data.id');
+
+        $this->withToken($this->token)->putJson($url.'/'.$agreementId, [
+            'participation_type_id' => $type->id,
+            'service_fee' => 125.5,
+            'currency_id' => $currency->id,
+            'active' => false,
+        ])->assertOk()->assertJsonPath('data.modality', 'tarifa')->assertJsonPath('data.active', false);
+
+        $this->withToken($this->token)->deleteJson($url.'/'.$agreementId)->assertOk();
+        $this->assertSoftDeleted('acuerdos_orden', ['id' => $agreementId]);
+
+        $localId = '-'.random_int(10000, 99999);
+        $key = 'offline-agreement-'.Str::lower(Str::random(10));
+        $operations = [
+            [
+                'local_id' => $localId,
+                'operation_key' => $key.'-create',
+                'type' => 'agreement.create',
+                'payload' => [
+                    'order_id' => $order->id,
+                    'participation_type_id' => $type->id,
+                    'client_percentage' => 60,
+                    'company_percentage' => 40,
+                    'currency_id' => $currency->id,
+                    'active' => true,
+                ],
+            ],
+            [
+                'local_id' => $localId,
+                'operation_key' => $key.'-update',
+                'type' => 'agreement.update',
+                'payload' => [
+                    'order_id' => $order->id,
+                    'agreement_id' => $localId,
+                    'participation_type_id' => $type->id,
+                    'service_fee' => 75,
+                    'currency_id' => $currency->id,
+                    'active' => true,
+                ],
+            ],
+            [
+                'local_id' => $localId,
+                'operation_key' => $key.'-delete',
+                'type' => 'agreement.delete',
+                'payload' => ['order_id' => $order->id, 'agreement_id' => $localId],
+            ],
+        ];
+        $upload = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 3);
+        $offlineAgreementId = $upload->json('data.id_map.'.$localId);
+        $this->assertNotNull($offlineAgreementId);
+        $this->assertSoftDeleted('acuerdos_orden', ['id' => $offlineAgreementId]);
+    }
+
+    public function test_api_movil_liquida_lotes_y_sincroniza_creacion_edicion_y_eliminacion_offline(): void
+    {
+        $permissions = ['liquidaciones.view', 'liquidaciones.create', 'liquidaciones.edit', 'liquidaciones.delete'];
+        foreach ($permissions as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+        $this->user->givePermissionTo($permissions);
+        $order = OrdenesTrabajo::query()->where('estado', '<>', 0)->first();
+        $currency = Moneda::query()->where('estado', true)->where('es_moneda_base', true)->first();
+        if (! $order || ! $currency) {
+            $this->markTestSkipped('Hace falta una orden y una moneda base activas para probar liquidaciones móviles.');
+        }
+        $type = TiposParticipacion::create(['nombre' => 'Tipo de liquidación móvil '.Str::upper(Str::random(6)), 'estado' => true]);
+        $agreement = AcuerdosOrden::create([
+            'orden_trabajo_id' => $order->id,
+            'tipo_participacion_id' => $type->id,
+            'porcentaje_cliente' => 65,
+            'porcentaje_empresa' => 35,
+            'moneda_id' => $currency->id,
+            'estado' => true,
+        ]);
+        $orderUrl = '/api/v1/orders/'.$order->id;
+
+        $this->withToken($this->token)->getJson($orderUrl.'/liquidation-options')
+            ->assertOk()->assertJsonPath('data.agreements.0.id', $agreement->id);
+        $this->withToken($this->token)->getJson($orderUrl)
+            ->assertOk()->assertJsonPath('data.liquidation_agreements.0.id', $agreement->id);
+        $created = $this->withToken($this->token)->postJson($orderUrl.'/liquidations', [
+            'date' => '2026-10-10',
+            'recovered_grams' => 1.2345,
+            'agreement_id' => $agreement->id,
+            'observations' => 'Lote móvil online',
+        ])->assertCreated()->assertJsonPath('data.client_grams', 0.8024)->assertJsonPath('data.company_grams', 0.4321);
+        $liquidationId = $created->json('data.id');
+
+        $this->withToken($this->token)->putJson($orderUrl.'/liquidations/'.$liquidationId, [
+            'date' => '2026-10-11', 'recovered_grams' => 2, 'observations' => 'Lote corregido',
+        ])->assertOk()->assertJsonPath('data.client_grams', 1.3)->assertJsonPath('data.company_grams', 0.7);
+
+        $this->withToken($this->token)->deleteJson($orderUrl.'/liquidations/'.$liquidationId)->assertOk();
+        $this->assertSoftDeleted('liquidaciones', ['id' => $liquidationId]);
+
+        $localId = '-'.random_int(10000, 99999);
+        $operationPrefix = 'offline-liquidation-'.Str::lower(Str::random(10));
+        $operations = [
+            [
+                'local_id' => $localId,
+                'operation_key' => $operationPrefix.'-create',
+                'type' => 'liquidation.create',
+                'payload' => [
+                    'order_id' => $order->id, 'date' => '2026-10-12', 'recovered_grams' => 1.2345,
+                    'agreement_id' => $agreement->id, 'observations' => 'Lote móvil offline',
+                ],
+            ],
+            [
+                'local_id' => $localId,
+                'operation_key' => $operationPrefix.'-update',
+                'type' => 'liquidation.update',
+                'payload' => [
+                    'order_id' => $order->id, 'liquidation_id' => $localId, 'date' => '2026-10-13',
+                    'recovered_grams' => 2, 'observations' => 'Lote offline corregido',
+                ],
+            ],
+            [
+                'local_id' => $localId,
+                'operation_key' => $operationPrefix.'-delete',
+                'type' => 'liquidation.delete',
+                'payload' => ['order_id' => $order->id, 'liquidation_id' => $localId],
+            ],
+        ];
+        $uploaded = $this->withToken($this->token)->postJson('/api/v1/offline/upload', ['operations' => $operations])
+            ->assertOk()->assertJsonPath('data.uploaded', 3);
+        $offlineLiquidationId = $uploaded->json('data.id_map.'.$localId);
+        $this->assertNotNull($offlineLiquidationId);
+        $this->assertSoftDeleted('liquidaciones', ['id' => $offlineLiquidationId]);
+    }
 }

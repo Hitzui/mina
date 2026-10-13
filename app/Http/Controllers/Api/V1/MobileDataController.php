@@ -17,6 +17,7 @@ use App\Models\EmpleadosPago;
 use App\Models\Liquidacione;
 use App\Models\MetodosPagos;
 use App\Models\Moneda;
+use App\Models\TiposParticipacion;
 use App\Models\MovimientoCaja;
 use App\Models\MovimientosInventario;
 use App\Models\MovimientosCosto;
@@ -103,6 +104,13 @@ class MobileDataController extends Controller
                     'id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
                     'is_base_currency' => (bool) $currency->es_moneda_base,
                 ])->values() : [],
+            'participation_types' => ($user->can('acuerdos_orden.create') || $user->can('acuerdos_orden.edit'))
+                ? TiposParticipacion::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn (TiposParticipacion $type) => ['id' => $type->id, 'name' => $type->nombre])->values() : [],
+            'agreement_currencies' => ($user->can('acuerdos_orden.create') || $user->can('acuerdos_orden.edit'))
+                ? Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])
+                    ->map(fn (Moneda $currency) => ['id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
+                        'is_base_currency' => (bool) $currency->es_moneda_base])->values() : [],
             'products' => ($user->can('productos.view') || $user->can('movimientos_inventario.create'))
                 ? Producto::query()->with(['inventario', 'unidadMedida'])->where('estado', true)->orderBy('nombre')->get()
                     ->map(fn (Producto $product) => $this->mobileProductData($product))->values() : [],
@@ -155,6 +163,8 @@ class MobileDataController extends Controller
                 'order.create', 'order.update', 'process.create', 'employee_work.create', 'equipment.assign',
                 'cost.create', 'cost.update', 'cost.delete', 'order.finalize',
                 'material.consume', 'material.delete',
+                'agreement.create', 'agreement.update', 'agreement.delete',
+                'liquidation.create', 'liquidation.update', 'liquidation.delete',
             ])],
             'operations.*.payload' => ['required', 'array'],
         ]);
@@ -191,7 +201,12 @@ class MobileDataController extends Controller
                     $processId = $this->resolveOfflineReference($body['process_id'] ?? null, $idMap);
                     $costId = $this->resolveOfflineReference($body['cost_id'] ?? null, $idMap);
                     $movementId = $this->resolveOfflineReference($body['movement_id'] ?? null, $idMap);
-                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['movement_id'], $body['local_id']);
+                    $agreementId = $this->resolveOfflineReference($body['agreement_id'] ?? null, $idMap);
+                    $liquidationId = $this->resolveOfflineReference($body['liquidation_id'] ?? null, $idMap);
+                    unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['movement_id'], $body['agreement_id'], $body['liquidation_id'], $body['local_id']);
+                    if ($type === 'liquidation.create') {
+                        $body['agreement_id'] = $agreementId;
+                    }
                     [$method, $path] = match ($type) {
                         'order.create' => ['POST', '/api/v1/orders'],
                         'order.update' => ['PUT', '/api/v1/orders/'.$orderId],
@@ -204,6 +219,12 @@ class MobileDataController extends Controller
                         'material.consume' => ['POST', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/materials'],
                         'material.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/processes/'.$processId.'/materials/'.$movementId],
                         'order.finalize' => ['POST', '/api/v1/orders/'.$orderId.'/finalize'],
+                        'agreement.create' => ['POST', '/api/v1/orders/'.$orderId.'/agreements'],
+                        'agreement.update' => ['PUT', '/api/v1/orders/'.$orderId.'/agreements/'.$agreementId],
+                        'agreement.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/agreements/'.$agreementId],
+                        'liquidation.create' => ['POST', '/api/v1/orders/'.$orderId.'/liquidations'],
+                        'liquidation.update' => ['PUT', '/api/v1/orders/'.$orderId.'/liquidations/'.$liquidationId],
+                        'liquidation.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/liquidations/'.$liquidationId],
                         default => abort(422, 'Tipo de operación móvil no reconocido: '.$type),
                     };
 
@@ -581,6 +602,221 @@ class MobileDataController extends Controller
                     'is_base_currency' => (bool) $currency->es_moneda_base])->values(),
             'date' => $process->fecha_inicio?->toDateString() ?? now()->toDateString(),
         ]]);
+    }
+
+    public function agreementOptions(): JsonResponse
+    {
+        return response()->json(['data' => [
+            'participation_types' => TiposParticipacion::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
+                ->map(fn (TiposParticipacion $type) => ['id' => $type->id, 'name' => $type->nombre])->values(),
+            'currencies' => Moneda::query()->where('estado', true)->orderBy('nombre')->get(['id', 'codigo', 'nombre', 'es_moneda_base'])
+                ->map(fn (Moneda $currency) => ['id' => $currency->id, 'code' => $currency->codigo, 'name' => $currency->nombre,
+                    'is_base_currency' => (bool) $currency->es_moneda_base])->values(),
+            'base_currency_id' => Moneda::base()?->id,
+        ]]);
+    }
+
+    public function storeAgreement(Request $request, string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $data = $this->validateAgreement($request);
+        $data['orden_trabajo_id'] = $order->id;
+        $agreement = AcuerdosOrden::query()->create($data);
+
+        return response()->json(['data' => $this->agreementData($agreement->load(['tipo_participacion', 'moneda']))], 201);
+    }
+
+    public function updateAgreement(Request $request, string $orderId, string $agreementId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $agreement = AcuerdosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($agreementId);
+        $agreement->update($this->validateAgreement($request, $agreement));
+
+        return response()->json(['data' => $this->agreementData($agreement->load(['tipo_participacion', 'moneda']))]);
+    }
+
+    public function deleteAgreement(string $orderId, string $agreementId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $agreement = AcuerdosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($agreementId);
+        $agreement->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function validateAgreement(Request $request, ?AcuerdosOrden $existing = null): array
+    {
+        $usesPercentages = filled($request->input('client_percentage')) || filled($request->input('company_percentage'));
+        $usesFee = filled($request->input('service_fee'));
+        if ($usesPercentages && ! $usesFee) {
+            $request->merge(['currency_id' => $existing?->moneda_id ?? Moneda::base()?->id]);
+        }
+        $data = $request->validate([
+            'participation_type_id' => ['required', 'integer', Rule::exists('tipos_participacion', 'id')->whereNull('deleted_at')],
+            'client_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'company_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'service_fee' => ['nullable', 'numeric', 'gt:0'],
+            'currency_id' => ['required', 'integer', Rule::exists('monedas', 'id')->whereNull('deleted_at')],
+            'observations' => ['nullable', 'string', 'max:5000'],
+            'active' => ['required', 'boolean'],
+        ]);
+        $client = $data['client_percentage'] ?? null;
+        $company = $data['company_percentage'] ?? null;
+        $fee = $data['service_fee'] ?? null;
+        $hasPercentages = $client !== null || $company !== null;
+        $hasFee = $fee !== null;
+        if (($hasPercentages && ($client === null || $company === null)) || ($hasPercentages === $hasFee)) {
+            abort(422, 'Complete ambos porcentajes o indique una tarifa de servicio; las modalidades son excluyentes.');
+        }
+        if ($hasPercentages && abs(round((float) $client + (float) $company, 4) - 100) > 0.0001) {
+            abort(422, 'Los porcentajes del cliente y de la empresa deben sumar exactamente 100%.');
+        }
+        $type = TiposParticipacion::query()->findOrFail($data['participation_type_id']);
+        abort_if(! $type->estado && (int) $type->id !== (int) ($existing?->tipo_participacion_id), 422,
+            'El tipo de participación está inactivo.');
+        $currency = Moneda::query()->findOrFail($data['currency_id']);
+        abort_if(! $currency->estado && (int) $currency->id !== (int) ($existing?->moneda_id), 422, 'La moneda está inactiva.');
+
+        return [
+            'tipo_participacion_id' => $type->id,
+            'porcentaje_cliente' => $hasPercentages ? $client : null,
+            'porcentaje_empresa' => $hasPercentages ? $company : null,
+            'tarifa_servicio' => $hasFee ? $fee : null,
+            'moneda_id' => $currency->id,
+            'observaciones' => filled($data['observations'] ?? null) ? $data['observations'] : null,
+            'estado' => (bool) $data['active'],
+        ];
+    }
+
+    private function agreementData(AcuerdosOrden $agreement): array
+    {
+        return [
+            'id' => $agreement->id,
+            'participation_type_id' => $agreement->tipo_participacion_id,
+            'participation_type' => $agreement->tipo_participacion?->nombre,
+            'modality' => $agreement->modalidad(),
+            'client_percentage' => $agreement->porcentaje_cliente,
+            'company_percentage' => $agreement->porcentaje_empresa,
+            'service_fee' => $agreement->tarifa_servicio,
+            'currency_id' => $agreement->moneda_id,
+            'currency' => $agreement->moneda?->codigo,
+            'observations' => $agreement->observaciones,
+            'active' => (bool) $agreement->estado,
+        ];
+    }
+
+    public function liquidationOptions(string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        return response()->json(['data' => [
+            'date' => now()->toDateString(),
+            'agreements' => $this->liquidationAgreements($order),
+        ]]);
+    }
+
+    public function storeLiquidation(Request $request, string $orderId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        abort_if((int) $order->estado === OrdenesTrabajo::ESTADO_CANCELADA, 422, 'No se puede liquidar oro de una orden cancelada.');
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'recovered_grams' => ['required', 'numeric', 'gt:0', 'max:99999999.9999'],
+            'agreement_id' => ['required', 'integer', Rule::exists('acuerdos_orden', 'id')->whereNull('deleted_at')],
+            'observations' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $agreement = $this->liquidationAgreement($order, (int) $data['agreement_id']);
+        $liquidation = new Liquidacione([
+            Liquidacione::ORDEN_TRABAJO_ID => $order->id,
+            Liquidacione::FECHA => $data['date'],
+            Liquidacione::OBSERVACIONES => filled($data['observations'] ?? null) ? $data['observations'] : null,
+        ]);
+        $liquidation->calcularReparto(
+            (float) $data['recovered_grams'],
+            (float) $agreement->porcentaje_cliente,
+            (float) $agreement->porcentaje_empresa,
+        )->save();
+
+        return response()->json(['data' => $this->liquidationData($liquidation)], 201);
+    }
+
+    public function updateLiquidation(Request $request, string $orderId, string $liquidationId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $liquidation = Liquidacione::query()->where('orden_trabajo_id', $order->id)->findOrFail($liquidationId);
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'recovered_grams' => ['required', 'numeric', 'gt:0', 'max:99999999.9999'],
+            'observations' => ['nullable', 'string', 'max:5000'],
+        ]);
+        abort_if(abs(round((float) $liquidation->porcentaje_cliente + (float) $liquidation->porcentaje_empresa, 4) - 100) > 0.0001,
+            422, 'Esta liquidación no conserva porcentajes válidos. No se modificó su reparto histórico.');
+        $liquidation->fecha = $data['date'];
+        $liquidation->observaciones = filled($data['observations'] ?? null) ? $data['observations'] : null;
+        $liquidation->calcularReparto(
+            (float) $data['recovered_grams'],
+            (float) $liquidation->porcentaje_cliente,
+            (float) $liquidation->porcentaje_empresa,
+        )->save();
+
+        return response()->json(['data' => $this->liquidationData($liquidation)]);
+    }
+
+    public function deleteLiquidation(string $orderId, string $liquidationId): JsonResponse
+    {
+        $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        $liquidation = Liquidacione::query()->where('orden_trabajo_id', $order->id)->findOrFail($liquidationId);
+        $liquidation->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function liquidationAgreements(OrdenesTrabajo $order): array
+    {
+        return AcuerdosOrden::query()->deOrden($order->id)
+            ->where(AcuerdosOrden::ESTADO, true)
+            ->whereNotNull(AcuerdosOrden::PORCENTAJE_CLIENTE)
+            ->whereNotNull(AcuerdosOrden::PORCENTAJE_EMPRESA)
+            ->whereNull(AcuerdosOrden::TARIFA_SERVICIO)
+            ->with('tipo_participacion')
+            ->orderByDesc(AcuerdosOrden::CREATED_AT)
+            ->get()
+            ->filter(fn (AcuerdosOrden $agreement) => abs(round((float) $agreement->porcentaje_cliente + (float) $agreement->porcentaje_empresa, 4) - 100) <= 0.0001)
+            ->map(fn (AcuerdosOrden $agreement) => [
+                'id' => $agreement->id,
+                'participation_type' => $agreement->tipo_participacion?->nombre,
+                'client_percentage' => $agreement->porcentaje_cliente,
+                'company_percentage' => $agreement->porcentaje_empresa,
+            ])->values()->all();
+    }
+
+    private function liquidationAgreement(OrdenesTrabajo $order, int $agreementId): AcuerdosOrden
+    {
+        $agreement = AcuerdosOrden::query()->deOrden($order->id)
+            ->whereKey($agreementId)
+            ->where(AcuerdosOrden::ESTADO, true)
+            ->whereNotNull(AcuerdosOrden::PORCENTAJE_CLIENTE)
+            ->whereNotNull(AcuerdosOrden::PORCENTAJE_EMPRESA)
+            ->whereNull(AcuerdosOrden::TARIFA_SERVICIO)
+            ->with('tipo_participacion')->first();
+        abort_unless($agreement, 422, 'Elija un acuerdo porcentual activo de esta orden. Las tarifas de servicio no distribuyen gramos.');
+        abort_if(abs(round((float) $agreement->porcentaje_cliente + (float) $agreement->porcentaje_empresa, 4) - 100) > 0.0001,
+            422, 'El acuerdo no suma 100%. Corrija el acuerdo antes de liquidar con él.');
+
+        return $agreement;
+    }
+
+    private function liquidationData(Liquidacione $liquidation): array
+    {
+        return [
+            'id' => $liquidation->id,
+            'date' => $liquidation->fecha?->toDateString(),
+            'recovered_grams' => $liquidation->gramos_recuperados,
+            'client_grams' => $liquidation->gramos_cliente,
+            'company_grams' => $liquidation->gramos_empresa,
+            'client_percentage' => $liquidation->porcentaje_cliente,
+            'company_percentage' => $liquidation->porcentaje_empresa,
+            'observations' => $liquidation->observaciones,
+        ];
     }
 
     public function storeProcessCost(Request $request, string $orderId, string $processId): JsonResponse
@@ -1062,12 +1298,14 @@ class MobileDataController extends Controller
                 ->get()
                 ->map(fn ($agreement) => [
                     'id' => $agreement->id,
+                    'participation_type_id' => $agreement->tipo_participacion_id,
                     'participation_type' => $agreement->tipo_participacion?->nombre,
                     'modality' => $agreement->modalidad(),
                     'client_percentage' => $agreement->porcentaje_cliente,
                     'company_percentage' => $agreement->porcentaje_empresa,
                     'service_fee' => $agreement->tarifa_servicio,
                     'currency' => $agreement->moneda?->codigo,
+                    'currency_id' => $agreement->moneda_id,
                     'observations' => $agreement->observaciones,
                     'active' => (bool) $agreement->estado,
                 ])->values();
@@ -1088,6 +1326,9 @@ class MobileDataController extends Controller
                     'company_percentage' => $liquidation->porcentaje_empresa,
                     'observations' => $liquidation->observaciones,
                 ])->values();
+        }
+        if ($request->user()->can('liquidaciones.create')) {
+            $details['liquidation_agreements'] = $this->liquidationAgreements($order);
         }
 
         if ($request->user()->can('producciones.view')) {
