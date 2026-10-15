@@ -10,6 +10,7 @@ use App\Models\Equipo;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesoEquipo;
 use App\Models\ProcesosOrden;
+use App\Services\UsoEquipoService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -35,6 +36,9 @@ class ProcesoEquipoController extends Controller
     public function __construct()
     {
         $this->authorizeModule('proceso_equipo');
+        $this->middleware('permission:proceso_equipo.view')->only(['gestion', 'depreciacion']);
+        $this->middleware('permission:proceso_equipo.edit')->only(['trabajo', 'consumir', 'anularConsumo']);
+        $this->middleware('permission:movimientos_inventario.create')->only('consumir');
     }
 
     public function index(
@@ -80,17 +84,12 @@ class ProcesoEquipoController extends Controller
 
         // El proceso viene de la ruta, nunca del formulario
         $asignacion = new ProcesoEquipo();
-        $asignacion->fill($validated);
         $asignacion->proceso_orden_id = $procesoOrden->id;
-
-        $asignacion->validarPeriodo();
-        $asignacion->validarSinSolapamiento();
-        $asignacion->calcularDepreciacion();
-        $asignacion->save();
+        $asignacion = app(UsoEquipoService::class)->guardar($asignacion, $validated);
 
         Alert::toast(
-            'Equipo asignado al proceso. Depreciación del periodo: '
-            . number_format($asignacion->depreciacion_total, 2)
+            'Equipo asignado. '.$asignacion->estadoCosteo().'. Costo registrado: NIO '
+            . number_format($asignacion->costo_total_nio, 2)
             . '.'
         )->success()->flash();
 
@@ -114,11 +113,22 @@ class ProcesoEquipoController extends Controller
             'fecha_inicio' => $procesoEquipo->fecha_inicio?->format('Y-m-d\TH:i'),
             'fecha_fin' => $procesoEquipo->fecha_fin?->format('Y-m-d\TH:i'),
             'dias' => round($procesoEquipo->diasDeUso(), 4),
+            'horas_efectivas' => $procesoEquipo->horas_efectivas,
+            'estado_costeo' => $procesoEquipo->estadoCosteo(),
+            'costo_insumos_nio' => $procesoEquipo->costo_insumos_nio,
             'depreciacion_diaria' => round(
-                (float) $procesoEquipo->equipo?->depreciacionDiaria(),
+                $procesoEquipo->depreciacion_hora_nio !== null
+                    ? $procesoEquipo->depreciacion_hora_nio * 24
+                    : (float) $procesoEquipo->equipo?->depreciacionDiaria(),
                 4
             ),
             'depreciacion_total' => (float) $procesoEquipo->depreciacion_total,
+            'metodo_costo' => $procesoEquipo->metodo_costo,
+            'potencia_kw_usada' => $procesoEquipo->potencia_kw_usada,
+            'tarifa_kwh_nio' => $procesoEquipo->tarifa_kwh_nio,
+            'energia_kwh' => (float) $procesoEquipo->energia_kwh,
+            'costo_energia_nio' => (float) $procesoEquipo->costo_energia_nio,
+            'costo_total_nio' => $procesoEquipo->costo_uso_nio,
             'observaciones' => $procesoEquipo->observaciones ?? '',
         ]);
     }
@@ -135,6 +145,9 @@ class ProcesoEquipoController extends Controller
         return response()->json([
             'id' => $procesoEquipo->id,
             'equipo_id' => $procesoEquipo->equipo_id,
+            'horas_efectivas' => $procesoEquipo->horas_efectivas,
+            'horometro_inicial' => $procesoEquipo->horometro_inicial,
+            'horometro_final' => $procesoEquipo->horometro_final,
             'equipo' => $procesoEquipo->equipo?->nombre ?? '—',
             'fecha_inicio' => $procesoEquipo->fecha_inicio?->format('Y-m-d\TH:i'),
             'fecha_fin' => $procesoEquipo->fecha_fin?->format('Y-m-d\TH:i'),
@@ -152,29 +165,7 @@ class ProcesoEquipoController extends Controller
 
         $validated = $this->validarUso($request);
 
-        $procesoEquipo->fill($validated);
-
-        $procesoEquipo->validarPeriodo();
-        $procesoEquipo->validarSinSolapamiento();
-
-        /*
-         * La foto de la depreciacion depende del equipo y del periodo.
-         * Si se toco cualquiera de los dos, la foto ya no corresponde y
-         * hay que rehacerla. Si solo se toco la observacion, se deja como
-         * estaba: el mismo equipo en el mismo periodo sigue costando lo
-         * mismo, aunque despues se le cambie el valor al equipo.
-         */
-        $cambiaElCalculo = $procesoEquipo->isDirty([
-            ProcesoEquipo::EQUIPO_ID,
-            ProcesoEquipo::FECHA_INICIO,
-            ProcesoEquipo::FECHA_FIN,
-        ]);
-
-        if ($cambiaElCalculo) {
-            $procesoEquipo->calcularDepreciacion();
-        }
-
-        $procesoEquipo->save();
+        app(UsoEquipoService::class)->guardar($procesoEquipo, $validated);
 
         Alert::toast('Uso del equipo actualizado correctamente.')->success()->flash();
 
@@ -189,6 +180,9 @@ class ProcesoEquipoController extends Controller
     ) {
         $this->validarAsignacionProceso($ordenTrabajo, $procesoOrden, $procesoEquipo);
 
+        if ($procesoEquipo->consumos()->withTrashed()->exists() || $procesoEquipo->entregas()->exists()) {
+            throw ValidationException::withMessages(['equipo_id' => 'Este uso tiene historial de insumos y debe conservarse.']);
+        }
         $procesoEquipo->delete();
 
         $mensaje = 'El uso del equipo fue eliminado del proceso.';
@@ -228,17 +222,23 @@ class ProcesoEquipoController extends Controller
         $this->validarProcesoPertenece($ordenTrabajo, $procesoOrden);
 
         $validated = $request->validate([
+            ...UsoEquipoService::reglasHoras(),
             'equipo_id' => ['required', 'integer', 'exists:equipos,id'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after:fecha_inicio'],
+            'proceso_equipo_id' => ['nullable', 'integer'],
         ]);
 
         $equipo = Equipo::with('asignaciones')->findOrFail($validated['equipo_id']);
 
-        $periodo = new ProcesoEquipo();
+        $periodo = isset($validated['proceso_equipo_id'])
+            ? ProcesoEquipo::where('proceso_orden_id', $procesoOrden->id)->findOrFail($validated['proceso_equipo_id'])
+            : new ProcesoEquipo();
         $periodo->equipo_id = $equipo->id;
         $periodo->fecha_inicio = $validated['fecha_inicio'];
         $periodo->fecha_fin = $validated['fecha_fin'] ?? null;
+        $periodo->fill($validated);
+        $periodo->validarPeriodo();
 
         // Se comprueba tambien el solapamiento aqui, para poder avisar
         // antes de que el usuario pulse guardar
@@ -250,7 +250,9 @@ class ProcesoEquipoController extends Controller
             $solapado = $e->errors()[ProcesoEquipo::FECHA_INICIO][0] ?? null;
         }
 
-        $periodo->calcularDepreciacion();
+        $periodo = app(UsoEquipoService::class)->guardar($periodo, $validated, false);
+        $tarifa = $periodo->tarifa_kwh_nio;
+        $energiaRequerida = $periodo->potencia_kw_usada > 0;
 
         return response()->json([
             'codigo' => $equipo->codigo,
@@ -258,9 +260,20 @@ class ProcesoEquipoController extends Controller
             'valor_residual' => (float) $equipo->valor_residual,
             'vida_util_meses' => (int) $equipo->vida_util_meses,
             'dias' => $periodo->diasDeUso(),
-            'depreciacion_diaria' => round($equipo->depreciacionDiaria(), 4),
+            'horas_efectivas' => $periodo->horas_efectivas,
+            'estado_costeo' => $periodo->estadoCosteo(),
+            'costo_estimado_nio' => $periodo->costo_estimado_nio,
+            'recursos_estimados' => $periodo->recursos_estimados,
+            'depreciacion_diaria' => round($periodo->depreciacion_hora_nio !== null ? $periodo->depreciacion_hora_nio * 24 : $equipo->depreciacionDiaria(), 4),
             'depreciacion_total' => (float) $periodo->depreciacion_total,
-            'disponible' => $equipo->valorPorDepreciar() > 0,
+            'metodo_costo' => $equipo->metodo_costo,
+            'potencia_kw' => (float) $periodo->potencia_kw_usada,
+            'tarifa_kwh_nio' => $tarifa,
+            'energia_kwh' => (float) $periodo->energia_kwh,
+            'costo_energia_nio' => (float) $periodo->costo_energia_nio,
+            'costo_total_nio' => $periodo->costo_uso_nio,
+            'disponible' => true,
+            'tarifa_configurada' => !$energiaRequerida || $tarifa !== null || !($periodo->horas_efectivas > 0),
             'solapamiento' => $solapado,
         ]);
     }
@@ -276,6 +289,7 @@ class ProcesoEquipoController extends Controller
     {
         return $request->validate(
             [
+                ...UsoEquipoService::reglasHoras(),
                 'equipo_id' => [
                     'required',
                     'integer',
@@ -305,6 +319,49 @@ class ProcesoEquipoController extends Controller
                 'fecha_fin.after' => 'La fecha de fin debe ser posterior a la de inicio.',
             ]
         );
+    }
+
+    public function gestion(OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden, ProcesoEquipo $procesoEquipo)
+    {
+        $this->validarAsignacionProceso($ordenTrabajo, $procesoOrden, $procesoEquipo);
+        $procesoEquipo->load('equipo.recursos.producto', 'consumos.insumo.producto', 'entregas.producto');
+        $lotes = $procesoEquipo->equipo->insumos()->with('producto')->where('disponible', '>', 0)->orderBy('id')->get();
+        $title = 'Trabajo y consumos del equipo';
+
+        return view('procesos.procesos_orden.equipos.gestion', compact('ordenTrabajo', 'procesoOrden', 'procesoEquipo', 'lotes', 'title'));
+    }
+
+    public function trabajo(Request $request, OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden, ProcesoEquipo $procesoEquipo)
+    {
+        $this->validarAsignacionProceso($ordenTrabajo, $procesoOrden, $procesoEquipo);
+        app(UsoEquipoService::class)->guardar($procesoEquipo, $request->validate(UsoEquipoService::reglasHoras()));
+        Alert::toast('Trabajo efectivo y costos actualizados.')->success()->flash();
+        return back();
+    }
+
+    public function consumir(Request $request, OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden, ProcesoEquipo $procesoEquipo)
+    {
+        $this->validarAsignacionProceso($ordenTrabajo, $procesoOrden, $procesoEquipo);
+        if ($bloqueo = $this->bloquearOrdenCerrada($ordenTrabajo, 'un consumo de equipo')) return $bloqueo;
+        if ($bloqueo = $this->bloquearProcesoCerrado($ordenTrabajo, $procesoOrden, 'un consumo de equipo')) return $bloqueo;
+        $datos = $request->validate([
+            'tipo' => ['required', Rule::in(['entrega', 'consumo', 'devolucion'])],
+            'producto_id' => ['required_if:tipo,entrega', 'nullable', 'integer', 'exists:productos,id'],
+            'equipo_insumo_id' => ['required_unless:tipo,entrega', 'nullable', 'integer'],
+            'cantidad' => ['required', 'numeric', 'gt:0', 'max:999999', 'decimal:0,3'],
+            'fecha' => ['required', 'date_format:Y-m-d'],
+        ]);
+        app(UsoEquipoService::class)->registrarInsumo($procesoEquipo, $datos);
+        Alert::toast('Movimiento del equipo registrado.')->success()->flash();
+        return back();
+    }
+
+    public function anularConsumo(Request $request, OrdenesTrabajo $ordenTrabajo, ProcesosOrden $procesoOrden, ProcesoEquipo $procesoEquipo, int $consumo)
+    {
+        $this->validarAsignacionProceso($ordenTrabajo, $procesoOrden, $procesoEquipo);
+        app(UsoEquipoService::class)->anularConsumo($procesoEquipo, $consumo);
+        Alert::toast('Consumo anulado. El saldo permanece en el equipo.')->success()->flash();
+        return back();
     }
 
     /**

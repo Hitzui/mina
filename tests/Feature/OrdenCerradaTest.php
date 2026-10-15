@@ -159,6 +159,19 @@ class OrdenCerradaTest extends TestCase
         $this->assertFalse($this->orden(OrdenesTrabajo::ESTADO_EN_PROCESO)->estaCerrada());
     }
 
+    public function test_la_confirmacion_de_finalizar_orden_usa_sweetalert(): void
+    {
+        $orden = $this->orden(OrdenesTrabajo::ESTADO_EN_PROCESO);
+
+        $this->get(route('procesos.ordenes_trabajo.show', $orden))
+            ->assertOk()
+            ->assertSee('data-confirm', false)
+            ->assertSee('data-confirm-icon="warning"', false)
+            ->assertSee('data-confirm-title="¿Dar por finalizada esta orden?"', false)
+            ->assertSee('data-confirm-button="Sí, finalizar orden"', false)
+            ->assertDontSee('onsubmit="return confirm(', false);
+    }
+
     public function test_no_finaliza_una_orden_sin_procesos(): void
     {
         $orden = $this->orden(OrdenesTrabajo::ESTADO_PENDIENTE);

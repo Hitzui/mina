@@ -27,6 +27,8 @@ use App\Models\OrdenesTrabajo;
 use App\Models\Producto;
 use App\Models\ProcesosOrden;
 use App\Models\ProcesoEquipo;
+use App\Models\TarifaEnergia;
+use App\Services\UsoEquipoService;
 use App\Models\TiposProduccion;
 use App\Models\TiposPagoEmpleado;
 use App\Models\TiposCambio;
@@ -51,6 +53,7 @@ class MobileDataController extends Controller
     public function offlineSnapshot(Request $request): JsonResponse
     {
         $user = $request->user();
+        $tarifaEnergia = TarifaEnergia::actual()?->tarifa_kwh_nio;
         $page = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'between:1,50'],
@@ -130,11 +133,16 @@ class MobileDataController extends Controller
                 ? TiposPagoEmpleado::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre', 'metodo_calculo'])
                     ->map(fn (TiposPagoEmpleado $type) => ['id' => $type->id, 'name' => $type->nombre, 'calculation_method' => $type->metodo_calculo ?? TiposPagoEmpleado::METODO_CANTIDAD_X_TARIFA])->values() : [],
             'equipment' => $user->can('proceso_equipo.create')
-                ? Equipo::query()->where('estado', true)->orderBy('codigo')->get()->map(fn (Equipo $item) => [
+                ? Equipo::query()->with('recursos.producto.inventario')->where('estado', true)->orderBy('codigo')->get()->map(fn (Equipo $item) => [
                     'id' => $item->id, 'code' => $item->codigo, 'name' => $item->nombre,
                     'acquisition_value' => (float) $item->valor_adquisicion, 'residual_value' => (float) $item->valor_residual,
-                    'useful_life_months' => (int) $item->vida_util_meses,
-                    'remaining_value' => (float) $item->valorPorDepreciar(),
+                     'useful_life_months' => (int) $item->vida_util_meses,
+                     'remaining_value' => (float) $item->valorPorDepreciar(),
+                     'depreciation_enabled' => $item->usaDepreciacion(),
+                     'resources' => $item->recursosParaEstimar(),
+                     'cost_method' => $item->metodo_costo ?? 'depreciacion',
+                     'power_kw' => (float) $item->consumo_kw,
+                     'electricity_tariff_nio_kwh' => $tarifaEnergia,
                 ])->values() : [],
             'equipment_assignments' => $user->can('proceso_equipo.create')
                 ? ProcesoEquipo::query()->get(['equipo_id', 'fecha_inicio', 'fecha_fin'])->map(fn (ProcesoEquipo $assignment) => [
@@ -498,7 +506,8 @@ class MobileDataController extends Controller
         [$order, $process] = $this->mobileProcessContext($orderId, $processId);
         $this->assertProcessCanReceiveEquipment($order, $process);
 
-        $equipment = Equipo::query()->where('estado', 1)->orderBy('codigo')->get();
+        $equipment = Equipo::query()->with('recursos.producto.inventario')->where('estado', 1)->orderBy('codigo')->get();
+        $tarifaEnergia = TarifaEnergia::actual()?->tarifa_kwh_nio;
 
         return response()->json(['data' => [
             'equipment' => $equipment->map(fn (Equipo $item) => [
@@ -508,6 +517,11 @@ class MobileDataController extends Controller
                 'acquisition_value' => (float) $item->valor_adquisicion,
                 'residual_value' => (float) $item->valor_residual,
                 'useful_life_months' => (int) $item->vida_util_meses,
+                'cost_method' => $item->metodo_costo ?? 'depreciacion',
+                'power_kw' => (float) $item->consumo_kw,
+                'depreciation_enabled' => $item->usaDepreciacion(),
+                'resources' => $item->recursosParaEstimar(),
+                'electricity_tariff_nio_kwh' => $tarifaEnergia,
             ])->values(),
             'default_start' => ($process->fecha_inicio ?? now())->format('Y-m-d\\TH:i'),
         ]]);
@@ -521,6 +535,7 @@ class MobileDataController extends Controller
             'equipo_id' => ['required', 'integer', Rule::exists('equipos', 'id')->whereNull('deleted_at')->where('estado', 1)],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after:fecha_inicio'],
+            ...UsoEquipoService::reglasHoras(),
         ]);
 
         $equipment = Equipo::with('asignaciones')->findOrFail($validated['equipo_id']);
@@ -528,13 +543,17 @@ class MobileDataController extends Controller
         $period->equipo_id = $equipment->id;
         $period->fecha_inicio = $validated['fecha_inicio'];
         $period->fecha_fin = $validated['fecha_fin'] ?? null;
+        $period->fill($validated);
+        $period->validarPeriodo();
         $overlap = null;
         try {
             $period->validarSinSolapamiento();
         } catch (\Illuminate\Validation\ValidationException $exception) {
             $overlap = $exception->errors()[ProcesoEquipo::FECHA_INICIO][0] ?? 'El periodo se cruza con otro uso del equipo.';
         }
-        $period->calcularDepreciacion();
+        $period->equipo = $equipment;
+        $tariff = TarifaEnergia::actual()?->tarifa_kwh_nio;
+        $period = app(UsoEquipoService::class)->guardar($period, $validated, false);
 
         return response()->json(['data' => [
             'code' => $equipment->codigo,
@@ -542,9 +561,19 @@ class MobileDataController extends Controller
             'residual_value' => (float) $equipment->valor_residual,
             'useful_life_months' => (int) $equipment->vida_util_meses,
             'days' => $period->diasDeUso(),
+            'effective_hours' => $period->horas_efectivas,
+            'cost_status' => $period->estadoCosteo(),
+            'estimated_cost_nio' => $period->costo_estimado_nio,
             'daily_depreciation' => round($equipment->depreciacionDiaria(), 4),
             'total_depreciation' => (float) $period->depreciacion_total,
-            'available_value' => $equipment->valorPorDepreciar() > 0,
+            'cost_method' => $equipment->metodo_costo ?? 'depreciacion',
+            'power_kw' => (float) $equipment->consumo_kw,
+            'energy_kwh' => (float) $period->energia_kwh,
+            'energy_cost_nio' => (float) $period->costo_energia_nio,
+            'total_cost_nio' => (float) $period->costo_total_nio,
+            'electricity_tariff_nio_kwh' => $tariff,
+            'tariff_configured' => !$equipment->usaEnergia() || $tariff !== null || !($period->horas_efectivas > 0),
+            'available_value' => true,
             'overlap' => $overlap,
         ]]);
     }
@@ -558,6 +587,8 @@ class MobileDataController extends Controller
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after:fecha_inicio'],
             'observaciones' => ['nullable', 'string', 'max:255'],
+            'electricity_tariff_nio_kwh' => ['nullable', 'numeric', 'gt:0', 'decimal:0,6'],
+            ...UsoEquipoService::reglasHoras(),
         ], [
             'equipo_id.exists' => 'El equipo seleccionado no existe o está inactivo.',
             'fecha_inicio.required' => 'Indique cuándo empieza el uso del equipo.',
@@ -565,12 +596,8 @@ class MobileDataController extends Controller
         ]);
 
         $assignment = new ProcesoEquipo();
-        $assignment->fill($validated);
         $assignment->proceso_orden_id = $process->id;
-        $assignment->validarPeriodo();
-        $assignment->validarSinSolapamiento();
-        $assignment->calcularDepreciacion();
-        $assignment->save();
+        $assignment = app(UsoEquipoService::class)->guardar($assignment, $validated);
         $assignment->load('equipo');
 
         return response()->json(['data' => [
@@ -581,8 +608,16 @@ class MobileDataController extends Controller
             'start_date' => $assignment->fecha_inicio?->toISOString(),
             'end_date' => $assignment->fecha_fin?->toISOString(),
             'days' => $assignment->diasDeUso(),
+            'effective_hours' => $assignment->horas_efectivas,
+            'cost_status' => $assignment->estadoCosteo(),
             'daily_depreciation' => round((float) $assignment->equipo?->depreciacionDiaria(), 4),
             'total_depreciation' => (float) $assignment->depreciacion_total,
+            'energy_kwh' => (float) $assignment->energia_kwh,
+            'energy_cost_nio' => (float) $assignment->costo_energia_nio,
+            'total_cost_nio' => $assignment->costo_uso_nio,
+            'cost_method' => $assignment->metodo_costo,
+            'power_kw' => $assignment->potencia_kw_usada,
+            'electricity_tariff_nio_kwh' => $assignment->tarifa_kwh_nio,
             'observations' => $assignment->observaciones,
         ]], 201);
     }
@@ -593,6 +628,72 @@ class MobileDataController extends Controller
         $process = ProcesosOrden::query()->where('orden_trabajo_id', $order->id)->findOrFail($processId);
 
         return [$order, $process];
+    }
+
+    public function equipmentUsage(Request $request, string $orderId, string $processId, string $assignmentId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $uso = ProcesoEquipo::where('proceso_orden_id', $process->id)->findOrFail($assignmentId);
+        $uso->load('equipo.recursos.producto', 'consumos.insumo.producto', 'entregas.producto');
+        return response()->json(['data' => [
+            'id' => $uso->id, 'name' => $uso->equipo->nombre,
+            'can_edit' => $request->user()->can('proceso_equipo.edit'),
+            'can_manage_supplies' => !$order->estaCerrada() && !$process->estaCerrado()
+                && $request->user()->can('proceso_equipo.edit') && $request->user()->can('movimientos_inventario.create'),
+            'effective_hours' => $uso->horas_efectivas,
+            'meter_start' => $uso->horometro_inicial, 'meter_end' => $uso->horometro_final,
+            'consumption_confirmed' => $uso->consumos_confirmados,
+            'cost_status' => $uso->estadoCosteo(), 'total_cost_nio' => $uso->costo_uso_nio,
+            'depreciation_nio' => $uso->depreciacion_total, 'energy_cost_nio' => $uso->costo_energia_nio,
+            'supplies_cost_nio' => $uso->costo_insumos_nio,
+            'deliveries' => $uso->entregas->map(fn ($lote) => [
+                'id' => $lote->id, 'name' => $lote->producto?->nombre_completo,
+                'quantity' => $lote->cantidad, 'available' => $lote->disponible, 'date' => $lote->fecha->toDateString(),
+            ])->values(),
+            'resources' => $uso->equipo->recursos->map(fn ($r) => [
+                'product_id' => $r->producto_id, 'name' => $r->producto?->nombre_completo,
+            ])->values(),
+            'lots' => $uso->equipo->insumos()->with('producto')->where('disponible', '>', 0)->get()->map(fn ($lote) => [
+                'id' => $lote->id, 'name' => $lote->producto?->nombre_completo,
+                'available' => $lote->disponible, 'unit_cost_nio' => $lote->costo_unitario_nio,
+            ])->values(),
+            'consumptions' => $uso->consumos->map(fn ($c) => [
+                'id' => $c->id, 'type' => $c->tipo, 'name' => $c->insumo->producto?->nombre_completo,
+                'quantity' => $c->cantidad, 'cost_nio' => $c->costo_total_nio, 'date' => $c->fecha->toDateString(),
+            ])->values(),
+        ]]);
+    }
+
+    public function updateEquipmentUsage(Request $request, string $orderId, string $processId, string $assignmentId): JsonResponse
+    {
+        [, $process] = $this->mobileProcessContext($orderId, $processId);
+        $uso = ProcesoEquipo::where('proceso_orden_id', $process->id)->findOrFail($assignmentId);
+        app(UsoEquipoService::class)->guardar($uso, $request->validate(UsoEquipoService::reglasHoras()));
+        return $this->equipmentUsage($request, $orderId, $processId, $assignmentId);
+    }
+
+    public function storeEquipmentSupply(Request $request, string $orderId, string $processId, string $assignmentId): JsonResponse
+    {
+        [$order, $process] = $this->mobileProcessContext($orderId, $processId);
+        $this->assertProcessCanReceiveEquipment($order, $process);
+        $uso = ProcesoEquipo::where('proceso_orden_id', $process->id)->findOrFail($assignmentId);
+        $datos = $request->validate([
+            'tipo' => ['required', Rule::in(['entrega', 'consumo', 'devolucion'])],
+            'producto_id' => ['required_if:tipo,entrega', 'nullable', 'integer', 'exists:productos,id'],
+            'equipo_insumo_id' => ['required_unless:tipo,entrega', 'nullable', 'integer'],
+            'cantidad' => ['required', 'numeric', 'gt:0', 'max:999999', 'decimal:0,3'],
+            'fecha' => ['required', 'date_format:Y-m-d'],
+        ]);
+        app(UsoEquipoService::class)->registrarInsumo($uso, $datos);
+        return $this->equipmentUsage($request, $orderId, $processId, $assignmentId);
+    }
+
+    public function deleteEquipmentConsumption(Request $request, string $orderId, string $processId, string $assignmentId, string $consumptionId): JsonResponse
+    {
+        [, $process] = $this->mobileProcessContext($orderId, $processId);
+        $uso = ProcesoEquipo::where('proceso_orden_id', $process->id)->findOrFail($assignmentId);
+        app(UsoEquipoService::class)->anularConsumo($uso, (int) $consumptionId);
+        return $this->equipmentUsage($request, $orderId, $processId, $assignmentId);
     }
 
     public function processCosts(string $orderId, string $processId): JsonResponse
@@ -1561,7 +1662,7 @@ class MobileDataController extends Controller
 
         if ($request->user()->can('proceso_equipo.view')) {
             $details['equipment'] = ProcesoEquipo::query()
-                ->with(['equipo', 'procesoOrden'])
+                ->with(['equipo', 'procesoOrden', 'consumos'])
                 ->whereHas('procesoOrden', fn ($query) => $query->where('orden_trabajo_id', $order->id))
                 ->orderBy('fecha_inicio')
                 ->get()
@@ -1574,8 +1675,18 @@ class MobileDataController extends Controller
                     'start_date' => $assignment->fecha_inicio?->toISOString(),
                     'end_date' => $assignment->fecha_fin?->toISOString(),
                     'days' => $assignment->diasDeUso(),
-                    'daily_depreciation' => round((float) $assignment->equipo?->depreciacionDiaria(), 4),
+                    'effective_hours' => $assignment->horas_efectivas,
+                    'cost_status' => $assignment->estadoCosteo(),
+                    'supplies_cost_nio' => $assignment->costo_insumos_nio,
+                    'daily_depreciation' => round($assignment->depreciacion_hora_nio !== null
+                        ? $assignment->depreciacion_hora_nio * 24 : (float) $assignment->equipo?->depreciacionDiaria(), 4),
                     'total_depreciation' => (float) $assignment->depreciacion_total,
+                    'energy_kwh' => (float) $assignment->energia_kwh,
+                    'energy_cost_nio' => (float) $assignment->costo_energia_nio,
+                    'total_cost_nio' => $assignment->costo_uso_nio,
+                    'cost_method' => $assignment->metodo_costo,
+                    'power_kw' => $assignment->potencia_kw_usada,
+                    'electricity_tariff_nio_kwh' => $assignment->tarifa_kwh_nio,
                     'observations' => $assignment->observaciones,
                 ])->values();
         }

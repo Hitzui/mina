@@ -102,6 +102,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('permission:movimientos_inventario.delete')->name('orders.processes.materials.destroy');
         Route::get('orders/{orderId}', [MobileDataController::class, 'order'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.show');
+        Route::get('orders/{orderId}/processes/{processId}/equipment/{assignmentId}/usage', [MobileDataController::class, 'equipmentUsage'])
+            ->middleware('permission:proceso_equipo.view');
+        Route::put('orders/{orderId}/processes/{processId}/equipment/{assignmentId}/usage', [MobileDataController::class, 'updateEquipmentUsage'])
+            ->middleware('permission:proceso_equipo.edit');
+        Route::post('orders/{orderId}/processes/{processId}/equipment/{assignmentId}/supplies', [MobileDataController::class, 'storeEquipmentSupply'])
+            ->middleware(['permission:proceso_equipo.edit', 'permission:movimientos_inventario.create']);
+        Route::delete('orders/{orderId}/processes/{processId}/equipment/{assignmentId}/consumptions/{consumptionId}', [MobileDataController::class, 'deleteEquipmentConsumption'])
+            ->middleware('permission:proceso_equipo.edit');
         Route::post('orders/{orderId}/finalize', [MobileDataController::class, 'finalizeOrder'])
             ->middleware('permission:ordenes_trabajo.edit')->name('orders.finalize');
         Route::get('clients', [MobileDataController::class, 'clients'])

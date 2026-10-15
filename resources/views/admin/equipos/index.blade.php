@@ -20,10 +20,29 @@
             <div class="alert alert-info d-flex align-items-start gap-2" role="alert">
                 <i class="bi bi-info-circle fs-5"></i>
                 <div>
-                    El valor de adquisición, el valor residual y la vida útil
-                    determinan la depreciación diaria del equipo. Esa
-                    depreciación se cobra a cada proceso donde se use el equipo,
-                    según los días que estuvo asignado.
+                    Configure los componentes de cada equipo: depreciación, electricidad y recursos de almacén.
+                    Los costos por tiempo usan horas efectivas. Los insumos se cargan al proceso al confirmar su consumo.
+                </div>
+            </div>
+
+            <div class="card border mb-4">
+                <div class="card-body">
+                    <form action="{{ route('admin.equipos.tarifa-energia') }}" method="POST" class="row align-items-end g-3">
+                        @csrf
+                        @method('PUT')
+                        <div class="col-md-5">
+                            <label for="tarifa_kwh_nio" class="form-label fw-semibold">Tarifa general de energía (NIO/kWh)</label>
+                            <input type="number" id="tarifa_kwh_nio" name="tarifa_kwh_nio" class="form-control @error('tarifa_kwh_nio') is-invalid @enderror" value="{{ old('tarifa_kwh_nio', $tarifaEnergia?->tarifa_kwh_nio) }}" min="0.000001" step="0.000001" required>
+                            @error('tarifa_kwh_nio')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small text-muted">Tarifa vigente: <strong>{{ $tarifaEnergia ? number_format($tarifaEnergia->tarifa_kwh_nio, 6) . ' NIO/kWh' : 'Sin configurar' }}</strong></div>
+                            <div class="small text-muted">Las nuevas asignaciones guardan la tarifa aplicada.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-lightning-charge me-1"></i>Actualizar tarifa</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 

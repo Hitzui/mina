@@ -116,7 +116,7 @@
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label text-muted">Depreciación de equipos (NIO)</label>
+                        <label class="form-label text-muted">Costo de equipos (NIO)</label>
                         <div class="form-control bg-light fw-semibold fs-5">
                             {{ number_format($procesoOrden->costo_equipos, 2) }}
                         </div>

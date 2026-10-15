@@ -82,6 +82,7 @@
                     <td>
                         @forelse($item['equipos'] as $uso)
                             <div>{{ $uso->equipo?->codigo }} · {{ $uso->equipo?->nombre }}</div>
+                            <div class="small text-muted">{{ $uso->horas_efectivas === null ? 'Horas pendientes / histórico' : number_format($uso->horas_efectivas, 4).' h efectivas' }} · C$ {{ number_format($uso->costo_uso_nio, 2) }} · {{ $uso->estadoCosteo() }}</div>
                         @empty
                             <span class="text-muted">Sin equipo asignado</span>
                         @endforelse

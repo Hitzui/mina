@@ -61,9 +61,24 @@ class OrdenTrabajoController extends Controller
             ['label' => 'Órdenes de Trabajo'],
         ];
 
+        $ordenesResumen = [];
+        if (! request()->ajax()) {
+            $conteoPorEstado = OrdenesTrabajo::query()
+                ->selectRaw('estado, COUNT(*) AS total')
+                ->groupBy('estado')
+                ->pluck('total', 'estado');
+
+            $ordenesResumen = [
+                'total' => (int) $conteoPorEstado->sum(),
+                'pendientes' => (int) ($conteoPorEstado[OrdenesTrabajo::ESTADO_PENDIENTE] ?? 0),
+                'en_proceso' => (int) ($conteoPorEstado[OrdenesTrabajo::ESTADO_EN_PROCESO] ?? 0),
+                'finalizadas' => (int) ($conteoPorEstado[OrdenesTrabajo::ESTADO_FINALIZADA] ?? 0),
+            ];
+        }
+
         return $dataTable->render(
             'procesos.ordenes_trabajo.index',
-            compact('title', 'breadcrumbs')
+            compact('title', 'breadcrumbs', 'ordenesResumen')
         );
     }
 

@@ -7,6 +7,23 @@ use Illuminate\Validation\ValidationException;
 
 class MovimientosInventario extends BaseMovimientosInventario
 {
+    protected static function booted(): void
+    {
+        static::updating(function ($movimiento) {
+            if (EquipoInsumo::where('movimiento_id', $movimiento->id)->exists()
+                || EquipoConsumo::withTrashed()->where('movimiento_id', $movimiento->id)->exists()) {
+                throw ValidationException::withMessages(['movimiento' => 'La entrega o devolución se gestiona desde el uso del equipo.']);
+            }
+        });
+        static::deleting(function ($movimiento) {
+            if (EquipoInsumo::where('movimiento_id', $movimiento->id)->exists()
+                || EquipoConsumo::withTrashed()->where('movimiento_id', $movimiento->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'movimiento' => 'Este movimiento pertenece al saldo de un equipo. Registre una devolución desde Trabajo efectivo y consumos.',
+                ]);
+            }
+        });
+    }
     /*
      * Los tipos de movimiento, con el signo que aportan al saldo.
      *

@@ -11,6 +11,7 @@
 @endphp
 
 <div class="btn-group" role="group" aria-label="Acciones">
+    <a class="btn btn-sm btn-info" href="{{ route('procesos.ordenes_trabajo.procesos.equipos.gestion', [$ordenTrabajo, $procesoOrden, $uso]) }}" title="Trabajo efectivo y consumos"><i class="bi bi-fuel-pump"></i></a>
     <button type="button" class="btn btn-sm btn-primary btn-show-uso" data-id="{{ $uso->id }}"
             data-url="{{ route('procesos.ordenes_trabajo.procesos.equipos.show', [$ordenTrabajo, $procesoOrden, $uso]) }}"
             title="Ver">

@@ -78,13 +78,21 @@
 
                 <hr>
 
-                {{-- Cómo deprecia --}}
+                {{-- Cómo se calcula el costo --}}
                 <h6 class="mb-3">
                     <i class="bi bi-calculator me-1"></i>
-                    Cómo deprecia
+                    Componentes: {{ $equipo->descripcionCosteo() }}
                 </h6>
 
                 <div class="row">
+                    @if($equipo->usaEnergia())
+                        <div class="col-md-4 mb-4">
+                            <label class="form-label text-muted">Potencia del equipo</label>
+                            <div class="form-control bg-light fw-semibold">{{ number_format($equipo->consumo_kw, 4) }} kW</div>
+                            <div class="form-text">Consumo estimado a potencia completa durante las horas efectivas de trabajo.</div>
+                        </div>
+                    @endif
+                    @if($equipo->usaDepreciacion())
                     <div class="col-md-4 mb-4">
                         <label class="form-label text-muted">Depreciación por día</label>
                         <div class="form-control bg-light fw-semibold fs-5">
@@ -115,8 +123,22 @@
                             Suma de los usos registrados, sin recalcular.
                         </div>
                     </div>
+                    @endif
                 </div>
 
+                @if($equipo->recursos->isNotEmpty())
+                    <h6>Consumos de referencia</h6>
+                    @foreach($equipo->recursos as $recurso)
+                        <p class="small mb-1">{{ $recurso->producto?->nombre }}: {{ number_format($recurso->cantidad_por_hora, 4) }} {{ $recurso->producto?->unidad_medida }}/hora efectiva.</p>
+                    @endforeach
+                    <p class="small text-muted">La estimación es informativa. El costo del proceso usa las cantidades consumidas y el valor histórico de su entrega de almacén.</p>
+                @endif
+                @if($equipo->insumos->isNotEmpty())
+                    <h6 class="mt-3">Saldos entregados al equipo</h6>
+                    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Entrega</th><th>Producto</th><th class="text-end">Entregado</th><th class="text-end">Saldo</th><th class="text-end">Valor pendiente NIO</th></tr></thead><tbody>
+                        @foreach($equipo->insumos as $lote)<tr><td>#{{ $lote->id }} · {{ $lote->fecha->format('d/m/Y') }}</td><td>{{ $lote->producto?->nombre_completo }}</td><td class="text-end">{{ number_format($lote->cantidad, 3) }}</td><td class="text-end">{{ number_format($lote->disponible, 3) }}</td><td class="text-end">{{ number_format($lote->disponible * $lote->costo_unitario_nio, 2) }}</td></tr>@endforeach
+                    </tbody></table></div>
+                @endif
                 <hr>
 
                 {{-- Dónde se ha usado --}}
@@ -146,8 +168,8 @@
                                     <th>Proceso</th>
                                     <th>Inicio</th>
                                     <th>Fin</th>
-                                    <th class="text-center">Días</th>
-                                    <th class="text-end">Depreciación</th>
+                                    <th class="text-center">Horas efectivas</th>
+                                    <th class="text-end">Costo de uso</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -174,10 +196,10 @@
                                             @endif
                                         </td>
                                         <td class="text-center">
-                                            {{ rtrim(rtrim(number_format($uso->diasDeUso(), 2), '0'), '.') }}
+                                            {{ $uso->horas_efectivas === null ? 'Pendiente / histórico' : number_format($uso->horas_efectivas, 4) }}
                                         </td>
                                         <td class="text-end fw-semibold">
-                                            {{ number_format($uso->depreciacion_total, 2) }}
+                                            <a href="{{ route('procesos.ordenes_trabajo.procesos.equipos.gestion', [$uso->procesoOrden->orden_trabajo_id, $uso->procesoOrden, $uso]) }}">{{ number_format($uso->costo_uso_nio, 2) }}</a>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -185,10 +207,10 @@
                             <tfoot class="table-light">
                                 <tr>
                                     <th colspan="5" class="text-end">
-                                        Total depreciado
+                                        Total de usos
                                     </th>
                                     <th class="text-end">
-                                        {{ number_format($asignaciones->sum('depreciacion_total'), 2) }}
+                                        {{ number_format($asignaciones->sum('costo_uso_nio'), 2) }}
                                     </th>
                                 </tr>
                             </tfoot>

@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Uso de un equipo dentro de un proceso, con su periodo.
@@ -19,13 +20,29 @@ class ProcesoEquipo extends Model
 {
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::deleting(function ($uso) {
+            if ($uso->consumos()->withTrashed()->exists() || $uso->entregas()->exists()) {
+                throw ValidationException::withMessages(['equipo_id' => 'El uso tiene historial de insumos y debe conservarse.']);
+            }
+        });
+    }
+
     public const ID = 'id';
     public const PROCESO_ORDEN_ID = 'proceso_orden_id';
     public const EQUIPO_ID = 'equipo_id';
     public const FECHA_INICIO = 'fecha_inicio';
     public const FECHA_FIN = 'fecha_fin';
     public const DEPRECIACION_TOTAL = 'depreciacion_total';
+    public const METODO_COSTO = 'metodo_costo';
+    public const POTENCIA_KW_USADA = 'potencia_kw_usada';
+    public const TARIFA_KWH_NIO = 'tarifa_kwh_nio';
+    public const ENERGIA_KWH = 'energia_kwh';
+    public const COSTO_ENERGIA_NIO = 'costo_energia_nio';
+    public const COSTO_TOTAL_NIO = 'costo_total_nio';
     public const OBSERVACIONES = 'observaciones';
+    public const EXPRESION_COSTO = "proceso_equipos.costo_total_nio + COALESCE((SELECT SUM(ec.costo_total_nio) FROM equipo_consumos ec WHERE ec.proceso_equipo_id = proceso_equipos.id AND ec.tipo = 'consumo' AND ec.deleted_at IS NULL), 0)";
 
     protected $table = 'proceso_equipos';
 
@@ -34,7 +51,9 @@ class ProcesoEquipo extends Model
         self::EQUIPO_ID,
         self::FECHA_INICIO,
         self::FECHA_FIN,
+        self::METODO_COSTO,
         self::OBSERVACIONES,
+        'horas_efectivas', 'horometro_inicial', 'horometro_final', 'consumos_confirmados',
     ];
 
     protected $casts = [
@@ -44,6 +63,18 @@ class ProcesoEquipo extends Model
         self::FECHA_INICIO => 'datetime',
         self::FECHA_FIN => 'datetime',
         self::DEPRECIACION_TOTAL => 'float',
+        self::POTENCIA_KW_USADA => 'float',
+        self::TARIFA_KWH_NIO => 'float',
+        self::ENERGIA_KWH => 'float',
+        self::COSTO_ENERGIA_NIO => 'float',
+        self::COSTO_TOTAL_NIO => 'float',
+        'horas_efectivas' => 'float',
+        'horometro_inicial' => 'float',
+        'horometro_final' => 'float',
+        'depreciacion_hora_nio' => 'float',
+        'depreciacion_aplicada' => 'boolean',
+        'consumos_confirmados' => 'boolean',
+        'recursos_estimados' => 'array',
     ];
 
     public function procesoOrden()
@@ -54,6 +85,47 @@ class ProcesoEquipo extends Model
     public function equipo()
     {
         return $this->belongsTo(Equipo::class, self::EQUIPO_ID);
+    }
+
+    public function consumos()
+    {
+        return $this->hasMany(EquipoConsumo::class);
+    }
+
+    public function entregas()
+    {
+        return $this->hasMany(EquipoInsumo::class);
+    }
+
+    public function getCostoInsumosNioAttribute(): float
+    {
+        if ($this->relationLoaded('consumos')) {
+            return (float) $this->consumos->where('tipo', 'consumo')->sum('costo_total_nio');
+        }
+
+        return (float) $this->consumos()->where('tipo', 'consumo')->sum('costo_total_nio');
+    }
+
+    public function getCostoUsoNioAttribute(): float
+    {
+        return round((float) $this->costo_total_nio + $this->costo_insumos_nio, 2);
+    }
+
+    public function getCostoEstimadoNioAttribute(): float
+    {
+        $estimado = collect($this->recursos_estimados ?? [])->sum(fn ($r) =>
+            (float) $r['cantidad_por_hora'] * (float) ($this->horas_efectivas ?? 0) * (float) $r['costo_unitario_nio']
+        );
+
+        return round((float) $this->costo_total_nio + $estimado, 2);
+    }
+
+    public function estadoCosteo(): string
+    {
+        if ($this->depreciacion_aplicada === null) return 'Histórico por periodo asignado';
+        if ($this->horas_efectivas === null) return 'Pendiente de horas efectivas';
+        if (($this->recursos_estimados ?? []) !== [] && !$this->consumos_confirmados) return 'Consumos por confirmar';
+        return $this->potencia_kw_usada > 0 ? 'Electricidad estimada por horas efectivas' : 'Costos registrados';
     }
 
     /**
@@ -67,6 +139,33 @@ class ProcesoEquipo extends Model
         return (float) static::query()
             ->where(self::PROCESO_ORDEN_ID, $procesoOrdenId)
             ->sum(self::DEPRECIACION_TOTAL);
+    }
+
+    public static function costoDeEquiposDeProceso(int $procesoOrdenId): float
+    {
+        $base = (float) static::query()
+            ->where(self::PROCESO_ORDEN_ID, $procesoOrdenId)
+            ->sum(self::COSTO_TOTAL_NIO);
+        $insumos = EquipoConsumo::query()->where('tipo', 'consumo')
+            ->whereIn('proceso_equipo_id', static::query()->where(self::PROCESO_ORDEN_ID, $procesoOrdenId)->select('id'))
+            ->sum('costo_total_nio');
+
+        return round($base + (float) $insumos, 2);
+    }
+
+    /** Agregados SQL sin subconsultas correlacionadas dentro de GROUP BY. */
+    public static function consultaParaCostos(): \Illuminate\Database\Query\Builder
+    {
+        $consumos = EquipoConsumo::query()->where('tipo', 'consumo')
+            ->select('proceso_equipo_id')->selectRaw('SUM(costo_total_nio) AS total_consumos')
+            ->groupBy('proceso_equipo_id');
+        $usos = DB::table('proceso_equipos')
+            ->leftJoinSub($consumos, 'consumos_equipo', 'consumos_equipo.proceso_equipo_id', '=', 'proceso_equipos.id')
+            ->whereNull('proceso_equipos.deleted_at')
+            ->select('proceso_equipos.*')
+            ->selectRaw('proceso_equipos.costo_total_nio + COALESCE(consumos_equipo.total_consumos, 0) AS costo_uso_nio');
+
+        return DB::query()->fromSub($usos, 'costos_equipos');
     }
 
     /**
@@ -87,6 +186,17 @@ class ProcesoEquipo extends Model
         return max(0.0, round($dias, 4));
     }
 
+    public function horasDeUso(): float
+    {
+        if ($this->fecha_inicio === null) {
+            return 0.0;
+        }
+
+        $fin = $this->fecha_fin ?? Carbon::now();
+
+        return max(0.0, $this->fecha_inicio->diffInSeconds($fin) / 3600);
+    }
+
     /**
      * Calcula la depreciacion del periodo y la deja actualizada.
      *
@@ -101,6 +211,34 @@ class ProcesoEquipo extends Model
         $this->depreciacion_total = $equipo
             ? $equipo->depreciacionPorDias($this->diasDeUso())
             : 0.0;
+
+        return $this;
+    }
+
+    /** Calcula la depreciación y/o energía como valores históricos del uso. */
+    public function calcularCostos(?float $tarifaKwhNio): self
+    {
+        $equipo = $this->equipo;
+        if ($this->depreciacion_aplicada === null || $this->isDirty('equipo_id')) {
+            $this->depreciacion_aplicada = $equipo?->usaDepreciacion() ?? false;
+            $this->metodo_costo = $equipo?->metodo_costo ?? 'depreciacion';
+            $this->depreciacion_hora_nio = ($equipo?->depreciacionDiaria() ?? 0) / 24;
+            $this->potencia_kw_usada = $equipo?->usaEnergia() ? (float) $equipo->consumo_kw : null;
+            $this->tarifa_kwh_nio = $this->potencia_kw_usada > 0 ? $tarifaKwhNio : null;
+            $this->recursos_estimados = $equipo?->recursosParaEstimar() ?? [];
+        }
+
+        $horas = (float) ($this->horas_efectivas ?? 0);
+        $anterior = $this->exists && !$this->isDirty('equipo_id') ? (float) $this->getRawOriginal('depreciacion_total') : 0;
+        $disponible = ($equipo?->valorPorDepreciar() ?? 0) + $anterior;
+        $this->depreciacion_total = $this->depreciacion_aplicada
+            ? min(round((float) $this->depreciacion_hora_nio * $horas, 2), round($disponible, 2)) : 0;
+        $this->energia_kwh = round((float) $this->potencia_kw_usada * $horas, 4);
+        $this->costo_energia_nio = round($this->energia_kwh * (float) $this->tarifa_kwh_nio, 2);
+        $this->costo_total_nio = round(
+            (float) $this->depreciacion_total + (float) $this->costo_energia_nio,
+            2
+        );
 
         return $this;
     }
@@ -174,6 +312,23 @@ class ProcesoEquipo extends Model
 
         if ($this->fecha_fin !== null && $this->fecha_fin->lessThanOrEqualTo($this->fecha_inicio)) {
             $errores[self::FECHA_FIN] = 'La fecha de fin debe ser posterior a la de inicio.';
+        }
+
+        if (($this->horometro_inicial === null) !== ($this->horometro_final === null)) {
+            $errores['horometro_final'] = 'Indique las dos lecturas del horómetro.';
+        } elseif ($this->horometro_inicial !== null) {
+            $diferencia = round($this->horometro_final - $this->horometro_inicial, 4);
+            if ($diferencia < 0) {
+                $errores['horometro_final'] = 'El horómetro final no puede ser menor al inicial.';
+            } elseif ($this->horas_efectivas !== null && abs($this->horas_efectivas - $diferencia) > 0.0001) {
+                $errores['horas_efectivas'] = 'Las horas deben coincidir con la diferencia del horómetro.';
+            } else {
+                $this->horas_efectivas = $diferencia;
+            }
+        }
+        if ($this->horas_efectivas !== null && ($this->horas_efectivas < 0 ||
+            $this->horas_efectivas > $this->horasDeUso() + 0.0001)) {
+            $errores['horas_efectivas'] = 'Las horas efectivas deben ser positivas y caber dentro del periodo de asignación.';
         }
 
         if ($errores !== []) {

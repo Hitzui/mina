@@ -50,7 +50,10 @@ class EquiposEnProcesosTest extends TestCase
         $admin->syncRoles(['admin']);
         $this->actingAs($admin);
 
-        $this->orden = OrdenesTrabajo::firstOrFail();
+        $this->orden = OrdenesTrabajo::firstOrFail()->replicate();
+        $this->orden->codigo = 'OT-EQ-'.uniqid();
+        $this->orden->estado = 1;
+        $this->orden->save();
 
         $this->proceso = $this->crearProceso();
         $this->otroProceso = $this->crearProceso();
@@ -108,7 +111,7 @@ class EquiposEnProcesosTest extends TestCase
 
         $this->getJson($prefix.'/equipment-options')
             ->assertOk()
-            ->assertJsonPath('data.equipment.0.id', $equipment->id)
+            ->assertJsonFragment(['id' => $equipment->id, 'code' => $equipment->codigo])
             ->assertJsonPath('data.default_start', '2026-01-01T08:00');
 
         $this->getJson($prefix.'/equipment-depreciation?'.http_build_query([
@@ -160,6 +163,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $equipo->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ])->assertRedirect();
 
         $uso = ProcesoEquipo::where('equipo_id', $equipo->id)->firstOrFail();
@@ -433,6 +437,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $equipo->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ])->assertRedirect();
 
         $proceso = $this->proceso->fresh();
@@ -452,6 +457,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $equipo->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ])->assertRedirect();
 
         $uso = ProcesoEquipo::where('equipo_id', $equipo->id)->firstOrFail();
@@ -478,6 +484,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $caro->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ])->assertRedirect();
 
         $uso = ProcesoEquipo::where('equipo_id', $caro->id)->firstOrFail();
@@ -507,6 +514,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $equipo->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ])->assertRedirect();
 
         $uso = ProcesoEquipo::where('equipo_id', $equipo->id)->firstOrFail();
@@ -545,6 +553,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $equipo->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ])->assertRedirect();
 
         $html = $this->get(
@@ -552,7 +561,7 @@ class EquiposEnProcesosTest extends TestCase
         )->assertOk()->getContent();
 
         $this->assertStringContainsString('Equipos del proceso', $html);
-        $this->assertStringContainsString('Depreciación de equipos', $html);
+        $this->assertStringContainsString('Uso de equipos', $html);
         $this->assertStringContainsString('Costo total del proceso', $html);
         $this->assertStringContainsString($equipo->codigo, $html);
         $this->assertStringContainsString('111.11', $html);
@@ -588,6 +597,7 @@ class EquiposEnProcesosTest extends TestCase
             'equipo_id' => $equipo->id,
             'fecha_inicio' => '2026-10-01 08:00',
             'fecha_fin' => '2026-10-05 08:00',
+            'horas_efectivas' => 96,
         ]))->assertOk();
 
         $this->assertEqualsWithDelta(4.0, (float) $r->json('dias'), 0.01);

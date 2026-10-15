@@ -26,6 +26,8 @@ class Equipo extends Model
     public const VALOR_ADQUISICION = 'valor_adquisicion';
     public const VALOR_RESIDUAL = 'valor_residual';
     public const VIDA_UTIL_MESES = 'vida_util_meses';
+    public const METODO_COSTO = 'metodo_costo';
+    public const CONSUMO_KW = 'consumo_kw';
     public const DEPRECIACION_ACUMULADA = 'depreciacion_acumulada';
     public const ESTADO = 'estado';
 
@@ -48,6 +50,9 @@ class Equipo extends Model
         self::VALOR_ADQUISICION,
         self::VALOR_RESIDUAL,
         self::VIDA_UTIL_MESES,
+        self::METODO_COSTO,
+        self::CONSUMO_KW,
+        'depreciacion_activa',
         self::ESTADO,
     ];
 
@@ -57,6 +62,8 @@ class Equipo extends Model
         self::VALOR_ADQUISICION => 'float',
         self::VALOR_RESIDUAL => 'float',
         self::VIDA_UTIL_MESES => 'int',
+        self::CONSUMO_KW => 'float',
+        'depreciacion_activa' => 'boolean',
         self::DEPRECIACION_ACUMULADA => 'float',
         self::ESTADO => 'int',
     ];
@@ -64,6 +71,50 @@ class Equipo extends Model
     public function asignaciones()
     {
         return $this->hasMany(ProcesoEquipo::class, ProcesoEquipo::EQUIPO_ID);
+    }
+
+    public function usaDepreciacion(): bool
+    {
+        if ($this->depreciacion_activa !== null) {
+            return (bool) $this->depreciacion_activa;
+        }
+        return in_array($this->metodo_costo ?? 'depreciacion', ['depreciacion', 'ambos'], true);
+    }
+
+    public function usaEnergia(): bool
+    {
+        return (float) $this->consumo_kw > 0;
+    }
+
+    public function recursos()
+    {
+        return $this->hasMany(EquipoRecurso::class);
+    }
+
+    public function insumos()
+    {
+        return $this->hasMany(EquipoInsumo::class);
+    }
+
+    public function descripcionCosteo(): string
+    {
+        $componentes = [];
+        if ($this->usaDepreciacion()) $componentes[] = 'Depreciación';
+        if ($this->usaEnergia()) $componentes[] = 'Electricidad';
+        foreach ($this->recursos as $recurso) $componentes[] = $recurso->producto?->nombre ?? 'Insumo';
+
+        return implode(' + ', $componentes) ?: 'Sin componentes de costo';
+    }
+
+    public function recursosParaEstimar(): array
+    {
+        return $this->recursos->map(fn ($r) => [
+            'producto_id' => $r->producto_id,
+            'nombre' => $r->producto?->nombre ?? 'Producto no disponible',
+            'unidad' => $r->producto?->unidad_medida ?? '',
+            'cantidad_por_hora' => (float) $r->cantidad_por_hora,
+            'costo_unitario_nio' => (float) $r->producto?->costo_promedio,
+        ])->all();
     }
 
     /**

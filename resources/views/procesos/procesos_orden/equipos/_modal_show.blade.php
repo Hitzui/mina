@@ -53,6 +53,24 @@
                         <input type="text" id="showUsoDepreciacion" class="form-control fw-semibold" value="" readonly>
                     </div>
 
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Energía estimada (kWh)</label>
+                        <input type="text" id="showUsoEnergia" class="form-control" value="" readonly>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Costo de energía (NIO)</label>
+                        <input type="text" id="showUsoCostoEnergia" class="form-control" value="" readonly>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Costo total del uso (NIO)</label>
+                        <input type="text" id="showUsoCostoTotal" class="form-control fw-semibold" value="" readonly>
+                    </div>
+                    <div class="col-md-6"><label class="form-label text-muted">Horas efectivas</label><input type="text" id="showUsoHoras" class="form-control" readonly></div>
+                    <div class="col-md-6"><label class="form-label text-muted">Insumos consumidos (NIO)</label><input type="text" id="showUsoInsumos" class="form-control" readonly></div>
+                    <div class="col-12 small text-muted" id="showUsoEstado"></div>
+
                     <div class="col-12">
                         <label class="form-label text-muted">Observaciones</label>
                         <textarea id="showUsoObservaciones" class="form-control" rows="2" readonly></textarea>
@@ -61,10 +79,8 @@
                     <div class="col-12">
                         <div class="alert alert-light border mb-0 small">
                             <i class="bi bi-info-circle me-1"></i>
-                            Esta depreciación es la que se cobró al proceso
-                            cuando se registró el uso. Si después se corrige el
-                            valor o la vida útil del equipo, esta cifra no
-                            cambia.
+                            Los costos y la tarifa reflejan los datos que se aplicaron al registrar el uso;
+                            las asignaciones existentes conservan su historial.
                         </div>
                     </div>
 

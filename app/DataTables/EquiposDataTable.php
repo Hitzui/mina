@@ -21,6 +21,7 @@ class EquiposDataTable extends DataTable
             ->editColumn('valor_adquisicion', fn($e) => number_format($e->valor_adquisicion, 2))
             ->editColumn('valor_residual', fn($e) => number_format($e->valor_residual, 2))
             ->editColumn('descripcion', fn($e) => $e->descripcion ?: '—')
+            ->addColumn('metodo_costo', fn($e) => $e->descripcionCosteo())
             // La tasa diaria sale del modelo: es la formula de la
             // depreciacion, no un dato guardado que se pueda desfasar
             ->addColumn(
@@ -40,7 +41,7 @@ class EquiposDataTable extends DataTable
     {
         // El conteo de usos viene con withCount para no consultar una
         // vez por cada fila de la tabla
-        return $model->newQuery()->withCount('asignaciones');
+        return $model->newQuery()->withCount('asignaciones')->with('recursos.producto');
     }
 
     public function html(): HtmlBuilder
@@ -63,6 +64,10 @@ class EquiposDataTable extends DataTable
 
             Column::make('nombre')
                 ->title('Equipo'),
+
+            Column::make('metodo_costo')
+                ->title('Método de costo')
+                ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
             Column::make('fecha_adquisicion')
                 ->title('Adquisición')

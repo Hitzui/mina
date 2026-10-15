@@ -828,7 +828,14 @@ class PanelTest extends TestCase
 
     public function test_la_pantalla_no_enseña_el_costo_total_del_taller_cuando_no_hay_cifras(): void
     {
-        $html = $this->panel();
+        // Un periodo vacío explícito: esta prueba también corre sobre una base local con datos.
+        $ahoraAnterior = \Carbon\Carbon::getTestNow();
+        try {
+            \Carbon\Carbon::setTestNow('2099-01-15 12:00:00');
+            $html = $this->panel();
+        } finally {
+            \Carbon\Carbon::setTestNow($ahoraAnterior);
+        }
 
         /*
          * Con la base vacia el panel tiene que abrirse y mostrar ceros, no reventar.

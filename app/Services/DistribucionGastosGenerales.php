@@ -51,9 +51,9 @@ class DistribucionGastosGenerales
             );
 
             $this->sumasPorProceso(
-                ProcesoEquipo::query()->whereIn(ProcesoEquipo::PROCESO_ORDEN_ID, $ids),
+                ProcesoEquipo::consultaParaCostos()->whereIn(ProcesoEquipo::PROCESO_ORDEN_ID, $ids),
                 ProcesoEquipo::PROCESO_ORDEN_ID,
-                ProcesoEquipo::DEPRECIACION_TOTAL,
+                'costo_uso_nio',
                 $baseDirecta
             );
 

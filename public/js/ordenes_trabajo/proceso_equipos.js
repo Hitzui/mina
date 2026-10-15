@@ -20,12 +20,17 @@ $(function () {
     const dias = $('#usoDias');
     const tasaDiaria = $('#usoTasaDiaria');
     const depreciacion = $('#usoDepreciacion');
+    const energiaKwh = $('#usoEnergiaKwh');
+    const costoEnergia = $('#usoCostoEnergia');
+    const costoTotal = $('#usoCostoTotal');
     const codigoEquipo = $('#usoCodigoEquipo');
     const vidaUtil = $('#usoVidaUtil');
     const aviso = $('#usoAviso');
     const error = $('#usoEquipoError');
 
     let $formulario = $('#formUsoEquipo');
+    let asignacionActual = null;
+    let previsualizacionVersion = 0;
 
     /**
      * Select2 dibuja su propio combo y esconde el <select> nativo. Cuando
@@ -72,6 +77,12 @@ $(function () {
                     : 'Sigue asignado');
                 $('#showUsoTasa').val(numero(response.depreciacion_diaria, 4));
                 $('#showUsoDepreciacion').val(numero(response.depreciacion_total, 2));
+                $('#showUsoEnergia').val(numero(response.energia_kwh, 4));
+                $('#showUsoCostoEnergia').val(numero(response.costo_energia_nio, 2));
+                $('#showUsoCostoTotal').val(numero(response.costo_total_nio, 2));
+                $('#showUsoHoras').val(response.horas_efectivas == null ? 'Pendientes / histórico' : numero(response.horas_efectivas, 4));
+                $('#showUsoEstado').text(response.estado_costeo ?? '');
+                $('#showUsoInsumos').val(numero(response.costo_insumos_nio, 2));
                 $('#showUsoObservaciones').val(response.observaciones ?? '');
 
                 modalShow?.show();
@@ -97,6 +108,7 @@ $(function () {
             success: function (response) {
                 limpiarError();
                 limpiarAviso();
+                asignacionActual = response.id;
 
                 $('#modalUsoEquipoLabel').text('Editar uso del equipo');
 
@@ -106,6 +118,9 @@ $(function () {
 
                 fechaInicio.val(response.fecha_inicio ?? '');
                 fechaFin.val(response.fecha_fin ?? '');
+                $('#usoHorasEfectivas').val(response.horas_efectivas ?? '');
+                $('#usoHorometroInicial').val(response.horometro_inicial ?? '');
+                $('#usoHorometroFinal').val(response.horometro_final ?? '');
 
                 sigueAsignado.prop('checked', !response.fecha_fin);
                 fechaFin.prop('disabled', !response.fecha_fin);
@@ -140,6 +155,7 @@ $(function () {
         limpiarError();
         consultarDepreciacion();
     });
+    $('#usoHorasEfectivas, #usoHorometroInicial, #usoHorometroFinal').on('change', consultarDepreciacion);
 
     /**
      * "Sigue asignado" deja la fecha de fin vacia, que es como se
@@ -164,6 +180,7 @@ $(function () {
      * acaben dando numeros distintos.
      */
     function consultarDepreciacion() {
+        const version = ++previsualizacionVersion;
         limpiarAviso();
 
         const elEquipo = equipo.val();
@@ -181,13 +198,22 @@ $(function () {
             type: 'GET',
             data: {
                 equipo_id: elEquipo,
+                proceso_equipo_id: asignacionActual ?? '',
                 fecha_inicio: inicio,
-                fecha_fin: fechaFin.val() || ''
+                fecha_fin: fechaFin.val() || '',
+                horas_efectivas: $('#usoHorasEfectivas').val(),
+                horometro_inicial: $('#usoHorometroInicial').val(),
+                horometro_final: $('#usoHorometroFinal').val()
             },
             success: function (response) {
+                if (version !== previsualizacionVersion) return;
                 dias.val(numero(response.dias, 2));
                 tasaDiaria.val(numero(response.depreciacion_diaria, 4));
                 depreciacion.val(numero(response.depreciacion_total, 2));
+                energiaKwh.val(numero(response.energia_kwh, 4));
+                costoEnergia.val(numero(response.costo_energia_nio, 2));
+                costoTotal.val(numero(response.costo_total_nio, 2));
+                $('#usoEstadoCosteo').text((response.estado_costeo ?? '') + ' · Referencia con insumos estimados: C$ ' + numero(response.costo_estimado_nio, 2));
 
                 codigoEquipo.val(
                     (response.codigo ?? '—')
@@ -198,6 +224,11 @@ $(function () {
 
                 if (response.solapamiento) {
                     mostrarAviso(response.solapamiento, 'danger');
+                } else if (response.tarifa_configurada === false) {
+                    mostrarAviso(
+                        'Configure primero la tarifa general de energía por kWh en Administración de equipos.',
+                        'danger'
+                    );
                 } else if (response.disponible === false) {
                     mostrarAviso(
                         'Este equipo ya está totalmente depreciado: no le queda valor por consumir, ' +
@@ -206,8 +237,10 @@ $(function () {
                     );
                 }
             },
-            error: function () {
+            error: function (xhr) {
+                if (version !== previsualizacionVersion) return;
                 limpiarPrevisualizacion();
+                mostrarAviso(Object.values(xhr.responseJSON?.errors ?? {}).flat().join(' ') || 'No se pudo calcular el costo.', 'danger');
             }
         });
     }
@@ -216,11 +249,17 @@ $(function () {
         dias.val('—');
         tasaDiaria.val('—');
         depreciacion.val('—');
+        energiaKwh.val('—');
+        costoEnergia.val('—');
+        costoTotal.val('—');
         codigoEquipo.val('—');
         vidaUtil.text('—');
+        $('#usoEstadoCosteo').text('');
     }
 
     function limpiarFormulario() {
+        asignacionActual = null;
+        previsualizacionVersion++;
         $formulario[0]?.reset();
 
         equipo.val('');
@@ -243,7 +282,12 @@ $(function () {
         $('#showUsoFin').val('');
         $('#showUsoTasa').val('');
         $('#showUsoDepreciacion').val('');
+        $('#showUsoEnergia').val('');
+        $('#showUsoCostoEnergia').val('');
+        $('#showUsoCostoTotal').val('');
         $('#showUsoObservaciones').val('');
+        $('#showUsoHoras, #showUsoInsumos').val('');
+        $('#showUsoEstado').text('');
     }
 
     function mostrarError(mensaje) {

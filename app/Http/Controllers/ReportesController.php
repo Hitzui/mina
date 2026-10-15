@@ -211,8 +211,8 @@ class ReportesController extends Controller
         $ingresos = DB::table('ingresos')->whereNull('deleted_at')->select('orden_trabajo_id', DB::raw('SUM(total_nio) as total'))->groupBy('orden_trabajo_id');
         $manoObra = DB::table('trabajos_empleados as t')->join('procesos_orden as p', 'p.id', '=', 't.proceso_orden_id')
             ->whereNull('t.deleted_at')->select('p.orden_trabajo_id', DB::raw('SUM(t.total_nio) as total'))->groupBy('p.orden_trabajo_id');
-        $depreciacion = DB::table('proceso_equipos as pe')->join('procesos_orden as p', 'p.id', '=', 'pe.proceso_orden_id')
-            ->whereNull('pe.deleted_at')->select('p.orden_trabajo_id', DB::raw('SUM(pe.depreciacion_total) as total'))->groupBy('p.orden_trabajo_id');
+        $depreciacion = DB::query()->fromSub(\App\Models\ProcesoEquipo::consultaParaCostos(), 'pe')->join('procesos_orden as p', 'p.id', '=', 'pe.proceso_orden_id')
+            ->whereNull('pe.deleted_at')->select('p.orden_trabajo_id', DB::raw('SUM(pe.costo_uso_nio) as total'))->groupBy('p.orden_trabajo_id');
         $materiales = DB::table('movimientos_inventario')->whereNull('deleted_at')->where('tipo', MovimientosInventario::TIPO_SALIDA)
             ->whereNotNull('proceso_orden_id')->select('orden_trabajo_id', DB::raw('SUM(costo_total_nio) as total'))->groupBy('orden_trabajo_id');
         $filas = OrdenesTrabajo::query()->with('cliente')
@@ -231,7 +231,7 @@ class ReportesController extends Controller
                 round((float) $o->costos_nio + (float) $o->mano_obra_nio + (float) $o->depreciacion_nio + (float) $o->materiales_nio, 2)])
             ->all();
 
-        return [['Fecha', 'Orden', 'Cliente', 'Estado', 'Peso', 'Unidad', 'Ingresos NIO', 'Otros costos NIO', 'Mano de obra NIO', 'Depreciación NIO', 'Materiales NIO', 'Costo total NIO'], $filas];
+        return [['Fecha', 'Orden', 'Cliente', 'Estado', 'Peso', 'Unidad', 'Ingresos NIO', 'Otros costos NIO', 'Mano de obra NIO', 'Uso de equipos NIO', 'Materiales NIO', 'Costo total NIO'], $filas];
     }
 
     private function procesos(array $filtros): array

@@ -233,7 +233,7 @@
                     . ': ' . number_format($dinero['partes']['costos']['total'], 2)
                     . ' en costos + ' . number_format($dinero['partes']['mano_de_obra']['total'], 2)
                     . ' en mano de obra + ' . number_format($dinero['partes']['depreciacion']['total'], 2)
-                    . ' en depreciación + ' . number_format($dinero['partes']['materia_prima']['total'], 2)
+                    . ' en uso de equipos + ' . number_format($dinero['partes']['materia_prima']['total'], 2)
                     . ' en materia prima'"
                 :aviso="$dinero['costo_sin_equivalente'] > 0
                     ? $dinero['costo_sin_equivalente']

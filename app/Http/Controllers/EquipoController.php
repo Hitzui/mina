@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\DataTables\EquiposDataTable;
 use App\Http\Controllers\Concerns\AuthorizesModule;
 use App\Models\Equipo;
+use App\Models\TarifaEnergia;
+use App\Models\Producto;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -23,11 +26,13 @@ class EquipoController extends Controller
     public function __construct()
     {
         $this->authorizeModule('equipos');
+        $this->middleware('permission:equipos.edit')->only('actualizarTarifaEnergia');
     }
 
     public function index(EquiposDataTable $dataTable)
     {
         $title = 'Equipos';
+        $tarifaEnergia = TarifaEnergia::actual();
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -36,13 +41,32 @@ class EquipoController extends Controller
 
         return $dataTable->render(
             'admin.equipos.index',
-            compact('title', 'breadcrumbs')
+            compact('title', 'breadcrumbs', 'tarifaEnergia')
         );
+    }
+
+    public function actualizarTarifaEnergia(Request $request)
+    {
+        $validated = $request->validate([
+            'tarifa_kwh_nio' => ['required', 'numeric', 'gt:0', 'decimal:0,6'],
+        ], [
+            'tarifa_kwh_nio.required' => 'Indique la tarifa vigente por kWh en córdobas.',
+            'tarifa_kwh_nio.gt' => 'La tarifa por kWh debe ser mayor que cero.',
+            'tarifa_kwh_nio.decimal' => 'La tarifa admite hasta seis decimales.',
+        ]);
+
+        TarifaEnergia::query()->create($validated);
+
+        Alert::toast('Tarifa energética actualizada. Las asignaciones existentes conservan su tarifa histórica.')
+            ->success()->flash();
+
+        return redirect()->route('admin.equipos.index');
     }
 
     public function create()
     {
         $title = 'Nuevo Equipo';
+        $productos = Producto::query()->where('estado', true)->orderBy('nombre')->get();
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -55,7 +79,7 @@ class EquipoController extends Controller
 
         return view(
             'admin.equipos.create',
-            compact('title', 'breadcrumbs')
+            compact('title', 'breadcrumbs', 'productos')
         );
     }
 
@@ -63,7 +87,12 @@ class EquipoController extends Controller
     {
         $validated = $this->validar($request);
 
-        Equipo::create($validated);
+        DB::transaction(function () use ($validated) {
+            $recursos = $validated['recursos'];
+            unset($validated['recursos']);
+            $equipo = Equipo::create($validated);
+            $equipo->recursos()->createMany($recursos);
+        });
 
         Alert::toast('Equipo creado correctamente.')->success()->flash();
 
@@ -73,6 +102,7 @@ class EquipoController extends Controller
     public function show(Equipo $equipo)
     {
         $title = 'Información del Equipo';
+        $equipo->load('recursos.producto', 'insumos.producto');
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -85,7 +115,7 @@ class EquipoController extends Controller
 
         // Los procesos donde se uso, para ver cuanto harentizado cada uno
         $asignaciones = $equipo->asignaciones()
-            ->with('procesoOrden.orden_trabajo')
+            ->with('procesoOrden.orden_trabajo', 'consumos')
             ->orderByDesc('fecha_inicio')
             ->get();
 
@@ -103,6 +133,8 @@ class EquipoController extends Controller
     public function edit(Equipo $equipo)
     {
         $title = 'Editar Equipo';
+        $equipo->load('recursos.producto');
+        $productos = Producto::query()->where('estado', true)->orWhereIn('id', $equipo->recursos->pluck('producto_id'))->orderBy('nombre')->get();
 
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
@@ -119,7 +151,7 @@ class EquipoController extends Controller
 
         return view(
             'admin.equipos.edit',
-            compact('title', 'breadcrumbs', 'equipo')
+            compact('title', 'breadcrumbs', 'equipo', 'productos')
         );
     }
 
@@ -134,7 +166,13 @@ class EquipoController extends Controller
          */
         $cambiaLaTasa = $this->cambiaLaTasa($equipo, $validated);
 
-        $equipo->update($validated);
+        DB::transaction(function () use ($equipo, $validated) {
+            $recursos = $validated['recursos'];
+            unset($validated['recursos']);
+            $equipo->update($validated);
+            $equipo->recursos()->delete();
+            $equipo->recursos()->createMany($recursos);
+        });
 
         $mensaje = 'Equipo actualizado correctamente.';
 
@@ -162,6 +200,10 @@ class EquipoController extends Controller
      */
     public function destroy(Equipo $equipo)
     {
+        if ($equipo->insumos()->exists()) {
+            Alert::toast('El equipo tiene entregas de almacén. Su historial se conserva; puede desactivarlo.')->error()->flash();
+            return redirect()->route('admin.equipos.show', $equipo);
+        }
         $procesos = $equipo->asignaciones()
             ->with('procesoOrden.orden_trabajo')
             ->orderByDesc('fecha_inicio')
@@ -205,7 +247,19 @@ class EquipoController extends Controller
      */
     private function validar(Request $request, ?Equipo $equipo = null): array
     {
-        return $request->validate(
+        $metodoAnterior = $request->input('metodo_costo', $equipo?->metodo_costo ?? 'depreciacion');
+        $deprecia = $request->has('depreciacion_activa') ? $request->boolean('depreciacion_activa')
+            : in_array($metodoAnterior, ['depreciacion', 'ambos'], true);
+        $electrico = $request->has('electricidad_activa') ? $request->boolean('electricidad_activa')
+            : in_array($metodoAnterior, ['energia', 'ambos'], true);
+        $request->merge([
+            'depreciacion_activa' => $deprecia,
+            'metodo_costo' => $deprecia ? ($electrico ? 'ambos' : 'depreciacion') : ($electrico ? 'energia' : 'recursos'),
+            'consumo_kw' => $electrico ? $request->input('consumo_kw') : null,
+            'recursos' => $request->input('recursos', $request->has('configuracion_costeo') ? [] : ($equipo?->recursos->map->only(['producto_id', 'cantidad_por_hora'])->all() ?? [])),
+        ]);
+
+        $validated = $request->validate(
             [
                 'codigo' => [
                     'required',
@@ -238,23 +292,40 @@ class EquipoController extends Controller
                 ],
 
                 'valor_adquisicion' => [
-                    'required',
+                    'required_if:metodo_costo,depreciacion,ambos',
+                    'nullable',
                     'numeric',
                     'gte:0',
                 ],
 
                 'valor_residual' => [
-                    'required',
+                    'required_if:metodo_costo,depreciacion,ambos',
+                    'nullable',
                     'numeric',
                     'gte:0',
                     'lte:valor_adquisicion',
                 ],
 
                 'vida_util_meses' => [
-                    'required',
+                    'required_if:metodo_costo,depreciacion,ambos',
+                    'nullable',
                     'integer',
                     'min:1',
                     'max:600',
+                ],
+
+                'metodo_costo' => ['required', Rule::in(['depreciacion', 'energia', 'ambos', 'recursos'])],
+                'depreciacion_activa' => ['required', 'boolean'],
+                'recursos' => ['array', 'max:20'],
+                'recursos.*.producto_id' => ['required', 'integer', 'distinct', Rule::exists('productos', 'id')->whereNull('deleted_at')],
+                'recursos.*.cantidad_por_hora' => ['required', 'numeric', 'min:0', 'max:999999', 'decimal:0,4'],
+
+                'consumo_kw' => [
+                    'required_if:metodo_costo,energia,ambos',
+                    'nullable',
+                    'numeric',
+                    'gt:0',
+                    'decimal:0,4',
                 ],
 
                 'estado' => [
@@ -278,9 +349,25 @@ class EquipoController extends Controller
                 'vida_util_meses.integer' => 'La vida útil debe ser un número entero de meses.',
                 'vida_util_meses.min' => 'La vida útil debe ser de al menos 1 mes; con cero meses el equipo no depreciaría.',
                 'vida_util_meses.max' => 'La vida útil no puede superar los 600 meses (50 años).',
+                'metodo_costo.required' => 'Seleccione cómo se calculará el costo del equipo.',
+                'consumo_kw.required_if' => 'Indique la potencia del equipo en kW para calcular la energía.',
+                'consumo_kw.gt' => 'La potencia debe ser mayor que cero.',
+                'consumo_kw.decimal' => 'La potencia admite hasta cuatro decimales.',
                 'estado.required' => 'Debe indicar el estado del equipo.',
             ]
         );
+
+        $validated['valor_adquisicion'] ??= 0;
+        $validated['valor_residual'] ??= 0;
+        $validated['vida_util_meses'] ??= 60;
+
+        if (!$deprecia && !$electrico && $validated['recursos'] === []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'recursos' => 'Configure al menos un componente: depreciación, electricidad o recursos de almacén.',
+            ]);
+        }
+
+        return $validated;
     }
 
     /**

@@ -78,9 +78,11 @@ class DepreciacionEquiposTest extends TestCase
         $a->equipo_id = $equipo->id;
         $a->fecha_inicio = $desde;
         $a->fecha_fin = $hasta;
+        $a->horas_efectivas = $a->horasDeUso();
         $a->validarPeriodo();
         $a->validarSinSolapamiento();
-        $a->calcularDepreciacion();
+        $a->load('equipo');
+        $a->calcularCostos(null);
         $a->save();
 
         return $a;
@@ -106,6 +108,47 @@ class DepreciacionEquiposTest extends TestCase
 
         // 4 dias a 27.7778 = 111.11
         $this->assertEqualsWithDelta(111.11, (float) $a->depreciacion_total, 0.02);
+    }
+
+    public function test_el_costo_electrico_usa_potencia_horas_y_tarifa(): void
+    {
+        $equipo = $this->crearEquipo([
+            'metodo_costo' => 'energia',
+            'depreciacion_activa' => false,
+            'consumo_kw' => 1.5,
+        ]);
+        $asignacion = new ProcesoEquipo();
+        $asignacion->equipo_id = $equipo->id;
+        $asignacion->fecha_inicio = '2026-10-01 08:00:00';
+        $asignacion->fecha_fin = '2026-10-01 10:00:00';
+        $asignacion->horas_efectivas = 2;
+        $asignacion->setRelation('equipo', $equipo);
+        $asignacion->calcularCostos(10.0);
+
+        $this->assertSame('energia', $asignacion->metodo_costo);
+        $this->assertSame(3.0, (float) $asignacion->energia_kwh);
+        $this->assertSame(30.0, (float) $asignacion->costo_energia_nio);
+        $this->assertSame(0.0, (float) $asignacion->depreciacion_total);
+        $this->assertSame(30.0, (float) $asignacion->costo_total_nio);
+    }
+
+    public function test_un_equipo_con_ambos_metodos_suma_depreciacion_y_energia(): void
+    {
+        $equipo = $this->crearEquipo([
+            'metodo_costo' => 'ambos',
+            'consumo_kw' => 2,
+        ]);
+        $asignacion = new ProcesoEquipo();
+        $asignacion->equipo_id = $equipo->id;
+        $asignacion->fecha_inicio = '2026-10-01 08:00:00';
+        $asignacion->fecha_fin = '2026-10-01 10:00:00';
+        $asignacion->horas_efectivas = 2;
+        $asignacion->setRelation('equipo', $equipo);
+        $asignacion->calcularCostos(5.0);
+
+        $this->assertSame(4.0, (float) $asignacion->energia_kwh);
+        $this->assertSame(20.0, (float) $asignacion->costo_energia_nio);
+        $this->assertEqualsWithDelta(22.31, (float) $asignacion->costo_total_nio, 0.01);
     }
 
     public function test_un_equipo_sin_valor_residual_deprecia_todo(): void

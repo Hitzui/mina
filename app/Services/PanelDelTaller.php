@@ -534,11 +534,11 @@ class PanelDelTaller
     {
         $desde = $this->desde();
 
-        $fila = DB::table('proceso_equipos')
+        $fila = \App\Models\ProcesoEquipo::consultaParaCostos()
             ->whereNull('deleted_at')
             ->when($desde !== null, fn ($q) => $q->whereDate('fecha_inicio', '>=', $desde))
             ->whereDate('fecha_inicio', '<=', $this->hasta())
-            ->selectRaw('COUNT(*) AS filas, COALESCE(SUM(depreciacion_total), 0) AS total')
+            ->selectRaw('COUNT(*) AS filas, COALESCE(SUM(costo_uso_nio), 0) AS total')
             ->first();
 
         return $this->formateaParte($fila, sinEquivalente: 0);
@@ -732,7 +732,7 @@ class PanelDelTaller
         $depreciacion = $this->serieDeUnaTabla(
             'proceso_equipos',
             'fecha_inicio',
-            'depreciacion_total',
+            'costo_uso_nio',
             $claves
         );
 
@@ -776,7 +776,8 @@ class PanelDelTaller
     ): array {
         $mes = "DATE_FORMAT($columnaFecha, '%Y-%m')";
 
-        $filas = DB::table($tabla)
+        $consulta = $tabla === 'proceso_equipos' ? \App\Models\ProcesoEquipo::consultaParaCostos() : DB::table($tabla);
+        $filas = $consulta
             ->whereNull('deleted_at')
             ->when(
                 $soloSalidasDeProceso,

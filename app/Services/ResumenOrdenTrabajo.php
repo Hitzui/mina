@@ -20,7 +20,7 @@ class ResumenOrdenTrabajo
         $procesos = ProcesosOrden::query()->with('etapa')
             ->where(ProcesosOrden::ORDEN_TRABAJO_ID, $orden->id)
             ->orderBy(ProcesosOrden::ID)->get();
-        $equipos = ProcesoEquipo::query()->with('equipo')
+        $equipos = ProcesoEquipo::query()->with('equipo', 'consumos')
             ->whereIn(ProcesoEquipo::PROCESO_ORDEN_ID, $procesos->modelKeys())
             ->orderBy(ProcesoEquipo::FECHA_INICIO)->get()
             ->groupBy(ProcesoEquipo::PROCESO_ORDEN_ID);

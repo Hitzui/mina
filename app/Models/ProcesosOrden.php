@@ -198,7 +198,7 @@ class ProcesosOrden extends BaseProcesosOrden
 	 */
 	public function getCostoEquiposAttribute(): float
 	{
-		return ProcesoEquipo::depreciacionDeProceso($this->id);
+		return ProcesoEquipo::costoDeEquiposDeProceso($this->id);
 	}
 
 	/**
@@ -286,9 +286,9 @@ class ProcesosOrden extends BaseProcesosOrden
 				'automatico' => true,
 			],
 			[
-				'nombre' => 'Depreciación de equipos',
+				'nombre' => 'Uso de equipos',
 				'importe' => $this->costo_equipos,
-				'origen' => 'Equipos asignados al proceso, según los días de uso.',
+				'origen' => 'Horas efectivas: depreciación, electricidad estimada e insumos consumidos por los equipos.',
 				'automatico' => true,
 			],
 			[

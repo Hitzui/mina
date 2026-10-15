@@ -163,6 +163,8 @@ Route::middleware('auth')->group(function () {
     | se cobra a cada proceso donde se use el equipo.
     |
     */
+    Route::put('admin/equipos/tarifa-energia', [EquipoController::class, 'actualizarTarifaEnergia'])
+        ->name('admin.equipos.tarifa-energia');
     Route::resource('admin/equipos', EquipoController::class)->names('admin.equipos');
 
     Route::get('procesos/ordenes-trabajo/calendario',
@@ -688,6 +690,14 @@ Route::middleware('auth')->group(function () {
             'equipos' => 'procesoEquipo',
         ])
         ->names('procesos.ordenes_trabajo.procesos.equipos');
+
+    Route::prefix('procesos/ordenes-trabajo/{ordenTrabajo}/procesos/{procesoOrden}/equipos/{procesoEquipo}')
+        ->name('procesos.ordenes_trabajo.procesos.equipos.')->group(function () {
+            Route::get('gestion', [ProcesoEquipoController::class, 'gestion'])->name('gestion');
+            Route::put('trabajo', [ProcesoEquipoController::class, 'trabajo'])->name('trabajo');
+            Route::post('consumos', [ProcesoEquipoController::class, 'consumir'])->name('consumos');
+            Route::delete('consumos/{consumo}', [ProcesoEquipoController::class, 'anularConsumo'])->name('consumos.anular');
+        });
 
     /*
     | Los costos de la orden que no son de un proceso: alquiler, transporte,

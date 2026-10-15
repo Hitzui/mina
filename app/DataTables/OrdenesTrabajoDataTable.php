@@ -51,9 +51,17 @@ class OrdenesTrabajoDataTable extends DataTable
      */
     public function query(OrdenesTrabajo $model): QueryBuilder
     {
-        return $model
+        $query = $model
             ->newQuery()
             ->with('cliente');
+
+        $estado = request()->query('estado');
+        if (is_scalar($estado) && (string) $estado !== ''
+            && filter_var((string) $estado, FILTER_VALIDATE_INT) !== false) {
+            $query->where('estado', (int) $estado);
+        }
+
+        return $query;
     }
 
     /**
@@ -62,11 +70,19 @@ class OrdenesTrabajoDataTable extends DataTable
     public function html(): HtmlBuilder
     {
         $builder = $this->ajustesComunes($this->builder());
+        $ajaxUrl = route('procesos.ordenes_trabajo.index');
+
+        // DataTables hace una segunda petición y no conserva por sí solo el
+        // filtro de la página. En particular, el estado 0 (Cancelada) debe
+        // viajar aunque sea un valor falsey en algunos lenguajes.
+        if (request()->query->has('estado')) {
+            $ajaxUrl .= '?' . http_build_query(['estado' => request()->query('estado')]);
+        }
 
         return $builder
             ->setTableId('ordenes-trabajo-table')
             ->columns($this->getColumns())
-            ->minifiedAjax()
+            ->minifiedAjax($ajaxUrl)
             ->orderBy(2, 'desc');
     }
 
@@ -104,7 +120,7 @@ class OrdenesTrabajoDataTable extends DataTable
                 ->title('Acciones')
                 ->exportable(false)
                 ->printable(false)
-                ->width(100)
+                ->width(140)
                 ->addClass('text-center')
                 ->addClass(self::COLUMNA_ACCIONES),
         ];

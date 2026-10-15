@@ -54,6 +54,10 @@ class ProcesoEquiposDataTable extends DataTable
                 (float) $uso->equipo?->depreciacionDiaria(),
                 4
             ))
+            ->editColumn('costo_total_nio', fn($uso) => number_format($uso->costo_uso_nio, 2))
+            ->orderColumn('costo_total_nio', fn($q, $order) => $q->orderByRaw('('.ProcesoEquipo::EXPRESION_COSTO.') '.($order === 'asc' ? 'asc' : 'desc')))
+            ->addColumn('horas_efectivas', fn($uso) => $uso->horas_efectivas === null ? 'Pendiente' : number_format($uso->horas_efectivas, 4))
+            ->addColumn('estado_costeo', fn($uso) => $uso->estadoCosteo())
             // La foto guardada, no un recalculo: es el costo que se
             // cargo al proceso aunque despues cambie el valor del equipo
             ->editColumn('depreciacion_total', fn($uso) => number_format($uso->depreciacion_total, 2))
@@ -72,7 +76,7 @@ class ProcesoEquiposDataTable extends DataTable
     {
         return $model->newQuery()
             ->where(ProcesoEquipo::PROCESO_ORDEN_ID, $this->procesoOrdenId)
-            ->with('equipo');
+            ->with('equipo', 'consumos');
     }
 
     public function html(): HtmlBuilder
@@ -119,15 +123,17 @@ class ProcesoEquiposDataTable extends DataTable
                 ->addClass('text-end')
                 ->addClass(self::OCULTAR_HASTA_ESCRITORIO),
 
-            Column::make('depreciacion_diaria')
-                ->title('Deprec./día')
+            Column::make('horas_efectivas')
+                ->title('Horas efectivas')
                 ->width(110)
                 ->addClass('text-end')
                 ->addClass(self::OCULTAR_EN_MOVIL),
 
-            Column::make('depreciacion_total')
-                ->title('Depreciación')
+            Column::make('costo_total_nio')
+                ->title('Costo de uso (NIO)')
                 ->addClass('text-end fw-semibold'),
+
+            Column::computed('estado_costeo')->title('Estado del costo'),
 
             Column::make('observaciones')
                 ->title('Observaciones')

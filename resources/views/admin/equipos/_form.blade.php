@@ -17,6 +17,7 @@
     id="formEquipo"
 >
     @csrf
+    <input type="hidden" name="configuracion_costeo" value="1">
 
     @if($esEdicion)
         @method('PUT')
@@ -93,8 +94,71 @@
             @enderror
         </div>
 
+        <div class="col-12 mb-3 border rounded p-3 bg-light">
+            <h6>Componentes del costo de uso</h6>
+            <p class="small mb-2">Ejemplos: planta generadora → depreciación y combustible; molino o bomba eléctrica → electricidad y, si corresponde, depreciación. En una planta, active electricidad solo si compra energía de la red para ese uso.</p>
+            <p class="text-muted small">Active los componentes que correspondan. El costo se calcula con las horas efectivas; las fechas controlan la disponibilidad del equipo.</p>
+            <input type="hidden" name="depreciacion_activa" value="0">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="depreciacion_activa" name="depreciacion_activa" value="1" @checked(old('depreciacion_activa', $equipo?->usaDepreciacion() ?? true))>
+                <label class="form-check-label" for="depreciacion_activa">Depreciación por horas efectivas de uso</label>
+            </div>
+            <input type="hidden" name="electricidad_activa" value="0">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="electricidad_activa" name="electricidad_activa" value="1" @checked(old('electricidad_activa', $equipo?->usaEnergia() ?? false))>
+                <label class="form-check-label" for="electricidad_activa">Electricidad comprada (potencia × horas efectivas × tarifa)</label>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3" data-energia-field>
+            <label for="consumo_kw" class="form-label">Potencia de consumo (kW)</label>
+            <input
+                type="number"
+                name="consumo_kw"
+                id="consumo_kw"
+                class="form-control @error('consumo_kw') is-invalid @enderror"
+                value="{{ old('consumo_kw', $equipo->consumo_kw ?? '') }}"
+                min="0.0001"
+                step="0.0001"
+            >
+            @error('consumo_kw')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="col-md-3 mb-3" data-energia-field>
+            <label class="form-label">Tarifa vigente</label>
+            <div class="form-control bg-light">NIO/kWh</div>
+            <div class="form-text">Se configura en el listado de equipos.</div>
+        </div>
+
+        <div class="col-12 mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">Recursos de almacén que consume</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="agregarRecurso">Agregar recurso</button>
+            </div>
+            <p class="text-muted small">Gasolina, diésel u otros insumos. El consumo por hora es una referencia para estimar; el costo registrado proviene del consumo confirmado de las entregas de almacén. Use la unidad del producto.</p>
+            @error('recursos')<div class="text-danger">{{ $message }}</div>@enderror
+            @foreach($errors->get('recursos.*') as $mensajes) @foreach($mensajes as $mensaje)<div class="text-danger small">{{ $mensaje }}</div>@endforeach @endforeach
+            <div id="recursosEquipo">
+                @foreach(old('recursos', $equipo?->recursos->map->only(['producto_id', 'cantidad_por_hora'])->all() ?? []) as $i => $recurso)
+                    <div class="row g-2 mb-2 recurso-equipo">
+                        <div class="col-md-7"><select name="recursos[{{ $i }}][producto_id]" class="form-select" required>
+                            <option value="">Seleccione producto</option>
+                            @foreach($productos as $producto)<option value="{{ $producto->id }}" @selected((int)$recurso['producto_id'] === $producto->id)>{{ $producto->nombre_completo }}</option>@endforeach
+                        </select></div>
+                        <div class="col-md-3"><input aria-label="Consumo por hora" class="form-control" type="number" name="recursos[{{ $i }}][cantidad_por_hora]" value="{{ $recurso['cantidad_por_hora'] }}" min="0" step="0.0001" placeholder="Unidades por hora" required></div>
+                        <div class="col-md-2"><button type="button" class="btn btn-outline-danger quitar-recurso">Quitar</button></div>
+                    </div>
+                @endforeach
+            </div>
+            <template id="plantillaRecurso"><div class="row g-2 mb-2 recurso-equipo">
+                <div class="col-md-7"><select data-campo="producto_id" class="form-select" required><option value="">Seleccione producto</option>@foreach($productos as $producto)<option value="{{ $producto->id }}">{{ $producto->nombre_completo }}</option>@endforeach</select></div>
+                <div class="col-md-3"><input aria-label="Consumo por hora" data-campo="cantidad_por_hora" class="form-control" type="number" value="0" min="0" step="0.0001" placeholder="Unidades por hora" required></div>
+                <div class="col-md-2"><button type="button" class="btn btn-outline-danger quitar-recurso">Quitar</button></div>
+            </div></template>
+        </div>
+
         {{-- Fecha de adquisición --}}
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4 mb-3" data-depreciacion-field>
             <label for="fecha_adquisicion" class="form-label">
                 Fecha de adquisición
             </label>
@@ -115,7 +179,7 @@
         </div>
 
         {{-- Valor de adquisición --}}
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4 mb-3" data-depreciacion-field>
             <label for="valor_adquisicion" class="form-label">
                 Valor de adquisición <span class="text-danger">*</span>
             </label>
@@ -128,7 +192,6 @@
                 value="{{ old('valor_adquisicion', $equipo->valor_adquisicion ?? '0.00') }}"
                 min="0"
                 step="0.01"
-                required
             >
 
             @error('valor_adquisicion')
@@ -139,7 +202,7 @@
         </div>
 
         {{-- Valor residual --}}
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4 mb-3" data-depreciacion-field>
             <label for="valor_residual" class="form-label">
                 Valor residual <span class="text-danger">*</span>
             </label>
@@ -152,7 +215,6 @@
                 value="{{ old('valor_residual', $equipo->valor_residual ?? '0.00') }}"
                 min="0"
                 step="0.01"
-                required
             >
 
             @error('valor_residual')
@@ -163,7 +225,7 @@
         </div>
 
         {{-- Vida útil --}}
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4 mb-3" data-depreciacion-field>
             <label for="vida_util_meses" class="form-label">
                 Vida útil (meses) <span class="text-danger">*</span>
             </label>
@@ -177,7 +239,6 @@
                 min="1"
                 max="600"
                 step="1"
-                required
             >
 
             @error('vida_util_meses')
@@ -192,7 +253,7 @@
             datos. Se muestra en vivo para que se vea qué va a costar el
             equipo por día antes de guardarlo.
         --}}
-        <div class="col-md-8 mb-3">
+        <div class="col-md-8 mb-3" data-depreciacion-field>
             <label class="form-label text-muted">
                 Depreciación diaria
             </label>
@@ -205,7 +266,7 @@
             </div>
 
             <div class="form-text" id="depreciacionDiariaExplicacion">
-                (valor de adquisición − valor residual) ÷ (vida útil × 30 días)
+                 (valor de adquisición − valor residual) ÷ (vida útil × 30 días). Para cada uso se divide entre 24 y se multiplica por sus horas efectivas.
             </div>
         </div>
 
@@ -278,6 +339,10 @@
         const vMeses = document.getElementById('vida_util_meses');
         const preview = document.getElementById('depreciacionDiariaPreview');
         const explicacion = document.getElementById('depreciacionDiariaExplicacion');
+        const depreciacionActiva = document.getElementById('depreciacion_activa');
+        const electricidadActiva = document.getElementById('electricidad_activa');
+        const energiaFields = form.querySelectorAll('[data-energia-field]');
+        const depreciacionFields = form.querySelectorAll('[data-depreciacion-field]');
 
         const DIAS_POR_MES = 30;
 
@@ -308,10 +373,40 @@
             }
         }
 
+        function actualizarMetodo() {
+            const usaEnergia = electricidadActiva.checked;
+            const usaDepreciacion = depreciacionActiva.checked;
+
+            energiaFields.forEach((field) => {
+                field.classList.toggle('d-none', !usaEnergia);
+            });
+            depreciacionFields.forEach((field) => {
+                field.classList.toggle('d-none', !usaDepreciacion);
+            });
+
+            document.getElementById('consumo_kw').required = usaEnergia;
+            ['valor_adquisicion', 'valor_residual', 'vida_util_meses'].forEach((id) => {
+                document.getElementById(id).required = usaDepreciacion;
+            });
+        }
+
         [vAdquisicion, vResidual, vMeses].forEach((campo) => {
             campo.addEventListener('input', recalcular);
         });
+        depreciacionActiva.addEventListener('change', actualizarMetodo);
+        electricidadActiva.addEventListener('change', actualizarMetodo);
+        let siguienteRecurso = {{ count(old('recursos', $equipo?->recursos ?? [])) }};
+        document.getElementById('agregarRecurso').addEventListener('click', () => {
+            const fila = document.getElementById('plantillaRecurso').content.cloneNode(true);
+            fila.querySelectorAll('[data-campo]').forEach(campo => campo.name = `recursos[${siguienteRecurso}][${campo.dataset.campo}]`);
+            siguienteRecurso++;
+            document.getElementById('recursosEquipo').appendChild(fila);
+        });
+        document.getElementById('recursosEquipo').addEventListener('click', event => {
+            if (event.target.closest('.quitar-recurso')) event.target.closest('.recurso-equipo').remove();
+        });
 
+        actualizarMetodo();
         recalcular();
     })();
 </script>

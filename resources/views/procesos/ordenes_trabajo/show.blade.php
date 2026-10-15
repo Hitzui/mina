@@ -39,7 +39,12 @@
                                     <form
                                         action="{{ route('procesos.ordenes_trabajo.finalizar', $ordenTrabajo) }}"
                                         method="POST"
-                                        onsubmit="return confirm('¿Dar por finalizada esta orden? Solo podrá hacerlo cuando todos sus procesos estén finalizados.');"
+                                        data-confirm
+                                        data-confirm-icon="warning"
+                                        data-confirm-title="¿Dar por finalizada esta orden?"
+                                        data-confirm-text="Solo podrá hacerlo cuando todos sus procesos estén finalizados."
+                                        data-confirm-button="Sí, finalizar orden"
+                                        data-confirm-cancel="Seguir trabajando"
                                     >
                                         @csrf
                                         <button type="submit" class="btn btn-success">
