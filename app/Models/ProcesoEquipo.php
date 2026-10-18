@@ -23,8 +23,8 @@ class ProcesoEquipo extends Model
     protected static function booted(): void
     {
         static::deleting(function ($uso) {
-            if ($uso->consumos()->withTrashed()->exists() || $uso->entregas()->exists()) {
-                throw ValidationException::withMessages(['equipo_id' => 'El uso tiene historial de insumos y debe conservarse.']);
+            if ($uso->consumos()->withTrashed()->exists() || $uso->entregas()->exists() || $uso->reparaciones()->withTrashed()->exists()) {
+                throw ValidationException::withMessages(['equipo_id' => 'El uso tiene historial de insumos o reparaciones y debe conservarse.']);
             }
         });
     }
@@ -90,6 +90,11 @@ class ProcesoEquipo extends Model
     public function consumos()
     {
         return $this->hasMany(EquipoConsumo::class);
+    }
+
+    public function reparaciones()
+    {
+        return $this->hasMany(EquipoReparacion::class, 'proceso_equipo_id');
     }
 
     public function entregas()

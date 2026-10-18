@@ -25,6 +25,7 @@
             <p class="text-muted small">Asignación: {{ $uso->fecha_inicio?->format('d/m/Y H:i') }} — {{ $uso->fecha_fin?->format('d/m/Y H:i') ?? 'Sigue asignado' }}.
                 Electricidad: {{ number_format($uso->potencia_kw_usada ?? 0, 4) }} kW × horas efectivas × C$ {{ number_format($uso->tarifa_kwh_nio ?? 0, 6) }}/kWh.
             </p>
+            <a class="btn btn-outline-danger mb-3" href="{{ route('procesos.ordenes_trabajo.seguimiento.show', $ordenTrabajo) }}">Ver progreso, reparaciones y ampliar plazo</a>
             @can('proceso_equipo.edit')
             <form action="{{ route($ruta.'trabajo', $parametros) }}" method="POST" class="row g-3 border rounded p-3">
                 @csrf @method('PUT')

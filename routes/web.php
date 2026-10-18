@@ -170,6 +170,24 @@ Route::middleware('auth')->group(function () {
     Route::get('procesos/ordenes-trabajo/calendario',
         [OrdenTrabajoController::class, 'calendario'])
         ->name('procesos.ordenes_trabajo.calendario');
+    Route::get('procesos/lamas', [\App\Http\Controllers\Procesos\LamaController::class, 'index'])->name('procesos.lamas.index');
+    Route::prefix('procesos/ordenes-trabajo/{ordenTrabajo}/seguimiento')->name('procesos.ordenes_trabajo.seguimiento.')->controller(\App\Http\Controllers\Procesos\SeguimientoOrdenController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('reparaciones', 'store')->name('store');
+        Route::put('reparaciones/{reparacion}', 'update')->name('update');
+        Route::delete('reparaciones/{reparacion}', 'destroy')->name('destroy');
+        Route::post('reparaciones/{reparacion}/costos', 'costo')->name('costo');
+        Route::put('asignaciones/{asignacion}/plazo', 'ampliar')->name('ampliar');
+    });
+    Route::prefix('procesos/ordenes-trabajo/{ordenTrabajo}/lama')->name('procesos.ordenes_trabajo.lama.')->controller(\App\Http\Controllers\Procesos\LamaController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('lotes', 'store')->name('store');
+        Route::put('lotes/{lote}', 'update')->name('update');
+        Route::delete('lotes/{lote}', 'destroy')->name('destroy');
+        Route::post('lotes/{lote}/tratamiento', 'iniciar')->name('iniciar');
+        Route::post('recuperaciones', 'recuperar')->name('recuperar');
+        Route::post('valoraciones', 'valorar')->name('valorar');
+    });
     Route::get('procesos/ordenes-trabajo/listado',
         [OrdenTrabajoController::class, 'index'])
         ->name('procesos.ordenes_trabajo.listado');

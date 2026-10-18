@@ -24,6 +24,27 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
         Route::get('orders', [MobileDataController::class, 'orders'])
             ->middleware('permission:ordenes_trabajo.view')->name('orders.index');
+        Route::get('orders/{orderId}/collections', [\App\Http\Controllers\Api\V1\MobileCollectionController::class, 'show'])
+            ->middleware(['permission:ordenes_trabajo.view', 'permission:cobros.view|cobros.create'])->name('orders.collections.show');
+        Route::post('orders/{orderId}/collections', [\App\Http\Controllers\Api\V1\MobileCollectionController::class, 'store'])
+            ->middleware(['permission:ordenes_trabajo.view', 'permission:cobros.create'])->name('orders.collections.store');
+        Route::prefix('orders/{ordenTrabajo}/lama')->name('orders.lama.')->controller(\App\Http\Controllers\Procesos\LamaController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('lotes', 'store')->name('store');
+            Route::put('lotes/{lote}', 'update')->name('update');
+            Route::delete('lotes/{lote}', 'destroy')->name('destroy');
+            Route::post('lotes/{lote}/tratamiento', 'iniciar')->name('iniciar');
+            Route::post('recuperaciones', 'recuperar')->name('recuperar');
+            Route::post('valoraciones', 'valorar')->name('valorar');
+        });
+        Route::prefix('orders/{ordenTrabajo}/tracking')->controller(\App\Http\Controllers\Procesos\SeguimientoOrdenController::class)->group(function () {
+            Route::get('/', 'show');
+            Route::post('repairs', 'store');
+            Route::put('repairs/{reparacion}', 'update');
+            Route::delete('repairs/{reparacion}', 'destroy');
+            Route::post('repairs/{reparacion}/costs', 'costo');
+            Route::put('assignments/{asignacion}/deadline', 'ampliar');
+        });
         Route::get('orders/form-options', [MobileDataController::class, 'orderFormOptions'])
             ->middleware('permission:ordenes_trabajo.create')->name('orders.form-options');
         Route::get('orders/{orderId}/edit-form-options', [MobileDataController::class, 'orderEditFormOptions'])

@@ -31,6 +31,14 @@ class UsoEquipoService
             $uso->fill($datos);
             $equipo = Equipo::query()->lockForUpdate()->findOrFail($uso->equipo_id);
             $uso->setRelation('equipo', $equipo);
+            if ($uso->exists && $uso->reparaciones()->withTrashed()->exists()) {
+                if ($uso->isDirty('equipo_id')) $this->error('equipo_id', 'El uso tiene historial de reparaciones. Conserve el equipo original.');
+                if ($uso->isDirty(['fecha_inicio', 'fecha_fin']) && $uso->reparaciones()->withTrashed()
+                    ->where(fn ($q) => $q->where('inicio', '<', $uso->fecha_inicio)
+                        ->when($uso->fecha_fin, fn ($q) => $q->orWhere('inicio', '>=', $uso->fecha_fin)))->exists()) {
+                    $this->error('fecha_fin', 'El plazo debe conservar los inicios de reparación registrados. Puede ampliarlo manualmente.');
+                }
+            }
             if ($uso->exists && $uso->isDirty('equipo_id') && ($uso->consumos()->withTrashed()->exists() || $uso->entregas()->exists())) {
                 $this->error('equipo_id', 'Este uso ya tiene consumos. Mantenga el equipo para conservar su trazabilidad.');
             }

@@ -1,5 +1,8 @@
 <td>
     <div class="d-flex justify-content-center gap-1">
+        @if($acuerdo->orden_trabajo?->lama_lote_id)
+            <span class="small text-muted">Reparto heredado del lote</span>
+        @else
         @can('acuerdos_orden.edit')
             <button type="button" class="btn btn-sm btn-light btn-editar-acuerdo-orden"
                     data-url="{{ route('procesos.ordenes_trabajo.acuerdos.show', [$acuerdo->orden_trabajo_id, $acuerdo]) }}"
@@ -11,5 +14,6 @@
                     data-tipo="{{ $acuerdo->tipo_participacion?->nombre }}"
                     title="Eliminar acuerdo"><i class="bi bi-trash"></i></button>
         @endcan
+        @endif
     </div>
 </td>

@@ -170,6 +170,7 @@
                                     <th>Fin</th>
                                     <th class="text-center">Horas efectivas</th>
                                     <th class="text-end">Costo de uso</th>
+                                    @can('ordenes_trabajo.view')<th>Reparaciones</th>@endcan
                                 </tr>
                             </thead>
                             <tbody>
@@ -201,6 +202,7 @@
                                         <td class="text-end fw-semibold">
                                             <a href="{{ route('procesos.ordenes_trabajo.procesos.equipos.gestion', [$uso->procesoOrden->orden_trabajo_id, $uso->procesoOrden, $uso]) }}">{{ number_format($uso->costo_uso_nio, 2) }}</a>
                                         </td>
+                                        @can('ordenes_trabajo.view')<td><a class="btn btn-sm btn-outline-danger" href="{{ route('procesos.ordenes_trabajo.seguimiento.show', $uso->procesoOrden->orden_trabajo_id) }}#asignacion-{{ $uso->id }}">Poner en reparación / consultar</a></td>@endcan
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -212,6 +214,7 @@
                                     <th class="text-end">
                                         {{ number_format($asignaciones->sum('costo_uso_nio'), 2) }}
                                     </th>
+                                    @can('ordenes_trabajo.view')<th></th>@endcan
                                 </tr>
                             </tfoot>
                         </table>

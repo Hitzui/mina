@@ -52,7 +52,7 @@
         <tr>
             <td>
                 <div class="etiqueta">Cliente</div>
-                <div class="valor">{{ $ordenTrabajo->cliente?->nombre ?? '—' }}</div>
+                <div class="valor">{{ $ordenTrabajo->nombreTitular() }}</div>
                 @if($ordenTrabajo->cliente?->telefono)<p>Teléfono: {{ $ordenTrabajo->cliente->telefono }}</p>@endif
                 @if($ordenTrabajo->cliente?->direccion)<p>Dirección: {{ $ordenTrabajo->cliente->direccion }}</p>@endif
             </td>

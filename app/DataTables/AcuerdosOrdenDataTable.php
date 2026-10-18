@@ -37,6 +37,7 @@ class AcuerdosOrdenDataTable extends DataTable
             ->addColumn('estado_texto', fn (AcuerdosOrden $acuerdo) => $acuerdo->estado
                 ? '<span class="badge bg-success">Activo</span>'
                 : '<span class="badge bg-secondary">Inactivo</span>')
+            ->addColumn('lama', fn (AcuerdosOrden $acuerdo) => $acuerdo->lama_destino === 'sin_definir' ? 'Sin acordar' : 'Conserva: '.$acuerdo->lama_destino.' · Oro empresa '.$acuerdo->lama_porcentaje_empresa.'% / cliente '.(100 - $acuerdo->lama_porcentaje_empresa).'%')
             ->addColumn('action', fn (AcuerdosOrden $acuerdo) => view(
                 'procesos.ordenes_trabajo.acuerdos._action',
                 compact('acuerdo')
@@ -49,7 +50,7 @@ class AcuerdosOrdenDataTable extends DataTable
     {
         return $model->newQuery()
             ->deOrden($this->ordenTrabajoId)
-            ->with(['tipo_participacion', 'moneda'])
+            ->with(['tipo_participacion', 'moneda', 'orden_trabajo'])
             ->orderByDesc(AcuerdosOrden::CREATED_AT);
     }
 
@@ -68,6 +69,7 @@ class AcuerdosOrdenDataTable extends DataTable
             Column::make('tipo')->title('Tipo de participación'),
             Column::make('modalidad')->title('Modalidad')->addClass(self::OCULTAR_EN_MOVIL),
             Column::make('condicion')->title('Condición')->addClass('text-end'),
+            Column::make('lama')->title('Lama y oro posterior')->searchable(false)->orderable(false),
             Column::make('estado_texto')->title('Estado')->addClass('text-center')->addClass(self::OCULTAR_EN_MOVIL),
             Column::computed('action')->title('Acciones')->exportable(false)->printable(false)->width(130)
                 ->addClass('text-center')->addClass(self::COLUMNA_ACCIONES),

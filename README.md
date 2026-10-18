@@ -9,7 +9,10 @@ Sistema web para la gestión operativa y financiera del taller MINA. Centraliza 
 - **Equipos:** componentes independientes de depreciación, electricidad comprada e insumos de almacén; horas efectivas o lecturas de horómetro; parámetros históricos por uso.
 - **Almacén:** productos, existencias, costo promedio y movimientos. Los equipos distinguen entregas, consumos, devoluciones y sobrantes con valor histórico.
 - **Finanzas:** costos, ingresos, acuerdos, liquidaciones, cobros y movimientos de caja, con equivalentes en córdobas.
+- **Lama:** acuerdos de conservación y reparto del oro posterior, lotes con cantidades estimadas, tratamiento por lotes completos y resultado conjunto enlazado al servicio original. [Guía de uso web/móvil](docs/FLUJO_LAMA.md).
 - **Seguimiento:** panel del taller, reportes y distribución informativa de gastos generales entre procesos, sin duplicar movimientos.
+- **Avance y reparaciones:** porcentaje por procesos finalizados, líneas de tiempo con reparaciones en rojo, ampliación manual de asignaciones y costos de reparación vinculados a la OT y al proceso. El horómetro conserva las horas reales. [Guía web/móvil y sincronización](docs/SEGUIMIENTO_REPARACIONES.md).
+- **Navegación guiada:** buscador de pantallas y tareas en la barra superior (`Ctrl + /`), con sinónimos, orientación para acciones dentro de una OT y accesos rápidos en la barra y el inicio. Solo ofrece destinos autorizados para el usuario.
 - **Acceso:** usuarios, roles y permisos por módulo.
 - **API móvil:** autenticación con tokens, consulta y registro operativo, descarga de datos y sincronización de operaciones compatibles con Offline.
 
@@ -79,6 +82,8 @@ El cliente Android, iOS y escritorio se desarrolla en [Hitzui/mina-mobil](https:
 - Contrato base: [docs/api-openapi-v1.yaml](docs/api-openapi-v1.yaml); las rutas y validaciones actuales están en `routes/api.php` y los controladores API.
 - Offline: descarga de datos y cola de operaciones compatibles; el servidor valida al sincronizar.
 - Las entregas, consumos y devoluciones de equipos requieren **Online**.
+- Los lotes, tratamientos, recuperaciones y valoraciones de lama se gestionan **Online**; Offline permite consultar la copia descargada.
+- El móvil registra **cobros y abonos por OT**, incluso después de finalizarla: Online confirma el cobro y su entrada de caja; Offline lo conserva pendiente con reintentos idempotentes hasta subir. Usa la misma moneda del ingreso y la caja activa asignada. [Guía funcional y contrato API](https://github.com/Hitzui/mina-mobil/blob/main/docs/COBROS_MOVIL.md).
 
 Configure en el cliente la URL del servidor accesible desde el dispositivo. En un teléfono físico, `localhost` se refiere al propio teléfono.
 
@@ -89,6 +94,8 @@ php artisan test --filter=CosteoIntegralEquiposTest
 php artisan test --filter=DepreciacionEquiposTest
 php artisan test --filter=EquiposEnProcesosTest
 php artisan test --filter=OrdenCerradaTest
+php artisan test --filter=FlujoLamasTest
+php artisan test --filter=MobileCollectionTest
 ```
 
 Las pruebas de integración usan MySQL/MariaDB y algunas requieren catálogos y registros de referencia. Revise `phpunit.xml` y la conexión de pruebas antes de ejecutarlas: la configuración local utiliza transacciones y **no debe reiniciarse con `migrate:fresh`** una base que contenga información del taller.

@@ -61,6 +61,8 @@
                 $('#acuerdoPorcentajeEmpresa').val(datos.porcentaje_empresa ?? '');
                 $('#acuerdoTarifa').val(datos.tarifa_servicio ?? '');
                 $('#acuerdoObservaciones').val(datos.observaciones || '');
+                $('#acuerdoLamaDestino').val(datos.lama_destino || 'sin_definir');
+                $('#acuerdoLamaEmpresa').val(datos.lama_porcentaje_empresa ?? '');
                 $('#acuerdoEstado').prop('checked', !!datos.estado);
                 $('#acuerdoEstadoValor').val(datos.estado ? '1' : '0');
                 $('#modalAcuerdoOrdenLabel').text('Editar acuerdo de participación');
@@ -88,6 +90,9 @@
                 }
                 const $campo = $form.find('[name="' + campo + '"]');
                 if (!$campo.length) return;
+                if (campo.startsWith('lama_')) {
+                    $('#acuerdoOrdenError').removeClass('d-none').text(mensajes[0]);
+                }
                 $campo.addClass('is-invalid');
                 const $feedback = $campo.closest('.input-group').length
                     ? $campo.closest('.input-group').next('.invalid-feedback')

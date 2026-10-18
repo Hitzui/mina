@@ -46,8 +46,11 @@ class ValoracionesOro extends BaseValoracionesOro
 		self::VALOR,
 		self::MONEDA_ID,
 		self::FECHA,
-		self::OBSERVACIONES
+		self::OBSERVACIONES,
+		'valor_nio',
 	];
+
+    protected function casts(): array { return ['valor_nio' => 'float']; }
 
 	/*
 	 * La recuperacion de la que sale esta valoracion.

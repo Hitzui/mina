@@ -642,6 +642,7 @@
                     </div>
 
                     <nav class="ordenes-workspace__actions ordenes-hero__actions" aria-label="Acciones de órdenes">
+                        <a href="{{ route('procesos.lamas.index') }}" class="ot-action-button ot-action-button--secondary"><i class="bi bi-recycle" aria-hidden="true"></i> Lama y tratamientos</a>
                         <a href="{{ route('procesos.ordenes_trabajo.calendario') }}"
                            class="ot-action-button ot-action-button--secondary">
                             <i class="bi bi-calendar3" aria-hidden="true"></i>

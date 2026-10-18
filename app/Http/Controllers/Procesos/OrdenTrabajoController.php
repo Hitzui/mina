@@ -160,7 +160,7 @@ class OrdenTrabajoController extends Controller
                  */
                 'extendedProps' => [
                     'codigo' => $orden->codigo,
-                    'cliente' => $orden->cliente?->nombre ?? '—',
+                    'cliente' => $orden->nombreTitular(),
                     'estado' => $orden->estadoTexto(),
                     'estado_color' => $color,
                     'fecha' => $orden->fecha?->format('d/m/Y') ?? '—',
@@ -391,6 +391,9 @@ class OrdenTrabajoController extends Controller
     {
         $title = 'Editar Orden de Trabajo';
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
+        if ($ordenTrabajo->lama_lote_id) {
+            return view('procesos.lamas.editar_orden', ['title' => 'Editar OT de tratamiento', 'ordenTrabajo' => $ordenTrabajo]);
+        }
         $breadcrumbs = [
             ['label' => 'Dashboard', 'url' => route('home')],
             [
@@ -425,6 +428,11 @@ class OrdenTrabajoController extends Controller
     public function update(Request $request, string $id)
     {
         $ordenTrabajo = OrdenesTrabajo::findOrFail($id);
+        if ($ordenTrabajo->lama_lote_id) {
+            $ordenTrabajo->update($request->validate(['fecha' => ['required', 'date', 'after_or_equal:'.$ordenTrabajo->loteLama->fecha->toDateString()], 'descripcion' => ['nullable', 'string', 'max:1000']]));
+            Alert::toast('OT de tratamiento actualizada.')->success()->flash();
+            return redirect()->route('procesos.ordenes_trabajo.show', $ordenTrabajo);
+        }
         $this->normalizarUnidadPeso($request);
         $tieneOperaciones = $ordenTrabajo
             ->procesos_ordenes()

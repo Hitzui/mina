@@ -131,7 +131,13 @@ class IngresoTest extends TestCase
         $admin->syncRoles(['admin']);
         $this->actingAs($admin);
 
-        $this->orden = OrdenesTrabajo::firstOrFail();
+        // La prueba no depende de que la primera OT real del taller siga abierta.
+        $this->orden = OrdenesTrabajo::firstOrFail()->replicate();
+        $this->orden->codigo = 'OT-ING-TEST-' . uniqid();
+        $this->orden->estado = OrdenesTrabajo::ESTADO_PENDIENTE;
+        $this->orden->tipo_trabajo = 'servicio';
+        $this->orden->lama_lote_id = null;
+        $this->orden->save();
 
         $this->base = Moneda::where('es_moneda_base', true)->firstOrFail();
         $this->extranjera = Moneda::where('es_moneda_base', false)

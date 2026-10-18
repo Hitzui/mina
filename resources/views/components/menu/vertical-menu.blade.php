@@ -242,6 +242,12 @@
                         </a>
                     </li>
 
+                    @can('ordenes_trabajo.view')
+                    <li class="{{ Request::routeIs('procesos.lamas.*', 'procesos.ordenes_trabajo.lama.*') ? 'active' : '' }}">
+                        <a href="{{ route('procesos.lamas.index') }}"><div><i class="bi bi-recycle"></i><span>Lama y tratamientos</span></div></a>
+                    </li>
+                    @endcan
+
                 </ul>
             </li>
 

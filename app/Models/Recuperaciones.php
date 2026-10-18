@@ -6,6 +6,17 @@ use App\Models\Base\Recuperacione as BaseRecuperaciones;
 
 class Recuperaciones extends BaseRecuperaciones
 {
+    protected static function booted(): void
+    {
+        static::updated(function (self $recuperacion) {
+            if ($recuperacion->wasChanged(['gramos', 'pureza'])) {
+                // El valor histórico se conserva, pero no se mezcla en el resultado
+                // de lama con gramos corregidos hasta que se vuelva a valorar.
+                ValoracionesOro::where('recuperacion_id', $recuperacion->id)->update(['valor_nio' => null]);
+            }
+        });
+    }
+
 	protected $fillable = [
 		self::ORDEN_TRABAJO_ID,
 		self::FECHA,

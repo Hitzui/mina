@@ -152,11 +152,12 @@ paths:
     get:
       tags: [Órdenes]
       summary: Detalle de orden, procesos, costos, ingresos y producción
+      description: Puede incluir financial_summary cuando el usuario puede consultar ingresos, acuerdos, liquidaciones y todos los componentes de costo. El resumen distingue resultado real conocido y resultado proyectado; no es saldo de caja.
       security: [{ bearerAuth: [] }]
       parameters:
         - { in: path, name: orderId, required: true, schema: { type: integer } }
       responses:
-        '200': { description: Ficha de orden con sus colecciones de detalle }
+        '200': { description: Ficha de orden con sus colecciones de detalle y resumen financiero opcional según permisos }
         '403': { description: Falta ordenes_trabajo.view }
         '404': { description: Orden no encontrada }
   /clients:
@@ -277,3 +278,20 @@ components:
       properties:
         message: { type: string }
         code: { type: string }
+    FinancialSummary:
+      type: object
+      description: Importes expresados en moneda base. La valoración del oro de empresa usa gramos_empresa y el precio histórico vigente en la fecha de liquidación. Una respuesta parcial se identifica con datos_incompletos.
+      properties:
+        moneda: { type: string, example: NIO }
+        modalidad: { type: string, enum: [tarifa, participacion, tarifa_y_participacion, sin_referencia] }
+        ingresos_registrados_nio: { type: number }
+        oro_empresa_gramos: { type: number }
+        oro_empresa_nio: { type: number }
+        oro_pendiente_valoracion: { type: integer }
+        tarifa_pactada_nio: { type: number }
+        ingreso_real_conocido_nio: { type: number }
+        ingreso_proyectado_nio: { type: number }
+        costo_total_nio: { type: number }
+        resultado_real_nio: { type: [number, 'null'] }
+        resultado_proyectado_nio: { type: [number, 'null'] }
+        datos_incompletos: { type: boolean }

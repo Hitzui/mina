@@ -9,6 +9,7 @@ use App\Models\Producto;
 use App\Models\TiposCambio;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * El movimiento de material del almacen.
@@ -40,7 +41,7 @@ class InventarioService
      *                        orden_trabajo_id y proceso_orden_id
      * @return MovimientosInventario
      *
-     * @throws ValidationException
+     * @throws ValidationException|Throwable
      */
     public function registrar(array $datos): MovimientosInventario
     {
@@ -137,7 +138,7 @@ class InventarioService
             // Las salidas se valúan al promedio del almacén, que ya está en
             // moneda base. No se debe aceptar una moneda enviada por el form.
             $movimiento->moneda_id = $this->monedaBaseId();
-            $movimiento->costo_unitario = (float) $saldo->cpp_actual;
+            $movimiento->costo_unitario = $saldo->cpp_actual;
         } else {
             $movimiento->costo_unitario = (float) ($datos['costo_unitario'] ?? 0);
         }
@@ -168,7 +169,7 @@ class InventarioService
         MovimientosInventario $movimiento,
         bool $revertiendo = false
     ): void {
-        $cantidad = abs((float) $movimiento->cantidad);
+        $cantidad = abs($movimiento->cantidad);
         $valor = abs((float) $movimiento->costo_total);
 
         /*

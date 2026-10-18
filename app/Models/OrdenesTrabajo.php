@@ -74,7 +74,33 @@ class OrdenesTrabajo extends BaseOrdenesTrabajo
         self::UNIDAD_PESO,
         self::UNIDAD_PESO_ID,
         self::ESTADO,
+        'tipo_trabajo',
+        'lama_lote_id',
     ];
+
+    public function lotesLama() { return $this->hasMany(LamaLote::class, 'orden_origen_id'); }
+    public function loteLama() { return $this->belongsTo(LamaLote::class, 'lama_lote_id'); }
+    public function nombreTitular(): string
+    {
+        return $this->cliente?->nombre ?? ($this->lama_lote_id ? 'Empresa · tratamiento propio de lama' : 'Sin cliente');
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $orden) {
+            if ($orden->getOriginal('lama_lote_id') && $orden->isDirty(['cliente_id', 'lama_lote_id', 'tipo_trabajo', 'peso_mineral', 'unidad_peso_id', 'unidad_peso'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['orden' => 'La procedencia, el reparto y la cantidad estimada del tratamiento se conservan desde su lote. Corrija solo fecha y descripción.']);
+            }
+            if ($orden->isDirty('cliente_id') && $orden->lotesLama()->withTrashed()->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['cliente_id' => 'Esta orden ya tiene lotes de lama. Conserve el cliente de origen.']);
+            }
+        });
+        static::deleting(function (self $orden) {
+            if ($orden->lama_lote_id || $orden->lotesLama()->withTrashed()->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['orden' => 'Esta orden tiene trazabilidad de lama y debe conservarse.']);
+            }
+        });
+    }
 
     public const UNIDAD_PESO_ID = 'unidad_peso_id';
 

@@ -10,6 +10,7 @@ use App\Models\MovimientoCaja;
 use App\Models\MovimientosInventario;
 use App\Models\OrdenesTrabajo;
 use App\Models\ProcesosOrden;
+use App\Services\ResultadoFinancieroOrden;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -224,28 +225,36 @@ class ReportesController extends Controller
             ->whereBetween('ordenes_trabajo.fecha', [$filtros['fecha_desde'], $filtros['fecha_hasta']])
             ->when($filtros['orden'] !== '', fn ($q) => $q->where('ordenes_trabajo.codigo', 'like', '%'.$filtros['orden'].'%'))
             ->orderBy('ordenes_trabajo.fecha')
-            ->get(['ordenes_trabajo.id', 'ordenes_trabajo.codigo', 'ordenes_trabajo.fecha', 'ordenes_trabajo.cliente_id', 'ordenes_trabajo.estado', 'ordenes_trabajo.peso_mineral', 'ordenes_trabajo.unidad_peso', 'costos_reporte.total as costos_nio', 'ingresos_reporte.total as ingresos_nio', 'mano_obra_reporte.total as mano_obra_nio', 'depreciacion_reporte.total as depreciacion_nio', 'materiales_reporte.total as materiales_nio'])
-            ->map(fn ($o) => [$o->fecha->format('Y-m-d'), $o->codigo, $o->cliente?->nombre, OrdenesTrabajo::ESTADOS[$o->estado]['texto'] ?? $o->estado,
-                $o->peso_mineral, $o->unidad_peso, round((float) $o->ingresos_nio, 2), round((float) $o->costos_nio, 2),
-                round((float) $o->mano_obra_nio, 2), round((float) $o->depreciacion_nio, 2), round((float) $o->materiales_nio, 2),
-                round((float) $o->costos_nio + (float) $o->mano_obra_nio + (float) $o->depreciacion_nio + (float) $o->materiales_nio, 2)])
+            ->get(['ordenes_trabajo.id', 'ordenes_trabajo.codigo', 'ordenes_trabajo.fecha', 'ordenes_trabajo.cliente_id', 'ordenes_trabajo.lama_lote_id', 'ordenes_trabajo.estado', 'ordenes_trabajo.peso_mineral', 'ordenes_trabajo.unidad_peso', 'costos_reporte.total as costos_nio', 'ingresos_reporte.total as ingresos_nio', 'mano_obra_reporte.total as mano_obra_nio', 'depreciacion_reporte.total as depreciacion_nio', 'materiales_reporte.total as materiales_nio'])
+            ->map(function ($o) {
+                $resultado = app(ResultadoFinancieroOrden::class)->paraOrden($o);
+
+                return [$o->fecha->format('Y-m-d'), $o->codigo, $o->nombreTitular(), OrdenesTrabajo::ESTADOS[$o->estado]['texto'] ?? $o->estado,
+                    $o->peso_mineral, $o->unidad_peso, round((float) $o->ingresos_nio, 2), round((float) $o->costos_nio, 2),
+                    round((float) $o->mano_obra_nio, 2), round((float) $o->depreciacion_nio, 2), round((float) $o->materiales_nio, 2),
+                    $resultado['costo_total_nio'],
+                    $resultado['tarifa_pactada_nio'], $resultado['oro_empresa_nio'],
+                    $resultado['resultado_real_nio'] ?? 'Sin ingresos',
+                    $resultado['resultado_proyectado_nio'] ?? 'Sin acuerdo valorable',
+                    $resultado['completo'] ? 'Completo' : 'Pendiente'];
+            })
             ->all();
 
-        return [['Fecha', 'Orden', 'Cliente', 'Estado', 'Peso', 'Unidad', 'Ingresos NIO', 'Otros costos NIO', 'Mano de obra NIO', 'Uso de equipos NIO', 'Materiales NIO', 'Costo total NIO'], $filas];
+        return [['Fecha', 'Orden', 'Cliente', 'Estado', 'Peso', 'Unidad', 'Ingresos registrados NIO', 'Otros costos NIO', 'Mano de obra NIO', 'Uso de equipos NIO', 'Materiales NIO', 'Costo total NIO', 'Tarifa pactada NIO', 'Oro empresa valorizado NIO', 'Resultado real NIO', 'Resultado proyectado NIO', 'Estado del resultado'], $filas];
     }
 
     private function procesos(array $filtros): array
     {
         $filas = DB::table('procesos_orden as p')
             ->join('ordenes_trabajo as o', 'o.id', '=', 'p.orden_trabajo_id')
-            ->join('clientes as cl', 'cl.id', '=', 'o.cliente_id')
+            ->leftJoin('clientes as cl', 'cl.id', '=', 'o.cliente_id')
             ->join('etapas as e', 'e.id', '=', 'p.etapa_id')
             ->whereNull('p.deleted_at')->whereNull('o.deleted_at')
             ->whereBetween('p.created_at', [$filtros['fecha_desde'].' 00:00:00', $filtros['fecha_hasta'].' 23:59:59'])
             ->when($filtros['orden'] !== '', fn ($q) => $q->where('o.codigo', 'like', '%'.$filtros['orden'].'%'))
             ->orderBy('o.codigo')->orderBy('p.codigo')
             ->get(['o.codigo as orden', 'cl.nombre as cliente', 'p.codigo as proceso', 'e.nombre as etapa', 'p.fecha_inicio', 'p.fecha_fin', 'p.peso_entrada', 'p.peso_salida', 'p.estado'])
-            ->map(fn ($p) => [$p->orden, $p->cliente, $p->proceso, $p->etapa, $p->fecha_inicio, $p->fecha_fin,
+            ->map(fn ($p) => [$p->orden, $p->cliente ?? 'Empresa · tratamiento propio de lama', $p->proceso, $p->etapa, $p->fecha_inicio, $p->fecha_fin,
                 $p->peso_entrada, $p->peso_salida, ProcesosOrden::ESTADOS[$p->estado]['texto'] ?? $p->estado])
             ->all();
 
@@ -256,7 +265,7 @@ class ReportesController extends Controller
     {
         $filas = DB::table('movimientos_costos as c')
             ->join('ordenes_trabajo as o', 'o.id', '=', 'c.orden_trabajo_id')
-            ->join('clientes as cl', 'cl.id', '=', 'o.cliente_id')
+            ->leftJoin('clientes as cl', 'cl.id', '=', 'o.cliente_id')
             ->join('categorias_costos as cc', 'cc.id', '=', 'c.categoria_costo_id')
             ->join('monedas as mo', 'mo.id', '=', 'c.moneda_id')
             ->leftJoin('procesos_orden as p', 'p.id', '=', 'c.proceso_orden_id')
@@ -266,7 +275,7 @@ class ReportesController extends Controller
             ->when($filtros['orden'] !== '', fn ($q) => $q->where('o.codigo', 'like', '%'.$filtros['orden'].'%'))
             ->orderBy('c.fecha')->orderBy('o.codigo')
             ->get(['c.fecha', 'o.codigo as orden', 'cl.nombre as cliente', 'p.codigo as proceso', 'e.nombre as etapa', 'cc.nombre as categoria', 'c.descripcion', 'c.cantidad', 'mo.codigo as moneda', 'c.costo_total', 'c.costo_total_nio'])
-            ->map(fn ($c) => [$c->fecha, $c->orden, $c->cliente, $c->proceso ?? 'General', $c->etapa ?? '—', $c->categoria,
+            ->map(fn ($c) => [$c->fecha, $c->orden, $c->cliente ?? 'Empresa · tratamiento propio de lama', $c->proceso ?? 'General', $c->etapa ?? '—', $c->categoria,
                 $c->descripcion, $c->cantidad, $c->moneda, $c->costo_total, $c->costo_total_nio])
             ->all();
 
@@ -277,7 +286,7 @@ class ReportesController extends Controller
     {
         $filas = DB::table('ingresos as i')
             ->join('ordenes_trabajo as o', 'o.id', '=', 'i.orden_trabajo_id')
-            ->join('clientes as cl', 'cl.id', '=', 'o.cliente_id')
+            ->leftJoin('clientes as cl', 'cl.id', '=', 'o.cliente_id')
             ->join('tipos_ingreso as ti', 'ti.id', '=', 'i.tipo_ingreso_id')
             ->join('monedas as mo', 'mo.id', '=', 'i.moneda_id')
             ->whereNull('i.deleted_at')->whereNull('o.deleted_at')
@@ -285,7 +294,7 @@ class ReportesController extends Controller
             ->when($filtros['orden'] !== '', fn ($q) => $q->where('o.codigo', 'like', '%'.$filtros['orden'].'%'))
             ->orderBy('i.fecha')->orderBy('o.codigo')
             ->get(['i.fecha', 'o.codigo as orden', 'cl.nombre as cliente', 'ti.nombre as tipo', 'i.descripcion', 'i.cantidad', 'i.unidad_medida', 'mo.codigo as moneda', 'i.total', 'i.total_nio'])
-            ->map(fn ($i) => [$i->fecha, $i->orden, $i->cliente, $i->tipo, $i->descripcion, $i->cantidad, $i->unidad_medida, $i->moneda, $i->total, $i->total_nio])
+            ->map(fn ($i) => [$i->fecha, $i->orden, $i->cliente ?? 'Empresa · tratamiento propio de lama', $i->tipo, $i->descripcion, $i->cantidad, $i->unidad_medida, $i->moneda, $i->total, $i->total_nio])
             ->all();
 
         return [['Fecha', 'Orden', 'Cliente', 'Tipo de ingreso', 'Descripción', 'Cantidad', 'Unidad', 'Moneda', 'Total', 'Total NIO'], $filas];
@@ -295,7 +304,7 @@ class ReportesController extends Controller
     {
         $filas = DB::table('producciones as pr')
             ->join('ordenes_trabajo as o', 'o.id', '=', 'pr.orden_trabajo_id')
-            ->join('clientes as cl', 'cl.id', '=', 'o.cliente_id')
+            ->leftJoin('clientes as cl', 'cl.id', '=', 'o.cliente_id')
             ->join('tipos_produccion as tp', 'tp.id', '=', 'pr.tipo_produccion_id')
             ->leftJoin('procesos_orden as p', 'p.id', '=', 'pr.proceso_orden_id')
             ->whereNull('pr.deleted_at')->whereNull('o.deleted_at')
@@ -303,7 +312,7 @@ class ReportesController extends Controller
             ->when($filtros['orden'] !== '', fn ($q) => $q->where('o.codigo', 'like', '%'.$filtros['orden'].'%'))
             ->orderBy('pr.fecha')->orderBy('o.codigo')
             ->get(['pr.fecha', 'o.codigo as orden', 'cl.nombre as cliente', 'p.codigo as proceso', 'tp.nombre as tipo', 'pr.descripcion', 'pr.cantidad', 'pr.unidad_medida', 'pr.observaciones'])
-            ->map(fn ($p) => [$p->fecha, $p->orden, $p->cliente, $p->proceso ?? '—', $p->tipo, $p->descripcion, $p->cantidad, $p->unidad_medida, $p->observaciones])
+            ->map(fn ($p) => [$p->fecha, $p->orden, $p->cliente ?? 'Empresa · tratamiento propio de lama', $p->proceso ?? '—', $p->tipo, $p->descripcion, $p->cantidad, $p->unidad_medida, $p->observaciones])
             ->all();
 
         return [['Fecha', 'Orden', 'Cliente', 'Proceso', 'Tipo de producción', 'Descripción', 'Cantidad', 'Unidad', 'Observaciones'], $filas];

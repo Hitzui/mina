@@ -27,6 +27,7 @@ class UnidadMedida extends Model
             ['ingresos', 'unidad_medida_id'],
             ['precios_oro', 'unidad_id'],
             ['trabajos_empleados', 'unidad_id'],
+            ['lama_lotes', 'unidad_id'],
         ] as [$tabla, $campo]) {
             if (\DB::table($tabla)->where($campo, $this->id)->exists()) {
                 return false;

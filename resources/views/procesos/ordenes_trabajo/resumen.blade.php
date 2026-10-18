@@ -11,9 +11,10 @@
                         <h4 class="mb-0">{{ $orden->codigo }}</h4>
                         {!! $orden->estadoEtiqueta() !!}
                     </div>
-                    <p class="text-muted mb-0">Resumen operativo y financiero · {{ $orden->cliente?->nombre ?? 'Sin cliente' }}</p>
+                    <p class="text-muted mb-0">Resumen operativo y financiero · {{ $orden->nombreTitular() }}</p>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ route('procesos.ordenes_trabajo.lama.show', $orden) }}" class="btn btn-outline-primary">Lama, procedencia y resultado</a>
                     @if($puedeExportar)
                         <a href="{{ route('procesos.ordenes_trabajo.resumen.xlsx', $orden) }}" class="btn btn-outline-success">
                             <i class="bi bi-file-earmark-excel me-1"></i> Descargar Excel
@@ -63,6 +64,39 @@
             <div class="small text-muted">{{ $procesos->count() }} proceso(s)</div>
         </div></div></div>
     </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-xl-4 col-md-6"><div class="card h-100"><div class="card-body">
+            <div class="text-muted small">Resultado real conocido · económico, no caja</div>
+            <div class="fs-4 fw-bold {{ ($resultado_financiero['resultado_real_nio'] ?? 0) < 0 ? 'text-danger' : 'text-success' }}">
+                {{ $resultado_financiero['resultado_real_nio'] === null ? '—' : 'NIO '.number_format($resultado_financiero['resultado_real_nio'], 2) }}
+            </div>
+            <div class="small text-muted">Ingresos registrados + oro de la empresa valorizado − costo total. No registre ese mismo oro otra vez como ingreso.</div>
+        </div></div></div>
+        <div class="col-xl-4 col-md-6"><div class="card h-100"><div class="card-body">
+            <div class="text-muted small">Resultado proyectado según acuerdo</div>
+            <div class="fs-4 fw-bold {{ ($resultado_financiero['resultado_proyectado_nio'] ?? 0) < 0 ? 'text-danger' : 'text-primary' }}">
+                {{ $resultado_financiero['resultado_proyectado_nio'] === null ? '—' : 'NIO '.number_format($resultado_financiero['resultado_proyectado_nio'], 2) }}
+            </div>
+            <div class="small text-muted">Tarifas activas convertidas + oro propio liquidado y valorizado − costo total.</div>
+        </div></div></div>
+        <div class="col-xl-4 col-md-12"><div class="card h-100"><div class="card-body">
+            <div class="text-muted small">Valor económico del oro de la empresa</div>
+            <div class="fs-4 fw-bold">NIO {{ number_format($resultado_financiero['oro_empresa_nio'], 2) }}</div>
+            <div class="small text-muted">{{ number_format($resultado_financiero['oro_empresa_gramos'], 4) }} g asignados a la empresa · cotización histórica por fecha de liquidación.</div>
+        </div></div></div>
+    </div>
+
+    @if($resultado_financiero['datos_incompletos'])
+        <div class="alert alert-warning mt-3 mb-0">
+            El resultado se muestra con los importes conocidos y está pendiente de completar datos:
+            @if($resultado_financiero['costos_pendientes_equivalente'] > 0) {{ $resultado_financiero['costos_pendientes_equivalente'] }} costo(s) sin equivalente NIO; @endif
+            @if($resultado_financiero['equipos_pendientes']) hay horas efectivas o consumos de equipos por confirmar; @endif
+            @if($resultado_financiero['ingresos_pendientes_equivalente'] > 0) {{ $resultado_financiero['ingresos_pendientes_equivalente'] }} ingreso(s) sin equivalente NIO; @endif
+            @if($resultado_financiero['tarifas_pendientes_conversion'] > 0) {{ $resultado_financiero['tarifas_pendientes_conversion'] }} tarifa(s) sin tipo de cambio; @endif
+            @if($resultado_financiero['oro_pendiente_valoracion'] > 0) {{ $resultado_financiero['oro_pendiente_valoracion'] }} liquidación(es) sin precio de oro o tipo de cambio histórico. @endif
+        </div>
+    @endif
 
     <div class="row mt-4"><div class="col-12"><div class="card"><div class="card-body">
         <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">

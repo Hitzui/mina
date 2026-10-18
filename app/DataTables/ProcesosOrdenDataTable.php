@@ -70,7 +70,10 @@ class ProcesosOrdenDataTable extends DataTable
                     : '-';
             })
 
-            // La etiqueta sale del modelo, que deduce el estado de las            // fechas. Aqui habia un match con su propia copia del catalogo            // y la numeracion equivocada: la Cancelada estaba en el 4, y en            // la orden es el 0.            ->editColumn('estado', function (ProcesosOrden $proceso) {                return $proceso->estadoEtiqueta();            })
+            // El modelo deduce el estado a partir de las fechas y la cancelación.
+            ->editColumn('estado', function (ProcesosOrden $proceso) {
+                return $proceso->estadoEtiqueta();
+            })
             /*
              * Lo que se le paga a los empleados por este proceso: la suma
              * de los trabajos registrados, calculada al momento. Se

@@ -549,7 +549,10 @@ class ApiMobileReadTest extends TestCase
 
     public function test_detalle_de_orden_incluye_acuerdos_y_liquidaciones_con_permisos(): void
     {
-        $permissions = ['ordenes_trabajo.view', 'acuerdos_orden.view', 'liquidaciones.view'];
+        $permissions = [
+            'ordenes_trabajo.view', 'acuerdos_orden.view', 'liquidaciones.view', 'ingresos.view',
+            'movimientos_costo.view', 'trabajos_empleado.view', 'proceso_equipo.view', 'movimientos_inventario.view',
+        ];
         foreach ($permissions as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
@@ -613,7 +616,13 @@ class ApiMobileReadTest extends TestCase
             ->assertJsonPath('data.agreements.0.participation_type', $participationType->nombre)
             ->assertJsonPath('data.agreements.0.modality', 'porcentaje')
             ->assertJsonPath('data.liquidations.0.recovered_grams', 10)
-            ->assertJsonPath('data.liquidations.0.observations', 'Lote de prueba API');
+            ->assertJsonPath('data.liquidations.0.observations', 'Lote de prueba API')
+            ->assertJsonPath('data.financial_summary.moneda', Moneda::base()->codigo)
+            ->assertJsonPath('data.financial_summary.oro_empresa_gramos', 4)
+            ->assertJsonStructure(['data' => ['financial_summary' => [
+                'ingreso_real_conocido_nio', 'costo_total_nio', 'resultado_real_nio',
+                'resultado_proyectado_nio', 'datos_incompletos',
+            ]]]);
     }
 
     public function test_api_movil_crea_actualiza_y_elimina_acuerdos_de_la_orden(): void

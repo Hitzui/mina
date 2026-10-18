@@ -29,6 +29,7 @@ class AcuerdoOrdenController extends Controller
 
     public function store(Request $request, OrdenesTrabajo $ordenTrabajo)
     {
+        abort_if($ordenTrabajo->lama_lote_id, 422, 'El tratamiento ya hereda su reparto del lote de lama.');
         $datos = $this->validar($request);
         $this->validarCatalogosActivos($datos);
         $datos[AcuerdosOrden::ORDEN_TRABAJO_ID] = $ordenTrabajo->id;
@@ -54,6 +55,8 @@ class AcuerdoOrdenController extends Controller
             'moneda' => $acuerdoOrden->moneda?->codigo,
             'observaciones' => $acuerdoOrden->observaciones,
             'estado' => (bool) $acuerdoOrden->estado,
+            'lama_destino' => $acuerdoOrden->lama_destino,
+            'lama_porcentaje_empresa' => $acuerdoOrden->lama_porcentaje_empresa,
         ]);
     }
 
@@ -140,7 +143,7 @@ class AcuerdoOrdenController extends Controller
         $datos['observaciones'] = filled($datos['observaciones'] ?? null) ? $datos['observaciones'] : null;
         $datos['estado'] = (int) $datos['estado'];
 
-        return $datos;
+        return [...$datos, ...\App\Services\LamaService::condiciones($request, $acuerdo)];
     }
 
     private function validarCatalogosActivos(array $datos, ?AcuerdosOrden $acuerdo = null): void

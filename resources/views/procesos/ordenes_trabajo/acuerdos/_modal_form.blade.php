@@ -32,11 +32,11 @@
                         <div class="col-12">
                             <label class="form-label d-block">Modalidad del acuerdo <span class="text-danger">*</span></label>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" id="acuerdoModalidadPorcentaje" value="porcentaje" checked>
+                                <input class="form-check-input" type="radio" name="modalidad" id="acuerdoModalidadPorcentaje" value="porcentaje" checked>
                                 <label class="form-check-label" for="acuerdoModalidadPorcentaje">Porcentajes de participación</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" id="acuerdoModalidadTarifa" value="tarifa">
+                                <input class="form-check-input" type="radio" name="modalidad" id="acuerdoModalidadTarifa" value="tarifa">
                                 <label class="form-check-label" for="acuerdoModalidadTarifa">Tarifa de servicio</label>
                             </div>
                         </div>
@@ -79,6 +79,15 @@
                             <label for="acuerdoObservaciones" class="form-label">Observaciones</label>
                             <textarea id="acuerdoObservaciones" name="observaciones" class="form-control" rows="3" maxlength="5000"></textarea>
                             <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-12 border-top pt-3">
+                            <h6>Lama que queda después del servicio</h6>
+                            <p class="small text-muted">Este acuerdo es independiente del reparto del oro original y de la tarifa. 1. Indique quién conserva el material. 2. Defina el reparto del oro que se recupere de esa lama. 3. Registre sus lotes desde «Lama y recuperación posterior».</p>
+                            <label for="acuerdoLamaDestino" class="form-label">¿Quién conserva la lama?</label>
+                            <select class="form-select" id="acuerdoLamaDestino" name="lama_destino"><option value="sin_definir">Todavía no se ha acordado</option><option value="empresa">La empresa conserva el material</option><option value="cliente">El cliente conserva el material</option></select>
+                            <label for="acuerdoLamaEmpresa" class="form-label mt-2">Oro recuperado de la lama: porcentaje de la empresa</label>
+                            <input class="form-control" id="acuerdoLamaEmpresa" name="lama_porcentaje_empresa" type="number" min="0" max="100" step="0.0001">
+                            <p class="small text-muted mt-1">100 = todo para la empresa; 0 = todo para el cliente. El resto hasta 100% es del cliente. No se generan ingresos ni gramos al guardar el acuerdo. Los lotes ya registrados conservan sus condiciones originales.</p>
                         </div>
                     </div>
                     <div id="acuerdoOrdenError" class="alert alert-danger mt-3 d-none"></div>

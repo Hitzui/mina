@@ -24,7 +24,7 @@ class OrdenesTrabajoDataTable extends DataTable
         return new EloquentDataTable($query)
             ->addColumn('action', 'procesos.ordenes_trabajo._action')
             ->addColumn('cliente', function (OrdenesTrabajo $ordenTrabajo) {
-                return $ordenTrabajo->cliente?->nombre ?? '-';
+                return $ordenTrabajo->nombreTitular();
             })
             ->editColumn('fecha', function (OrdenesTrabajo $ordenTrabajo) {
                 return $ordenTrabajo->fecha?->format('d/m/Y') ?? '-';

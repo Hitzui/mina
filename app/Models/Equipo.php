@@ -91,6 +91,11 @@ class Equipo extends Model
         return $this->hasMany(EquipoRecurso::class);
     }
 
+    public function reparaciones()
+    {
+        return $this->hasManyThrough(EquipoReparacion::class, ProcesoEquipo::class, 'equipo_id', 'proceso_equipo_id');
+    }
+
     public function insumos()
     {
         return $this->hasMany(EquipoInsumo::class);

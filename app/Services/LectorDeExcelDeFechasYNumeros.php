@@ -49,7 +49,7 @@ abstract class LectorDeExcelDeFechasYNumeros
      * empieza a correr el riesgo de dar con una palabra suelta que se parezca
      * a un encabezado.
      */
-    private const FILAS_BUSCANDO_CABECERA = 5;
+    private const int FILAS_BUSCANDO_CABECERA = 5;
 
 
     /**

@@ -28,6 +28,7 @@
                         </div>
 
                         <div class="d-flex gap-2 flex-wrap">
+                            <a href="{{ route('procesos.ordenes_trabajo.lama.show', $ordenTrabajo) }}" class="btn btn-outline-primary"><i class="bi bi-recycle me-1"></i> Lama y recuperación posterior</a>
                             <a href="{{ route('procesos.ordenes_trabajo.resumen', $ordenTrabajo) }}" class="btn btn-outline-primary">
                                 <i class="bi bi-speedometer2 me-1"></i> Resumen operativo y financiero
                             </a>
@@ -84,13 +85,17 @@
         </div>
     </div>
 
+    @php($seguimiento = app(\App\Services\SeguimientoOrdenService::class)->datos($ordenTrabajo, auth()->user()))
+    @include('procesos.seguimiento._resumen')
+
     <div class="row">
         <div class="col-xl-6 col-lg-6 col-md-6 mt-4">
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="mb-4"><i class="bi bi-person me-2"></i>Cliente</h5>
                     <label class="text-muted small">Nombre</label>
-                    <div class="fw-semibold">{{ $ordenTrabajo->cliente?->nombre ?? '-' }}</div>
+                    <div class="fw-semibold">{{ $ordenTrabajo->nombreTitular() }}</div>
+                    @if($ordenTrabajo->lama_lote_id)<p class="small text-muted mt-2">OT de tratamiento de lama. La cantidad es estimada y el reparto proviene del lote. El cobro del servicio original permanece en su OT de origen.</p>@endif
                 </div>
             </div>
         </div>
@@ -136,7 +141,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div>
-                            <h5 class="mb-1"><i class="bi bi-gear me-2"></i>Procesos</h5>
+                            <h5 class="mb-1" id="procesos-orden"><i class="bi bi-gear me-2"></i>Procesos</h5>
                             <p class="text-muted mb-0">Procesos asociados a esta orden de trabajo.</p>
                         </div>
                         <a href="{{ route('procesos.ordenes_trabajo.procesos.create', $ordenTrabajo->id) }}"
@@ -194,13 +199,17 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                         <div>
-                            <h5 class="mb-1"><i class="bi bi-file-earmark-text me-2"></i>Acuerdos de participación</h5>
+                            <h5 class="mb-1" id="acuerdos"><i class="bi bi-file-earmark-text me-2"></i>Acuerdos de participación y lama</h5>
                             <p class="text-muted mb-0">Condiciones pactadas con el cliente para esta orden.</p>
                         </div>
                         @can('acuerdos_orden.create')
+                            @if(!$ordenTrabajo->lama_lote_id)
                             <button type="button" class="btn btn-primary" id="btnNuevoAcuerdoOrden">
                                 <i class="bi bi-plus me-1"></i>Nuevo acuerdo
                             </button>
+                            @else
+                                <span class="badge bg-info">Reparto heredado del lote de lama</span>
+                            @endif
                         @endcan
                     </div>
                     <div class="table-responsive">
@@ -218,7 +227,7 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                             <div>
-                                <h5 class="mb-1"><i class="bi bi-box-seam me-2"></i>Liquidaciones de oro</h5>
+                                <h5 class="mb-1" id="liquidaciones"><i class="bi bi-box-seam me-2"></i>Liquidaciones de oro</h5>
                                 <p class="text-muted mb-0">Lotes liquidados y distribución de gramos según el acuerdo aplicado.</p>
                             </div>
                             @can('liquidaciones.create')
@@ -276,7 +285,7 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                         <div>
-                            <h5 class="mb-1">
+                            <h5 class="mb-1" id="ingresos">
                                 <i class="bi bi-cash-coin me-2"></i>
                                 Ingresos de la orden
                             </h5>
@@ -385,7 +394,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                         <div>
-                            <h5 class="mb-1">
+                            <h5 class="mb-1" id="costos-orden">
                                 <i class="bi bi-cash-stack me-2"></i>
                                 Costos generales de la orden
                             </h5>

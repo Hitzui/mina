@@ -46,7 +46,10 @@ class EstadoProcesoTest extends TestCase
         $admin->syncRoles(['admin']);
         $this->actingAs($admin);
 
-        $this->orden = OrdenesTrabajo::firstOrFail();
+        $this->orden = OrdenesTrabajo::firstOrFail()->replicate();
+        $this->orden->codigo = 'OT-ESTADO-'.uniqid();
+        $this->orden->estado = OrdenesTrabajo::ESTADO_PENDIENTE;
+        $this->orden->save();
     }
 
     /**

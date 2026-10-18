@@ -34,8 +34,10 @@ class ReportesTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Órdenes de trabajo (resumen)')
-            ->assertSee('Ingresos NIO')
+            ->assertSee('Ingresos registrados NIO')
             ->assertSee('Costo total NIO')
+            ->assertSee('Resultado real NIO')
+            ->assertSee('Resultado proyectado NIO')
             ->assertSee('Excel')
             ->assertSee('PDF');
 

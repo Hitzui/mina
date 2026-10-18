@@ -57,6 +57,11 @@ class ResumenOrdenTrabajoController extends Controller
         $sheet->setCellValue('B5', 'Importe / cantidad');
         $metrics = [
             ['Ingresos registrados NIO', $data['ingresos']['total_nio']],
+            ['Valor del oro de la empresa NIO', $data['resultado_financiero']['oro_empresa_nio']],
+            ['Tarifa pactada NIO', $data['resultado_financiero']['tarifa_pactada_nio']],
+            ['Resultado real conocido NIO', $data['resultado_financiero']['resultado_real_nio'] ?? 'Sin ingresos registrados'],
+            ['Resultado proyectado NIO', $data['resultado_financiero']['resultado_proyectado_nio'] ?? 'Sin acuerdo valorable'],
+            ['Estado del resultado', $data['resultado_financiero']['completo'] ? 'Sin pendientes conocidos' : 'Pendiente de completar datos'],
             ['Costos directos de procesos NIO', $data['costos']['directos_nio']],
             ['Costos generales NIO', $data['costos']['generales_nio']],
             ['Costos generales distribuidos NIO', $data['costos']['generales_distribuidos_nio']],
@@ -71,7 +76,7 @@ class ResumenOrdenTrabajoController extends Controller
             $sheet->setCellValue('A'.$row, $label);
             $sheet->setCellValue('B'.$row, $value);
         }
-        $header = 17;
+        $header = count($metrics) + 6;
         $columns = ['Proceso', 'Etapa', 'Estado', 'Inicio', 'Fin', 'Equipos asignados', 'Costo directo NIO', 'General asignado NIO', 'Costo total con general NIO'];
         foreach ($columns as $index => $column) {
             $sheet->setCellValue(Coordinate::stringFromColumnIndex($index + 1).$header, $column);

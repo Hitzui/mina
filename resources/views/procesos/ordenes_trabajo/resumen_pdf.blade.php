@@ -17,18 +17,33 @@
 </head>
 <body>
     <h1>Resumen operativo y financiero · {{ $orden->codigo }}</h1>
-    <div class="muted">Cliente: {{ $orden->cliente?->nombre ?? 'Sin cliente' }} · Fecha: {{ $orden->fecha?->format('d/m/Y') ?? '—' }} · Estado: {{ $orden->estadoTexto() }}</div>
+    <div class="muted">Titular: {{ $orden->nombreTitular() }} · Fecha: {{ $orden->fecha?->format('d/m/Y') ?? '—' }} · Estado: {{ $orden->estadoTexto() }}</div>
     <table class="cards"><tr>
         <td>Ingresos registrados<div class="amount">NIO {{ number_format($ingresos['total_nio'], 2) }}</div>{{ $ingresos['cantidad'] }} registro(s)</td>
         <td>Costos directos de procesos<div class="amount">NIO {{ number_format($costos['directos_nio'], 2) }}</div></td>
         <td>Costos generales<div class="amount">NIO {{ number_format($costos['generales_nio'], 2) }}</div>NIO {{ number_format($costos['generales_distribuidos_nio'], 2) }} distribuidos</td>
         <td>Costos conocidos<div class="amount">NIO {{ number_format($costos['total_conocido_nio'], 2) }}</div></td>
     </tr></table>
+    <table class="cards"><tr>
+        <td>Resultado real conocido<div class="amount">{{ $resultado_financiero['resultado_real_nio'] === null ? 'Sin ingresos registrados' : 'NIO '.number_format($resultado_financiero['resultado_real_nio'], 2) }}</div>Ingresos registrados + oro de la empresa valorizado − costos. No representa caja; no registre el mismo oro de nuevo como ingreso.</td>
+        <td>Resultado proyectado<div class="amount">{{ $resultado_financiero['resultado_proyectado_nio'] === null ? 'Sin acuerdo valorable' : 'NIO '.number_format($resultado_financiero['resultado_proyectado_nio'], 2) }}</div>Tarifa pactada y oro propio valorizado − costos.</td>
+        <td>Tarifa pactada<div class="amount">NIO {{ number_format($resultado_financiero['tarifa_pactada_nio'], 2) }}</div>Valor contractual convertido a la moneda base.</td>
+        <td>Oro asignado a la empresa<div class="amount">NIO {{ number_format($resultado_financiero['oro_empresa_nio'], 2) }}</div>{{ number_format($resultado_financiero['oro_empresa_gramos'], 4) }} g · precio histórico de cada liquidación.</td>
+    </tr></table>
     @if($costos['directos_sin_equivalente'] || $costos['generales_sin_equivalente'] || $ingresos['sin_equivalente'] || $costos['generales_pendientes_nio'] > 0)
         <div class="warning"><strong>Datos incompletos:</strong>
             {{ $costos['directos_sin_equivalente'] }} costo(s) directo(s), {{ $costos['generales_sin_equivalente'] }} costo(s) general(es) y {{ $ingresos['sin_equivalente'] }} ingreso(s) sin equivalente NIO.
             Gastos generales pendientes de distribuir: NIO {{ number_format($costos['generales_pendientes_nio'], 2) }}.
             {{ $costos['motivo_pendiente'] }} Estos importes conocidos no representan un total completo.
+        </div>
+    @endif
+    @if($resultado_financiero['datos_incompletos'])
+        <div class="warning"><strong>El resultado es provisional:</strong>
+            {{ $resultado_financiero['costos_pendientes_equivalente'] }} costo(s) sin equivalente NIO;
+            {{ $resultado_financiero['ingresos_pendientes_equivalente'] }} ingreso(s) sin equivalente NIO;
+            {{ $resultado_financiero['tarifas_pendientes_conversion'] }} tarifa(s) sin tipo de cambio;
+            {{ $resultado_financiero['oro_pendiente_valoracion'] }} liquidación(es) sin precio/tipo de cambio;
+            @if($resultado_financiero['equipos_pendientes']) hay costos de equipos pendientes de confirmar. @endif
         </div>
     @endif
     <h2>Seguimiento por proceso</h2>

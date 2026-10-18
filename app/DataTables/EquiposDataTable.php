@@ -29,9 +29,9 @@ class EquiposDataTable extends DataTable
                 fn($e) => number_format($e->depreciacionDiaria(), 4)
             )
             ->addColumn('procesos', fn($e) => $e->asignaciones_count ?? 0)
-            ->editColumn('estado', fn($e) => $e->estado
+            ->editColumn('estado', fn($e) => ($e->estado
                 ? '<span class="badge bg-success">Activo</span>'
-                : '<span class="badge bg-danger">Inactivo</span>')
+                : '<span class="badge bg-danger">Inactivo</span>').($e->reparaciones_abiertas_count ? '<br><span class="badge bg-danger mt-1">En reparación</span>' : ''))
             ->addColumn('action', 'admin.equipos.action')
             ->setRowId('id')
             ->rawColumns(['estado', 'action']);
@@ -41,7 +41,7 @@ class EquiposDataTable extends DataTable
     {
         // El conteo de usos viene con withCount para no consultar una
         // vez por cada fila de la tabla
-        return $model->newQuery()->withCount('asignaciones')->with('recursos.producto');
+        return $model->newQuery()->withCount('asignaciones')->withCount(['reparaciones as reparaciones_abiertas_count' => fn ($q) => $q->whereNull('fin')])->with('recursos.producto');
     }
 
     public function html(): HtmlBuilder

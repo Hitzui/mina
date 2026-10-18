@@ -97,6 +97,9 @@ class MobileDataController extends Controller
         }
 
         $data['catalogs'] = $pageNumber === 1 ? [
+            'tracking_timezone' => config('app.timezone'),
+            'collection_settings' => ($user->can('cobros.view') || $user->can('cobros.create'))
+                ? MobileCollectionController::settings($request) : null,
             'units' => ($user->can('ordenes_trabajo.create') || $user->can('ordenes_trabajo.edit') || $user->can('trabajos_empleado.create') || $user->can('ingresos.create') || $user->can('ingresos.edit'))
                 ? UnidadMedida::query()->where('estado', true)->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn (UnidadMedida $unit) => ['id' => $unit->id, 'name' => $unit->nombre])->values() : [],
@@ -181,6 +184,7 @@ class MobileDataController extends Controller
                 'liquidation.create', 'liquidation.update', 'liquidation.delete',
                 'income.create', 'income.update', 'income.delete',
                 'order_cost.create', 'order_cost.update', 'order_cost.delete',
+                'collection.create', 'repair.create', 'repair.update', 'repair.delete', 'repair_cost.create', 'equipment.extend',
             ])],
             'operations.*.payload' => ['required', 'array'],
         ]);
@@ -190,6 +194,7 @@ class MobileDataController extends Controller
 
         try {
             DB::transaction(function () use ($request, $validated, &$idMap, &$uploaded, &$failureErrors) {
+                \App\Models\User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
                 foreach ($validated['operations'] as $operation) {
                     $localId = (string) ($operation['local_id'] ?? '');
                     $type = $operation['type'] ?? '';
@@ -198,7 +203,7 @@ class MobileDataController extends Controller
                         ->where('user_id', $request->user()->id)
                         ->where('operation_key', $operationKey)
                         ->first();
-                    if ($previous) {
+                    if ($previous && $type !== 'collection.create') {
                         $result = json_decode($previous->result, true) ?: [];
                         if ($localId !== '' && isset($result['data']['id'])) {
                             $idMap[$localId] = (int) $result['data']['id'];
@@ -220,11 +225,26 @@ class MobileDataController extends Controller
                     $agreementId = $this->resolveOfflineReference($body['agreement_id'] ?? null, $idMap);
                     $liquidationId = $this->resolveOfflineReference($body['liquidation_id'] ?? null, $idMap);
                     $incomeId = $this->resolveOfflineReference($body['income_id'] ?? null, $idMap);
+                    $repairId = $this->resolveOfflineReference($body['repair_id'] ?? null, $idMap);
+                    $assignmentId = $this->resolveOfflineReference($body['assignment_id'] ?? null, $idMap);
+                    if ($assignmentId !== null) $body['assignment_id'] = $assignmentId;
+                    unset($body['repair_id']);
                     unset($body['order_id'], $body['process_id'], $body['cost_id'], $body['movement_id'], $body['agreement_id'], $body['liquidation_id'], $body['income_id'], $body['local_id']);
                     if ($type === 'liquidation.create') {
                         $body['agreement_id'] = $agreementId;
                     }
+                    if ($type === 'collection.create') {
+                        $body['operation_key'] = $operationKey;
+                        foreach ($body['lines'] ?? [] as $index => $line) {
+                            $body['lines'][$index]['income_id'] = $this->resolveOfflineReference($line['income_id'] ?? null, $idMap);
+                        }
+                    }
                     [$method, $path] = match ($type) {
+                        'repair.create' => ['POST', '/api/v1/orders/'.$orderId.'/tracking/repairs'],
+                        'repair.update' => ['PUT', '/api/v1/orders/'.$orderId.'/tracking/repairs/'.$repairId],
+                        'repair.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/tracking/repairs/'.$repairId],
+                        'repair_cost.create' => ['POST', '/api/v1/orders/'.$orderId.'/tracking/repairs/'.$repairId.'/costs'],
+                        'equipment.extend' => ['PUT', '/api/v1/orders/'.$orderId.'/tracking/assignments/'.$assignmentId.'/deadline'],
                         'order.create' => ['POST', '/api/v1/orders'],
                         'order.update' => ['PUT', '/api/v1/orders/'.$orderId],
                         'process.create' => ['POST', '/api/v1/orders/'.$orderId.'/processes'],
@@ -245,6 +265,7 @@ class MobileDataController extends Controller
                         'income.create' => ['POST', '/api/v1/orders/'.$orderId.'/incomes'],
                         'income.update' => ['PUT', '/api/v1/orders/'.$orderId.'/incomes/'.$incomeId],
                         'income.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/incomes/'.$incomeId],
+                        'collection.create' => ['POST', '/api/v1/orders/'.$orderId.'/collections'],
                         'order_cost.create' => ['POST', '/api/v1/orders/'.$orderId.'/costs'],
                         'order_cost.update' => ['PUT', '/api/v1/orders/'.$orderId.'/costs/'.$costId],
                         'order_cost.delete' => ['DELETE', '/api/v1/orders/'.$orderId.'/costs/'.$costId],
@@ -267,7 +288,7 @@ class MobileDataController extends Controller
                     if ($localId !== '' && isset($result['data']['id'])) {
                         $idMap[$localId] = (int) $result['data']['id'];
                     }
-                    DB::table('mobile_sync_operations')->insert([
+                    if ($type !== 'collection.create') DB::table('mobile_sync_operations')->insert([
                         'user_id' => $request->user()->id,
                         'operation_key' => $operationKey,
                         'operation_type' => $type,
@@ -283,6 +304,7 @@ class MobileDataController extends Controller
             $status = method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 422;
             $response = [
                 'message' => $exception->getMessage() ?: 'No se pudo sincronizar. No se aplicaron cambios.',
+                'rolled_back' => true,
             ];
             if ($failureErrors !== []) {
                 $response['errors'] = $failureErrors;
@@ -735,6 +757,7 @@ class MobileDataController extends Controller
     public function storeAgreement(Request $request, string $orderId): JsonResponse
     {
         $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        abort_if($order->lama_lote_id, 422, 'El tratamiento ya hereda su reparto del lote de lama.');
         $data = $this->validateAgreement($request);
         $data['orden_trabajo_id'] = $order->id;
         $agreement = AcuerdosOrden::query()->create($data);
@@ -795,6 +818,7 @@ class MobileDataController extends Controller
 
         return [
             'tipo_participacion_id' => $type->id,
+            ...\App\Services\LamaService::condiciones($request, $existing),
             'porcentaje_cliente' => $hasPercentages ? $client : null,
             'porcentaje_empresa' => $hasPercentages ? $company : null,
             'tarifa_servicio' => $hasFee ? $fee : null,
@@ -818,6 +842,8 @@ class MobileDataController extends Controller
             'currency' => $agreement->moneda?->codigo,
             'observations' => $agreement->observaciones,
             'active' => (bool) $agreement->estado,
+            'lama_destino' => $agreement->lama_destino,
+            'lama_porcentaje_empresa' => $agreement->lama_porcentaje_empresa,
         ];
     }
 
@@ -842,7 +868,7 @@ class MobileDataController extends Controller
     public function storeIncome(Request $request, string $orderId): JsonResponse
     {
         $order = OrdenesTrabajo::query()->findOrFail($orderId);
-        abort_if($order->estaCerrada(), 422, 'No se pueden agregar ingresos a una orden finalizada o cancelada.');
+        abort_if((int) $order->estado === OrdenesTrabajo::ESTADO_CANCELADA, 422, 'No se pueden agregar ingresos a una orden cancelada.');
         $income = new Ingreso();
         $this->saveIncome($request, $order, $income);
         return response()->json(['data' => $this->incomeData($income->load(['tipo_ingreso', 'moneda']))], 201);
@@ -1396,6 +1422,10 @@ class MobileDataController extends Controller
     public function updateOrder(Request $request, string $orderId): JsonResponse
     {
         $order = OrdenesTrabajo::query()->findOrFail($orderId);
+        if ($order->lama_lote_id) {
+            $order->update($request->validate(['descripcion' => ['nullable', 'string', 'max:1000']]));
+            return response()->json(['data' => $this->orderSummary($order)]);
+        }
         $hasProcesses = $order->procesos_ordenes()->exists();
 
         if ($hasProcesses) {
@@ -1505,7 +1535,15 @@ class MobileDataController extends Controller
             && $request->user()->can('trabajos_empleado.view')
             && $request->user()->can('proceso_equipo.view')
             && $request->user()->can('movimientos_inventario.view');
-        $details = [];
+        $details = [
+            'lama' => app(\App\Services\LamaService::class)->datos($order, $request->user()),
+            'tracking' => app(\App\Http\Controllers\Procesos\SeguimientoOrdenController::class)->datos($request, $order),
+        ];
+
+        if ($mayViewFullProcessCosts && $request->user()->can('ingresos.view')
+            && $request->user()->can('acuerdos_orden.view') && $request->user()->can('liquidaciones.view')) {
+            $details['financial_summary'] = app(\App\Services\ResultadoFinancieroOrden::class)->paraOrden($order);
+        }
 
         if ($request->user()->can('procesos_orden.view')) {
             $details['processes'] = $order->procesos_ordenes()->with('etapa')->orderBy('id')->get()
@@ -1570,6 +1608,10 @@ class MobileDataController extends Controller
                 ])->values();
         }
 
+        if ($request->user()->can('cobros.view') || $request->user()->can('cobros.create')) {
+            $details['collections'] = app(MobileCollectionController::class)->show($request, (string) $order->id)->getData(true)['data'];
+        }
+
         if ($request->user()->can('ingresos.view')) {
             $details['incomes'] = $order->ingresos_where_orden_trabajo()->with(['tipo_ingreso', 'moneda'])->orderBy('fecha')->get()
                 ->map(fn ($income) => [
@@ -1607,6 +1649,8 @@ class MobileDataController extends Controller
                     'currency_id' => $agreement->moneda_id,
                     'observations' => $agreement->observaciones,
                     'active' => (bool) $agreement->estado,
+                    'lama_destino' => $agreement->lama_destino,
+                    'lama_porcentaje_empresa' => $agreement->lama_porcentaje_empresa,
                 ])->values();
         }
 
@@ -1931,7 +1975,8 @@ class MobileDataController extends Controller
             'id' => $order->id,
             'code' => $order->codigo,
             'date' => $order->fecha?->toDateString(),
-            'client' => ['id' => $order->cliente?->id, 'name' => $order->cliente?->nombre],
+            'client' => ['id' => $order->cliente?->id, 'name' => $order->nombreTitular()],
+            'work_type' => $order->tipo_trabajo,
             'description' => $order->descripcion,
             'mineral_weight' => $order->peso_mineral,
             'weight_unit' => $order->unidad_peso,

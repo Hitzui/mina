@@ -17,6 +17,9 @@
             <div class="widget-content widget-content-area br-8">
 
                 @include('procesos.ordenes_trabajo._aviso_orden_cerrada')
+                @can('proceso_equipo.view')
+                    <a class="btn btn-outline-primary mb-3" href="{{ route('procesos.ordenes_trabajo.seguimiento.show', $ordenTrabajo) }}">Ver progreso y reparaciones de equipos</a>
+                @endcan
 
                 @if($procesoOrden->estaCerrado())
                     <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">

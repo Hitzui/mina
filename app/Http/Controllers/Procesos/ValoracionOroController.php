@@ -157,6 +157,7 @@ class ValoracionOroController extends Controller
                 ValoracionesOro::RECUPERACION_ID => $datos[ValoracionesOro::RECUPERACION_ID],
                 ValoracionesOro::PRECIO_ORO_ID => $calculo['precio_oro_id'],
                 ValoracionesOro::VALOR => $calculo['valor'],
+                'valor_nio' => $this->valorNio($calculo['valor'], (int) $datos[ValoracionesOro::MONEDA_ID], $datos[ValoracionesOro::FECHA]),
                 ValoracionesOro::MONEDA_ID => $datos[ValoracionesOro::MONEDA_ID],
                 ValoracionesOro::FECHA => $datos[ValoracionesOro::FECHA],
                 ValoracionesOro::OBSERVACIONES => $datos[ValoracionesOro::OBSERVACIONES] ?? null,
@@ -215,6 +216,7 @@ class ValoracionOroController extends Controller
             ValoracionesOro::RECUPERACION_ID => $datos[ValoracionesOro::RECUPERACION_ID],
             ValoracionesOro::PRECIO_ORO_ID => $calculo['precio_oro_id'],
             ValoracionesOro::VALOR => $calculo['valor'],
+            'valor_nio' => $this->valorNio($calculo['valor'], (int) $datos[ValoracionesOro::MONEDA_ID], $datos[ValoracionesOro::FECHA]),
             ValoracionesOro::MONEDA_ID => $datos[ValoracionesOro::MONEDA_ID],
             ValoracionesOro::FECHA => $datos[ValoracionesOro::FECHA],
             ValoracionesOro::OBSERVACIONES => $datos[ValoracionesOro::OBSERVACIONES] ?? null,
@@ -329,6 +331,13 @@ class ValoracionOroController extends Controller
      * esto se descolgara, el alta reventaria con el error de MySQL en vez de
      * guardar dos filas.
      */
+    private function valorNio(float $valor, int $monedaId, string $fecha): ?float
+    {
+        if (Moneda::findOrFail($monedaId)->es_moneda_base) return $valor;
+        $cambio = \App\Models\TiposCambio::vigentePara($monedaId, $fecha);
+        return $cambio === null ? null : round($valor * $cambio, 2);
+    }
+
     private function claveDe(array $datos): array
     {
         return [

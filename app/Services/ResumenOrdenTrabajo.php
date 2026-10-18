@@ -10,7 +10,10 @@ use App\Models\ProcesosOrden;
 /** Datos consolidados para la vista de seguimiento de una orden. */
 class ResumenOrdenTrabajo
 {
-    public function __construct(private readonly DistribucionGastosGenerales $distribuidor)
+    public function __construct(
+        private readonly DistribucionGastosGenerales $distribuidor,
+        private readonly ResultadoFinancieroOrden $resultadoFinanciero,
+    )
     {
     }
 
@@ -63,6 +66,7 @@ class ResumenOrdenTrabajo
                 'cantidad' => $ingresos->count(),
                 'sin_equivalente' => $ingresos->whereNull('total_nio')->count(),
             ],
+            'resultado_financiero' => $this->resultadoFinanciero->paraOrden($orden),
             'estado_procesos' => $procesos->countBy(fn (ProcesosOrden $proceso) => $proceso->estadoTexto()),
         ];
     }
